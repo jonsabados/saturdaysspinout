@@ -17,7 +17,8 @@ import (
 )
 
 type appCfg struct {
-	LogLevel string `envconfig:"LOG_LEVEL" required:"true"`
+	LogLevel           string   `envconfig:"LOG_LEVEL" required:"true"`
+	CORSAllowedOrigins []string `envconfig:"CORS_ALLOWED_ORIGINS" required:"true"`
 }
 
 func CreateAPI() http.Handler {
@@ -63,5 +64,5 @@ func CreateAPI() http.Handler {
 	awsv2.AWSV2Instrumentor(&awsCfg.APIOptions)
 
 	pingEndpoint := api.NewPingEndpoint()
-	return api.NewRestAPI(logger, uuid.NewString, pingEndpoint)
+	return api.NewRestAPI(logger, uuid.NewString, cfg.CORSAllowedOrigins, pingEndpoint)
 }
