@@ -24,6 +24,10 @@ deploy-frontend: frontend/dist
 	aws s3 sync frontend/dist s3://$$(terraform -chdir=terraform output -raw frontend_bucket_name) --delete --cache-control "max-age=31536000" --exclude "index.html"
 	aws s3 cp frontend/dist/index.html s3://$$(terraform -chdir=terraform output -raw frontend_bucket_name)/index.html --cache-control "max-age=300"
 
+.PHONY: deploy-website
+deploy-website:
+	aws s3 sync website s3://$$(terraform -chdir=terraform output -raw website_bucket_name) --delete --cache-control "max-age=300"
+
 .PHONY: run-rest-api
 run-rest-api:
 	LOG_LEVEL=trace CORS_ALLOWED_ORIGINS=http://localhost:5173 go run github.com/jonsabados/saturdaysspinout/cmd/standalone-api

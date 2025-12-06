@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saturday's Spinout</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #1a1a2e;
+            color: #eee;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 2rem;
+        }
+
+        .cta {
+            display: inline-block;
+            padding: 1rem 2rem;
+            font-size: 1.25rem;
+            color: #fff;
+            background: #e94560;
+            border-radius: 8px;
+            text-decoration: none;
+            transition: background 0.2s ease;
+        }
+
+        .cta:hover {
+            background: #ff6b6b;
+        }
+
+        .footnote {
+            position: absolute;
+            bottom: 1.5rem;
+            font-size: 0.875rem;
+            color: #888;
+        }
+
+        .footnote a {
+            color: #e94560;
+            text-decoration: none;
+        }
+
+        .footnote a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Saturday's Spinout</h1>
+    <a href="https://app.saturdaysspinout.com" class="cta">Go to the App</a>
+    <p class="footnote">Want to see how this is all built? Code available at <a href="https://github.com/jonsabados/saturdaysspinout">GitHub</a></p>
+</body>
+</html>
