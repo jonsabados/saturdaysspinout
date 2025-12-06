@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/jonsabados/saturdays-racelog/correlation"
+	"github.com/jonsabados/saturdaysspinout/correlation"
 )
 
 type ErrorResponse struct {

@@ -11,7 +11,7 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/rs/zerolog"
 
-	"github.com/jonsabados/saturdays-racelog/correlation"
+	"github.com/jonsabados/saturdaysspinout/correlation"
 )
 
 func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGenerator, corsAllowedOrigins []string, pingEndpoint http.Handler) http.Handler {

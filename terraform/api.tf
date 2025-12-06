@@ -1,10 +1,10 @@
 locals {
-  api_host_name   = "${local.workspace_prefix}racelog-api"
+  api_host_name   = "${local.workspace_prefix}api"
   api_domain_name = "${local.api_host_name}.${data.aws_route53_zone.route53_zone.name}"
 }
 
 resource "aws_iam_role" "api_lambda" {
-  name = "${local.workspace_prefix}RaceLogAPI"
+  name = "${local.workspace_prefix}SaturdaysSpinoutAPI"
   assume_role_policy = data.aws_iam_policy_document.assume_lambda_role_policy.json
 }
 
@@ -49,7 +49,7 @@ resource "aws_lambda_function" "api_lambda" {
   runtime                        = "provided.al2"
   handler                        = "bootstrap"
   architectures                  = ["arm64"]
-  function_name                  = "${local.workspace_prefix}RaceLogAPI"
+  function_name                  = "${local.workspace_prefix}SaturdaysSpinoutAPI"
   role                           = aws_iam_role.api_lambda.arn
 
   tracing_config {
@@ -86,7 +86,7 @@ module "api_cert" {
 }
 
 resource "aws_api_gateway_rest_api" "api" {
-  name = "${local.workspace_prefix}RaceLogAPI"
+  name = "${local.workspace_prefix}SaturdaysSpinoutAPI"
 
   tags = {
     Workspace = terraform.workspace
@@ -178,7 +178,7 @@ resource "aws_api_gateway_deployment" "api" {
 resource "aws_api_gateway_stage" "api" {
   deployment_id = aws_api_gateway_deployment.api.id
   rest_api_id   = aws_api_gateway_rest_api.api.id
-  stage_name    = "${local.workspace_prefix}racelog-main"
+  stage_name    = "${local.workspace_prefix}saturdaysspinout-main"
 }
 
 resource "aws_api_gateway_base_path_mapping" "test" {
