@@ -31,3 +31,7 @@ deploy-website:
 .PHONY: run-rest-api
 run-rest-api:
 	LOG_LEVEL=trace CORS_ALLOWED_ORIGINS=http://localhost:5173 go run github.com/jonsabados/saturdaysspinout/cmd/standalone-api
+
+.PHONY: run-frontend
+run-frontend:
+	cd frontend && npm install && npm run dev
