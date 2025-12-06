@@ -4,7 +4,7 @@ locals {
 }
 
 resource "aws_iam_role" "api_lambda" {
-  name = "${local.workspace_prefix}SaturdaysSpinoutAPI"
+  name               = "${local.workspace_prefix}SaturdaysSpinoutAPI"
   assume_role_policy = data.aws_iam_policy_document.assume_lambda_role_policy.json
 }
 
