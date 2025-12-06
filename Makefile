@@ -35,3 +35,34 @@ run-rest-api:
 .PHONY: run-frontend
 run-frontend:
 	cd frontend && npm install && npm run dev
+
+.PHONY: test
+test:
+	go test ./...
+
+# Local DynamoDB for testing
+DYNAMO_CONTAINER_NAME := saturdays-racelog-dynamodb
+DYNAMO_PORT := 8000
+
+.PHONY: dynamo-start
+dynamo-start:
+	@if docker ps -a --format '{{.Names}}' | grep -q '^$(DYNAMO_CONTAINER_NAME)$$'; then \
+		echo "Starting existing container..."; \
+		docker start $(DYNAMO_CONTAINER_NAME); \
+	else \
+		echo "Creating new DynamoDB container..."; \
+		docker run -d --name $(DYNAMO_CONTAINER_NAME) -p $(DYNAMO_PORT):8000 amazon/dynamodb-local; \
+	fi
+	@echo "DynamoDB local running on http://localhost:$(DYNAMO_PORT)"
+
+.PHONY: dynamo-stop
+dynamo-stop:
+	@docker stop $(DYNAMO_CONTAINER_NAME) 2>/dev/null || echo "Container not running"
+
+.PHONY: dynamo-rm
+dynamo-rm: dynamo-stop
+	@docker rm $(DYNAMO_CONTAINER_NAME) 2>/dev/null || echo "Container not found"
+
+.PHONY: dynamo-status
+dynamo-status:
+	@docker ps -a --filter "name=$(DYNAMO_CONTAINER_NAME)" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"

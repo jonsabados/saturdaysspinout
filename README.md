@@ -22,6 +22,11 @@ A full-stack web application for race logging, built with Go, Vue 3, and deploye
                                  ┌─────────────┐
                                  │   Lambda    │
                                  │   (Go)      │
+                                 └──────┬──────┘
+                                        │
+                                        ▼
+                                 ┌─────────────┐
+                                 │  DynamoDB   │
                                  └─────────────┘
 ```
 
@@ -34,6 +39,7 @@ A full-stack web application for race logging, built with Go, Vue 3, and deploye
 │   ├── lambda-based-api/   # AWS Lambda handler
 │   └── standalone-api/     # Local development server
 ├── correlation/            # Request correlation ID middleware
+├── store/                  # Data persistence layer (DynamoDB)
 ├── frontend/               # Vue 3 SPA
 ├── terraform/              # Infrastructure as Code
 ├── website/                # Static marketing site
@@ -71,6 +77,16 @@ Both entry points share the same API setup via [`cmd/api.go`](cmd/api.go), which
 |------|---------|
 | [`correlation/correlation-id-middleware.go`](correlation/correlation-id-middleware.go) | Generates/propagates correlation IDs for request tracing |
 
+### Data Store
+
+The persistence layer uses DynamoDB with a single-table design. See the [DynamoDB Schema](https://docs.google.com/spreadsheets/d/180olt3Va13ixvT3XxMSK6MDvFg8pyDLWFzAqu48gUJM/edit?gid=0#gid=0) for the full table structure.
+
+| File | Purpose |
+|------|---------|
+| [`store/dynamo_store.go`](store/dynamo_store.go) | DynamoDB client and CRUD operations |
+| [`store/dynamo_models.go`](store/dynamo_models.go) | Attribute mapping between entities and DynamoDB items |
+| [`store/entities.go`](store/entities.go) | Domain entity definitions |
+
 ## Frontend (Vue 3 + TypeScript)
 
 A single-page application built with Vue 3, TypeScript, and Vite.
@@ -91,6 +107,7 @@ All AWS infrastructure is defined in Terraform with workspace support for multip
 | [`terraform/api.tf`](terraform/api.tf) | Lambda, API Gateway, certificates |
 | [`terraform/front-end.tf`](terraform/front-end.tf) | S3 bucket, CloudFront distribution for SPA |
 | [`terraform/website.tf`](terraform/website.tf) | S3 bucket, CloudFront for static site |
+| [`terraform/store.tf`](terraform/store.tf) | DynamoDB table |
 | [`terraform/backend.tf`](terraform/backend.tf) | S3 backend for Terraform state |
 
 ## Development
@@ -101,6 +118,7 @@ All AWS infrastructure is defined in Terraform with workspace support for multip
 - Node.js 18+
 - Terraform 1.0+
 - AWS CLI (configured)
+- Docker (for local DynamoDB)
 
 ### Local Development
 
@@ -115,6 +133,22 @@ make run-frontend
 ```
 
 The frontend dev server runs on `http://localhost:5173` and the API on `http://localhost:8080`.
+
+### Testing
+
+Tests use a local DynamoDB container. Manage it with:
+
+```bash
+make dynamo-start   # Start local DynamoDB (creates container if needed)
+make dynamo-stop    # Stop the container (preserves data)
+make dynamo-rm      # Stop and remove the container
+make dynamo-status  # Check container status
+```
+
+Run tests:
+```bash
+go test ./...
+```
 
 ### Building
 
