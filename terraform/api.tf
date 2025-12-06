@@ -45,7 +45,7 @@ resource "aws_lambda_function" "api_lambda" {
   source_code_hash = filebase64sha256("../dist/apiLambda.zip")
   timeout          = 15
   // setting reserved concurrent executions super low cause personal account & don't want to make it too easy for someone to grief my wallet by pounding on things
-  reserved_concurrent_executions = 2
+  reserved_concurrent_executions = 15
   runtime                        = "provided.al2"
   handler                        = "bootstrap"
   architectures                  = ["arm64"]
