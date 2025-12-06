@@ -4,7 +4,7 @@ import (
 	"flag"
 	"net/http"
 
-	"github.com/jonsabados/saturdays-racelog/cmd"
+	"github.com/jonsabados/saturdaysspinout/cmd"
 )
 
 func main() {

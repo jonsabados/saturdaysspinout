@@ -9,7 +9,7 @@ dist:
 	mkdir dist
 
 dist/apiLambda.zip: dist $(shell find . -iname "*.go")
-	./scripts/build-lambda.sh github.com/jonsabados/saturdays-racelog/cmd/lambda-based-api dist/apiLambda.zip
+	./scripts/build-lambda.sh github.com/jonsabados/saturdaysspinout/cmd/lambda-based-api dist/apiLambda.zip
 
 build: dist/apiLambda.zip
 
@@ -26,4 +26,4 @@ deploy-frontend: frontend/dist
 
 .PHONY: run-rest-api
 run-rest-api:
-	LOG_LEVEL=trace CORS_ALLOWED_ORIGINS=http://localhost:5173 go run github.com/jonsabados/saturdays-racelog/cmd/standalone-api
+	LOG_LEVEL=trace CORS_ALLOWED_ORIGINS=http://localhost:5173 go run github.com/jonsabados/saturdaysspinout/cmd/standalone-api

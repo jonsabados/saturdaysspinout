@@ -18,7 +18,7 @@ async function makeTestRequest() {
 <template>
   <main>
     <h1>Hello World</h1>
-    <p>Saturday's Racelog</p>
+    <p>Saturday's Spinout</p>
     <button @click="makeTestRequest">Make Test Request</button>
   </main>
 </template>

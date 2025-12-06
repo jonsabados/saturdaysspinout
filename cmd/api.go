@@ -13,7 +13,7 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
 
-	"github.com/jonsabados/saturdays-racelog/api"
+	"github.com/jonsabados/saturdaysspinout/api"
 )
 
 type appCfg struct {

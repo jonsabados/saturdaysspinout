@@ -8,7 +8,7 @@ provider "aws" {
   default_tags {
     tags = {
       Workspace = terraform.workspace
-      Project   = "SaturdaysRaceLog"
+      Project   = "SaturdaysSpinout"
     }
   }
 }

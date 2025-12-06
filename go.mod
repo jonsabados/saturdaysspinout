@@ -1,4 +1,4 @@
-module github.com/jonsabados/saturdays-racelog
+module github.com/jonsabados/saturdaysspinout
 
 go 1.25.5
 

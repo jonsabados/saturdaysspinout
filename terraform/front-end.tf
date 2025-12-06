@@ -1,5 +1,5 @@
 locals {
-  frontend_host_name   = "${local.workspace_prefix}racelog"
+  frontend_host_name   = "${local.workspace_prefix}app"
   frontend_domain_name = "${local.frontend_host_name}.${data.aws_route53_zone.route53_zone.name}"
 }
 
@@ -8,7 +8,7 @@ data "aws_cloudfront_cache_policy" "caching_optimized" {
 }
 
 resource "aws_s3_bucket" "frontend" {
-  bucket = "${local.workspace_prefix}saturdays-racelog-frontend-${data.aws_caller_identity.current.account_id}"
+  bucket = "${local.workspace_prefix}saturdaysspinout-frontend-${data.aws_caller_identity.current.account_id}"
 }
 
 resource "aws_s3_bucket_public_access_block" "frontend" {
@@ -32,7 +32,7 @@ module "frontend_cert" {
 }
 
 resource "aws_cloudfront_origin_access_control" "frontend" {
-  name                              = "${local.workspace_prefix}saturdays-racelog-frontend"
+  name                              = "${local.workspace_prefix}saturdaysspinout-frontend"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
