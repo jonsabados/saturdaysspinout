@@ -44,14 +44,14 @@ resource "aws_cloudfront_function" "www_redirect" {
     function handler(event) {
       var request = event.request;
       var host = request.headers.host.value;
+      var targetHost = '${local.website_domain_name}';
 
-      if (host.startsWith('www.')) {
-        var newHost = host.substring(4);
+      if (host !== targetHost) {
         return {
           statusCode: 301,
           statusDescription: 'Moved Permanently',
           headers: {
-            location: { value: 'https://' + newHost + request.uri }
+            location: { value: 'https://' + targetHost + request.uri }
           }
         };
       }
