@@ -33,6 +33,24 @@ data "aws_iam_policy_document" "api_lambda" {
     ]
     resources = ["*"]
   }
+
+  statement {
+    sid    = "AllowDynamoDB"
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:PutItem",
+      "dynamodb:UpdateItem",
+      "dynamodb:DeleteItem",
+      "dynamodb:Query",
+      "dynamodb:Scan",
+      "dynamodb:TransactWriteItems",
+      "dynamodb:TransactGetItems"
+    ]
+    resources = [
+      aws_dynamodb_table.application_store.arn
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "api_lambda" {
