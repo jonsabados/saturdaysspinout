@@ -58,7 +58,8 @@ resource "aws_lambda_function" "api_lambda" {
 
   environment {
     variables = {
-      LOG_LEVEL       = "info"
+      LOG_LEVEL            = "info"
+      CORS_ALLOWED_ORIGINS = "https://${local.frontend_domain_name},http://localhost:5173"
     }
   }
 }
@@ -124,6 +125,13 @@ resource "aws_api_gateway_method" "health_ping_get" {
   authorization = "NONE"
 }
 
+resource "aws_api_gateway_method" "health_ping_options" {
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  resource_id   = aws_api_gateway_resource.health_ping.id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+}
+
 resource "aws_lambda_permission" "api_gateway_api_lambda" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
@@ -142,9 +150,19 @@ resource "aws_api_gateway_integration" "health_ping_get" {
   uri                     = aws_lambda_function.api_lambda.invoke_arn
 }
 
+resource "aws_api_gateway_integration" "health_ping_options" {
+  rest_api_id             = aws_api_gateway_rest_api.api.id
+  resource_id             = aws_api_gateway_resource.health_ping.id
+  http_method             = aws_api_gateway_method.health_ping_options.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.api_lambda.invoke_arn
+}
+
 resource "aws_api_gateway_deployment" "api" {
   depends_on = [
     aws_api_gateway_integration.health_ping_get,
+    aws_api_gateway_integration.health_ping_options,
   ]
   rest_api_id = aws_api_gateway_rest_api.api.id
 

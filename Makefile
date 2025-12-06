@@ -14,7 +14,7 @@ dist/apiLambda.zip: dist $(shell find . -iname "*.go")
 build: dist/apiLambda.zip
 
 frontend/dist: $(shell find frontend/src -type f) frontend/package.json frontend/package-lock.json frontend/index.html
-	cd frontend && npm ci && npm run build
+	cd frontend && npm ci && VITE_API_BASE_URL=$$(terraform -chdir=../terraform output -raw api_url) npm run build
 
 .PHONY: build-frontend
 build-frontend: frontend/dist
@@ -26,4 +26,4 @@ deploy-frontend: frontend/dist
 
 .PHONY: run-rest-api
 run-rest-api:
-	LOG_LEVEL=trace go run github.com/jonsabados/saturdays-racelog/cmd/standalone-api
+	LOG_LEVEL=trace CORS_ALLOWED_ORIGINS=http://localhost:5173 go run github.com/jonsabados/saturdays-racelog/cmd/standalone-api

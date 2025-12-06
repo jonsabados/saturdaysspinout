@@ -8,15 +8,24 @@ import (
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/rs/zerolog"
 
 	"github.com/jonsabados/saturdays-racelog/correlation"
 )
 
-func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGenerator, pingEndpoint http.Handler) http.Handler {
+func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGenerator, corsAllowedOrigins []string, pingEndpoint http.Handler) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   corsAllowedOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Correlation-ID"},
+		ExposedHeaders:   []string{"X-Correlation-ID"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
 	r.Use(ZerologLogAttachMiddleware(logger))
 	r.Use(correlation.Middleware(correlationIDGenerator))
 	r.Use(RequestLoggingMiddleware())
