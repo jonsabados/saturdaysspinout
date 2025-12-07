@@ -40,6 +40,11 @@ run-frontend:
 test:
 	go test ./...
 
+.PHONY: ci-test
+ci-test:
+	go install github.com/jstemmer/go-junit-report/v2@latest
+	go test -v -race -coverprofile=coverage.out -covermode=atomic ./... 2>&1 | $$(go env GOPATH)/bin/go-junit-report -set-exit-code > test-report.xml
+
 # Local DynamoDB for testing
 DYNAMO_CONTAINER_NAME := saturdays-racelog-dynamodb
 DYNAMO_PORT := 8000
