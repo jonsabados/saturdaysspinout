@@ -84,6 +84,129 @@ func TestGetGlobalCounters_AfterInserts(t *testing.T) {
 	assert.Equal(t, int64(2), counters.Tracks)
 }
 
+func TestAddDriverNote_Success(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	note := store.DriverNote{
+		DriverID:  1,
+		Timestamp: time.Unix(1000, 0),
+		SessionID: 100,
+		LapNumber: 5,
+		IsMistake: true,
+		Category:  "braking",
+		Notes:     "Braked too late into turn 1",
+	}
+
+	err := s.AddDriverNote(ctx, note)
+	require.NoError(t, err)
+
+	// Verify by reading it back
+	notes, err := s.GetDriverNotes(ctx, 1, time.Unix(0, 0), time.Unix(2000, 0))
+	require.NoError(t, err)
+	require.Len(t, notes, 1)
+	assert.Equal(t, note, notes[0])
+}
+
+func TestAddDriverNote_DuplicateReturnsError(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	note := store.DriverNote{
+		DriverID:  1,
+		Timestamp: time.Unix(1000, 0),
+		SessionID: 100,
+		LapNumber: 5,
+		IsMistake: false,
+		Category:  "racing line",
+		Notes:     "Good apex",
+	}
+
+	err := s.AddDriverNote(ctx, note)
+	require.NoError(t, err)
+
+	// Try to insert again with same driver + timestamp
+	err = s.AddDriverNote(ctx, note)
+	assert.ErrorIs(t, err, store.ErrEntityAlreadyExists)
+}
+
+func TestGetDriverNotes_TimeRangeFiltering(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Insert notes at different times
+	notes := []store.DriverNote{
+		{DriverID: 1, Timestamp: time.Unix(1000, 0), SessionID: 1, LapNumber: 1, Category: "a", Notes: "note 1"},
+		{DriverID: 1, Timestamp: time.Unix(2000, 0), SessionID: 1, LapNumber: 2, Category: "b", Notes: "note 2"},
+		{DriverID: 1, Timestamp: time.Unix(3000, 0), SessionID: 1, LapNumber: 3, Category: "c", Notes: "note 3"},
+		{DriverID: 1, Timestamp: time.Unix(4000, 0), SessionID: 1, LapNumber: 4, Category: "d", Notes: "note 4"},
+	}
+	for _, n := range notes {
+		require.NoError(t, s.AddDriverNote(ctx, n))
+	}
+
+	// Query with inclusive start, exclusive end
+	got, err := s.GetDriverNotes(ctx, 1, time.Unix(2000, 0), time.Unix(4000, 0))
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.Equal(t, notes[1], got[0])
+	assert.Equal(t, notes[2], got[1])
+}
+
+func TestGetDriverNotes_EmptyResult(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	notes, err := s.GetDriverNotes(ctx, 999, time.Unix(0, 0), time.Unix(1000, 0))
+	require.NoError(t, err)
+	assert.Empty(t, notes)
+}
+
+func TestGetDriverNotes_DifferentDriversIsolated(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	note1 := store.DriverNote{DriverID: 1, Timestamp: time.Unix(1000, 0), SessionID: 1, LapNumber: 1, Category: "a", Notes: "driver 1 note"}
+	note2 := store.DriverNote{DriverID: 2, Timestamp: time.Unix(1000, 0), SessionID: 1, LapNumber: 1, Category: "b", Notes: "driver 2 note"}
+
+	require.NoError(t, s.AddDriverNote(ctx, note1))
+	require.NoError(t, s.AddDriverNote(ctx, note2))
+
+	// Query for driver 1 only
+	got, err := s.GetDriverNotes(ctx, 1, time.Unix(0, 0), time.Unix(2000, 0))
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, note1, got[0])
+}
+
+func TestGetGlobalCounters_IncludesNotes(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, s.InsertTrack(ctx, store.Track{ID: 1, Name: "Track 1"}))
+	require.NoError(t, s.AddDriverNote(ctx, store.DriverNote{
+		DriverID:  1,
+		Timestamp: time.Unix(1000, 0),
+		SessionID: 1,
+		LapNumber: 1,
+		Category:  "test",
+		Notes:     "test note",
+	}))
+	require.NoError(t, s.AddDriverNote(ctx, store.DriverNote{
+		DriverID:  1,
+		Timestamp: time.Unix(2000, 0),
+		SessionID: 1,
+		LapNumber: 2,
+		Category:  "test",
+		Notes:     "another note",
+	}))
+
+	counters, err := s.GetGlobalCounters(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), counters.Tracks)
+	assert.Equal(t, int64(2), counters.Notes)
+}
+
 func setupTestStore(t *testing.T) *store.DynamoStore {
 	t.Helper()
 	t.Parallel()
