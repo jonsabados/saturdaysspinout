@@ -1,6 +1,12 @@
 locals {
   api_host_name   = "${local.workspace_prefix}api"
   api_domain_name = "${local.api_host_name}.${data.aws_route53_zone.route53_zone.name}"
+
+  app_env_vars = {
+    LOG_LEVEL                  = "info"
+    CORS_ALLOWED_ORIGINS       = "https://${local.frontend_domain_name},http://localhost:5173"
+    IRACING_CREDENTIALS_SECRET = data.aws_secretsmanager_secret.iracing_credentials.arn
+  }
 }
 
 resource "aws_iam_role" "api_lambda" {
@@ -26,6 +32,7 @@ data "aws_iam_policy_document" "api_lambda" {
     effect = "Allow"
     actions = [
       "xray:PutTraceSegments",
+
       "xray:PutTelemetryRecords",
       "xray:GetSamplingRules",
       "xray:GetSamplingTargets",
@@ -75,10 +82,7 @@ resource "aws_lambda_function" "api_lambda" {
   }
 
   environment {
-    variables = {
-      LOG_LEVEL            = "info"
-      CORS_ALLOWED_ORIGINS = "https://${local.frontend_domain_name},http://localhost:5173"
-    }
+    variables = local.app_env_vars
   }
 }
 
@@ -207,4 +211,8 @@ resource "aws_api_gateway_base_path_mapping" "test" {
 
 output "api_url" {
   value = "https://${local.api_domain_name}"
+}
+
+output "app_env_vars" {
+  value = join(" ", [for k, v in local.app_env_vars : "${k}=${v}"])
 }
