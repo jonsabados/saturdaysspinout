@@ -30,7 +30,7 @@ deploy-website:
 
 .PHONY: run-rest-api
 run-rest-api:
-	LOG_LEVEL=trace CORS_ALLOWED_ORIGINS=http://localhost:5173 go run github.com/jonsabados/saturdaysspinout/cmd/standalone-api
+	env $$(terraform -chdir=terraform output -raw app_env_vars) LOG_LEVEL=trace go run github.com/jonsabados/saturdaysspinout/cmd/standalone-api
 
 .PHONY: run-frontend
 run-frontend:
@@ -39,6 +39,10 @@ run-frontend:
 .PHONY: test
 test:
 	go test ./...
+
+.PHONY: frontend-test
+frontend-test:
+	cd frontend && npm install && npm run test:run
 
 .PHONY: ci-test
 ci-test:
