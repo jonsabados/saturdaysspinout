@@ -14,7 +14,7 @@ import (
 	"github.com/jonsabados/saturdaysspinout/correlation"
 )
 
-func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGenerator, corsAllowedOrigins []string, pingEndpoint http.Handler) http.Handler {
+func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGenerator, corsAllowedOrigins []string, pingEndpoint http.Handler, authCallbackEndpoint http.Handler) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
@@ -31,6 +31,7 @@ func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGene
 	r.Use(RequestLoggingMiddleware())
 
 	r.Get("/health/ping", WrapWithSegment("pingEndpoint", pingEndpoint).ServeHTTP)
+	r.Post("/auth/ir/callback", WrapWithSegment("authCallbackEndpoint", authCallbackEndpoint).ServeHTTP)
 
 	return xray.Handler(xray.NewFixedSegmentNamer("processHttpRequest"), r)
 }

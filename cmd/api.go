@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
@@ -18,12 +19,16 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/jonsabados/saturdaysspinout/api"
+	"github.com/jonsabados/saturdaysspinout/auth"
+	"github.com/jonsabados/saturdaysspinout/iracing"
 )
 
 type appCfg struct {
 	LogLevel                 string   `envconfig:"LOG_LEVEL" required:"true"`
 	CORSAllowedOrigins       []string `envconfig:"CORS_ALLOWED_ORIGINS" required:"true"`
 	IRacingCredentialsSecret string   `envconfig:"IRACING_CREDENTIALS_SECRET" required:"true"`
+	JWTSigningKeyARN         string   `envconfig:"JWT_SIGNING_KEY_ARN" required:"true"`
+	JWTEncryptionKeyARN      string   `envconfig:"JWT_ENCRYPTION_KEY_ARN" required:"true"`
 }
 
 type iRacingCredentials struct {
@@ -91,6 +96,25 @@ func CreateAPI() http.Handler {
 	secretHash := sha256.Sum256([]byte(iRacingCreds.OauthClientSecret))
 	logger.Info().Str("oauth_client_id", iRacingCreds.OauthClientID).Str("oauth_client_secret_sha256", hex.EncodeToString(secretHash[:])).Msg("loaded iRacing OAuth credentials")
 
+	// setup KMS clients for JWT signing and encryption
+	kmsClient := kms.NewFromConfig(awsCfg)
+	awsKMSClient := auth.NewAWSKMSClient(kmsClient)
+	jwtSigner := auth.NewKMSSignerAdapter(awsKMSClient, cfg.JWTSigningKeyARN)
+	jwtEncryptor := auth.NewKMSEncryptorAdapter(awsKMSClient, cfg.JWTEncryptionKeyARN)
+
+	// setup JWT service
+	jwtService := auth.NewJWTService(jwtSigner, jwtEncryptor, uuid.NewString, "saturdaysspinout", 24*time.Hour)
+
+	// setup iRacing clients
+	iracingOAuthClient := iracing.NewOAuthClient(httpClient, iRacingCreds.OauthClientID, iRacingCreds.OauthClientSecret)
+	iracingClient := iracing.NewClient(httpClient)
+
+	// setup auth service
+	authService := auth.NewService(iracingOAuthClient, jwtService, iracingClient)
+
+	// setup endpoints
 	pingEndpoint := api.NewPingEndpoint()
-	return api.NewRestAPI(logger, uuid.NewString, cfg.CORSAllowedOrigins, pingEndpoint)
+	authCallbackEndpoint := api.NewAuthCallbackEndpoint(authService)
+
+	return api.NewRestAPI(logger, uuid.NewString, cfg.CORSAllowedOrigins, pingEndpoint, authCallbackEndpoint)
 }

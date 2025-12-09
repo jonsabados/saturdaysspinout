@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { initiateLogin } from '@/auth/iracing'
+
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
 async function makeTestRequest() {
@@ -15,6 +17,15 @@ async function makeTestRequest() {
     alert(`CORS call failed: ${error}`)
   }
 }
+
+async function handleLogin() {
+  try {
+    await initiateLogin()
+  } catch (error) {
+    console.error('Login failed:', error)
+    alert(`Login failed: ${error}`)
+  }
+}
 </script>
 
 <template>
@@ -22,6 +33,7 @@ async function makeTestRequest() {
     <h1>Hello World</h1>
     <p>Saturday's Spinout</p>
     <button @click="makeTestRequest">Make Test Request</button>
+    <button @click="handleLogin">Login with iRacing</button>
   </main>
 </template>
 

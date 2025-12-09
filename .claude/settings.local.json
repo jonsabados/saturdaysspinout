@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:oauth.iracing.com)"
+      "WebFetch(domain:oauth.iracing.com)",
+      "Bash(cat:*)"
     ],
     "deny": [],
     "ask": []

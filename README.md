@@ -4,30 +4,20 @@ A full-stack web application for race logging, built with Go, Vue 3, and deploye
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CloudFront CDN                                  │
-│  ┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐  │
-│  │   app.* (Frontend)  │  │  api.* (API)        │  │  www/root (Website) │  │
-│  └──────────┬──────────┘  └──────────┬──────────┘  └──────────┬──────────┘  │
-└─────────────┼─────────────────────────┼─────────────────────────┼────────────┘
-              │                         │                         │
-              ▼                         ▼                         ▼
-       ┌──────────────┐          ┌─────────────┐          ┌──────────────┐
-       │  S3 Bucket   │          │ API Gateway │          │  S3 Bucket   │
-       │  (Vue SPA)   │          │             │          │  (Static)    │
-       └──────────────┘          └──────┬──────┘          └──────────────┘
-                                        │
-                                        ▼
-                                 ┌─────────────┐
-                                 │   Lambda    │
-                                 │   (Go)      │
-                                 └──────┬──────┘
-                                        │
-                                        ▼
-                                 ┌─────────────┐
-                                 │  DynamoDB   │
-                                 └─────────────┘
+```mermaid
+flowchart TB
+    subgraph CloudFront["CloudFront CDN"]
+        CF1["app.* (Frontend)"]
+        CF2["api.* (API)"]
+        CF3["www/root (Website)"]
+    end
+
+    CF1 --> S3_SPA["S3 Bucket<br/>(Vue SPA)"]
+    CF2 --> APIGW["API Gateway"]
+    CF3 --> S3_Static["S3 Bucket<br/>(Static)"]
+
+    APIGW --> Lambda["Lambda<br/>(Go)"]
+    Lambda --> DynamoDB["DynamoDB"]
 ```
 
 ## Project Structure

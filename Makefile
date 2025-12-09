@@ -75,3 +75,7 @@ dynamo-rm: dynamo-stop
 .PHONY: dynamo-status
 dynamo-status:
 	@docker ps -a --filter "name=$(DYNAMO_CONTAINER_NAME)" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+
+.PHONY: generate-mocks
+generate-mocks:
+	docker run --rm -v "$(PWD)://src" -w //src vektra/mockery:3

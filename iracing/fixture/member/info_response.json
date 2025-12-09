@@ -1,0 +1,162 @@
+{
+  "cust_id": 1100750,
+  "display_name": "Jon Sabados",
+  "first_name": "Jonathan",
+  "last_name": "Sabados",
+  "on_car_name": "Sabados",
+  "member_since": "2024-08-07",
+  "flair_id": 223,
+  "flair_name": "United States",
+  "flair_shortname": "USA",
+  "flair_country_code": "US",
+  "last_login": "2025-12-06T21:12:29.713687919Z",
+  "read_tc": "2024-09-26T23:51:28Z",
+  "read_pp": "2024-10-25T21:42:16Z",
+  "read_comp_rules": "2024-08-07T22:04:23Z",
+  "flags": 0,
+  "connection_type": "BROADBAND-4",
+  "download_server": "Fastly",
+  "account": {
+    "ir_dollars": 0,
+    "ir_credits": 0,
+    "status": "active",
+    "country_rules": null
+  },
+  "helmet": {
+    "pattern": 61,
+    "color1": "faff00",
+    "color2": "000000",
+    "color3": "9a9a9a",
+    "face_type": 4,
+    "helmet_type": 0
+  },
+  "suit": {
+    "pattern": 25,
+    "color1": "faff00",
+    "color2": "9a9a9a",
+    "color3": "faff00",
+    "body_type": 0
+  },
+  "licenses": {
+    "oval": {
+      "category_id": 1,
+      "category": "oval",
+      "category_name": "Oval",
+      "license_level": 2,
+      "safety_rating": 2.5,
+      "cpi": 10.10941,
+      "irating": 1350,
+      "tt_rating": 1350,
+      "mpr_num_races": 0,
+      "color": "fc0706",
+      "group_name": "Rookie",
+      "group_id": 1,
+      "pro_promotable": false,
+      "seq": 1,
+      "mpr_num_tts": 0
+    },
+    "sports_car": {
+      "category_id": 5,
+      "category": "sports_car",
+      "category_name": "Sports Car",
+      "license_level": 15,
+      "safety_rating": 3.53,
+      "cpi": 46.880768,
+      "irating": 1668,
+      "tt_rating": 1870,
+      "mpr_num_races": 0,
+      "color": "00c702",
+      "group_name": "Class B",
+      "group_id": 4,
+      "pro_promotable": false,
+      "seq": 2,
+      "mpr_num_tts": 0
+    },
+    "formula_car": {
+      "category_id": 6,
+      "category": "formula_car",
+      "category_name": "Formula Car",
+      "license_level": 19,
+      "safety_rating": 3.6,
+      "cpi": 71.7174,
+      "irating": 2234,
+      "tt_rating": 2047,
+      "mpr_num_races": 0,
+      "color": "0153db",
+      "group_name": "Class A",
+      "group_id": 5,
+      "pro_promotable": false,
+      "seq": 3,
+      "mpr_num_tts": 0
+    },
+    "dirt_oval": {
+      "category_id": 3,
+      "category": "dirt_oval",
+      "category_name": "Dirt Oval",
+      "license_level": 2,
+      "safety_rating": 2.5,
+      "cpi": 10.10941,
+      "irating": 1350,
+      "tt_rating": 1350,
+      "mpr_num_races": 0,
+      "color": "fc0706",
+      "group_name": "Rookie",
+      "group_id": 1,
+      "pro_promotable": false,
+      "seq": 4,
+      "mpr_num_tts": 0
+    },
+    "dirt_road": {
+      "category_id": 4,
+      "category": "dirt_road",
+      "category_name": "Dirt Road",
+      "license_level": 2,
+      "safety_rating": 2.5,
+      "cpi": 10.10941,
+      "irating": 1350,
+      "tt_rating": 1350,
+      "mpr_num_races": 0,
+      "color": "fc0706",
+      "group_name": "Rookie",
+      "group_id": 1,
+      "pro_promotable": false,
+      "seq": 5,
+      "mpr_num_tts": 0
+    }
+  },
+  "car_packages": [
+    {
+      "package_id": 20,
+      "content_ids": [3, 10]
+    },
+    {
+      "package_id": 22,
+      "content_ids": [82, 5, 11]
+    }
+  ],
+  "track_packages": [
+    {
+      "package_id": 3,
+      "content_ids": [15]
+    },
+    {
+      "package_id": 4,
+      "content_ids": [293, 470, 471, 296]
+    }
+  ],
+  "other_owned_packages": [513, 1, 257, 2, 515],
+  "dev": false,
+  "alpha_tester": false,
+  "rain_tester": false,
+  "broadcaster": false,
+  "restrictions": {},
+  "has_read_comp_rules": true,
+  "has_read_nda": false,
+  "flags_hex": "0",
+  "hundred_pct_club": false,
+  "twenty_pct_discount": false,
+  "last_season": 5794,
+  "has_additional_content": true,
+  "has_read_tc": true,
+  "has_read_pp": true
+}

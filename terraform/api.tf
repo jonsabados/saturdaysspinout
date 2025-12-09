@@ -4,8 +4,10 @@ locals {
 
   app_env_vars = {
     LOG_LEVEL                  = "info"
-    CORS_ALLOWED_ORIGINS       = "https://${local.frontend_domain_name},http://localhost:5173"
+    CORS_ALLOWED_ORIGINS       = "https://${local.frontend_domain_name},http://127.0.0.1:5173"
     IRACING_CREDENTIALS_SECRET = data.aws_secretsmanager_secret.iracing_credentials.arn
+    JWT_SIGNING_KEY_ARN        = aws_kms_key.jwt.arn
+    JWT_ENCRYPTION_KEY_ARN     = aws_kms_key.jwt_encryption.arn
   }
 }
 
@@ -56,6 +58,43 @@ data "aws_iam_policy_document" "api_lambda" {
     ]
     resources = [
       aws_dynamodb_table.application_store.arn
+    ]
+  }
+
+  statement {
+    sid    = "AllowSecretsManager"
+    effect = "Allow"
+    actions = [
+      "secretsmanager:GetSecretValue"
+    ]
+    resources = [
+      data.aws_secretsmanager_secret.iracing_credentials.arn
+    ]
+  }
+
+  statement {
+    sid    = "AllowKMSJWTSigning"
+    effect = "Allow"
+    actions = [
+      "kms:Sign",
+      "kms:Verify",
+      "kms:GetPublicKey"
+    ]
+    resources = [
+      aws_kms_key.jwt.arn
+    ]
+  }
+
+  statement {
+    sid    = "AllowKMSJWTEncryption"
+    effect = "Allow"
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:GenerateDataKey"
+    ]
+    resources = [
+      aws_kms_key.jwt_encryption.arn
     ]
   }
 }
@@ -181,10 +220,62 @@ resource "aws_api_gateway_integration" "health_ping_options" {
   uri                     = aws_lambda_function.api_lambda.invoke_arn
 }
 
+resource "aws_api_gateway_resource" "auth" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_rest_api.api.root_resource_id
+  path_part   = "auth"
+}
+
+resource "aws_api_gateway_resource" "auth_ir" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.auth.id
+  path_part   = "ir"
+}
+
+resource "aws_api_gateway_resource" "auth_ir_callback" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.auth_ir.id
+  path_part   = "callback"
+}
+
+resource "aws_api_gateway_method" "auth_ir_callback_post" {
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  resource_id   = aws_api_gateway_resource.auth_ir_callback.id
+  http_method   = "POST"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_method" "auth_ir_callback_options" {
+  rest_api_id   = aws_api_gateway_rest_api.api.id
+  resource_id   = aws_api_gateway_resource.auth_ir_callback.id
+  http_method   = "OPTIONS"
+  authorization = "NONE"
+}
+
+resource "aws_api_gateway_integration" "auth_ir_callback_post" {
+  rest_api_id             = aws_api_gateway_rest_api.api.id
+  resource_id             = aws_api_gateway_resource.auth_ir_callback.id
+  http_method             = aws_api_gateway_method.auth_ir_callback_post.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.api_lambda.invoke_arn
+}
+
+resource "aws_api_gateway_integration" "auth_ir_callback_options" {
+  rest_api_id             = aws_api_gateway_rest_api.api.id
+  resource_id             = aws_api_gateway_resource.auth_ir_callback.id
+  http_method             = aws_api_gateway_method.auth_ir_callback_options.http_method
+  integration_http_method = "POST"
+  type                    = "AWS_PROXY"
+  uri                     = aws_lambda_function.api_lambda.invoke_arn
+}
+
 resource "aws_api_gateway_deployment" "api" {
   depends_on = [
     aws_api_gateway_integration.health_ping_get,
     aws_api_gateway_integration.health_ping_options,
+    aws_api_gateway_integration.auth_ir_callback_post,
+    aws_api_gateway_integration.auth_ir_callback_options,
   ]
   rest_api_id = aws_api_gateway_rest_api.api.id
 
