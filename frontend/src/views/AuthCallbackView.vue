@@ -2,12 +2,26 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { retrieveCodeVerifier, clearCodeVerifier } from '@/auth/pkce'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const status = ref<'processing' | 'error'>('processing')
 const errorMessage = ref('')
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+
+interface AuthCallbackData {
+  token: string
+  expires_at: number
+  user_id: number
+  user_name: string
+}
+
+interface ApiResponse<T> {
+  response: T
+  correlationId: string
+}
 
 onMounted(async () => {
   const params = new URLSearchParams(window.location.search)
@@ -54,10 +68,11 @@ onMounted(async () => {
       throw new Error(data.error || `Token exchange failed: ${response.status}`)
     }
 
+    const data: ApiResponse<AuthCallbackData> = await response.json()
     clearCodeVerifier()
 
-    // TODO: store tokens/session info from response
-    // const data = await response.json()
+    const { token, expires_at, user_id, user_name } = data.response
+    authStore.setSession(token, expires_at, user_id, user_name)
 
     router.push('/')
   } catch (err) {

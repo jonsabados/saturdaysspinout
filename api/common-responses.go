@@ -71,6 +71,24 @@ func DoAcceptedResponse(ctx context.Context, Response interface{}, writer http.R
 	_, _ = writer.Write(bytes)
 }
 
+type UnauthorizedResponse struct {
+	Message       string `json:"message"`
+	CorrelationID string `json:"correlationId"`
+}
+
+func DoUnauthorizedResponse(ctx context.Context, message string, writer http.ResponseWriter) {
+	writer.Header().Add("content-type", "application/json")
+	writer.WriteHeader(http.StatusUnauthorized)
+	bytes, err := json.Marshal(UnauthorizedResponse{
+		Message:       message,
+		CorrelationID: correlation.FromContext(ctx),
+	})
+	if err != nil {
+		panic(fmt.Errorf("error marshalling UnauthorizedResponse, this should not happen: %w", err))
+	}
+	_, _ = writer.Write(bytes)
+}
+
 type OKResponse struct {
 	Response      interface{} `json:"response"`
 	CorrelationID string      `json:"correlationId"`

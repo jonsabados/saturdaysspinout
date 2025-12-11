@@ -7,29 +7,29 @@ import (
 	"crypto/ecdsa"
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
+	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-// KMSSigner handles cryptographic operations via KMS
 type KMSSigner interface {
 	Sign(ctx context.Context, digest []byte) ([]byte, error)
 	GetPublicKey(ctx context.Context) (*ecdsa.PublicKey, error)
 }
 
-// KMSEncryptor handles envelope encryption via KMS
 type KMSEncryptor interface {
 	GenerateDataKey(ctx context.Context) (plaintext []byte, ciphertext []byte, err error)
 	DecryptDataKey(ctx context.Context, ciphertext []byte) ([]byte, error)
 }
 
-// KMSClient is the interface for AWS KMS operations
 type KMSClient interface {
 	Sign(ctx context.Context, keyID string, digest []byte) ([]byte, error)
 	GetPublicKey(ctx context.Context, keyID string) ([]byte, error)
@@ -37,21 +37,18 @@ type KMSClient interface {
 	Decrypt(ctx context.Context, keyID string, ciphertext []byte) ([]byte, error)
 }
 
-// EncryptedClaims contains the iRacing tokens in encrypted form
 type EncryptedClaims struct {
 	EncryptedData string `json:"enc"`
 	EncryptedKey  string `json:"key"`
 	Nonce         string `json:"nonce"`
 }
 
-// SensitiveClaims contains the iRacing tokens that get encrypted
 type SensitiveClaims struct {
 	IRacingAccessToken  string `json:"irt"`
 	IRacingRefreshToken string `json:"irrt"`
 	IRacingTokenExpiry  int64  `json:"irte"`
 }
 
-// SessionClaims represents the JWT claims for a user session
 type SessionClaims struct {
 	jwt.RegisteredClaims
 	SessionID       string          `json:"sid"`
@@ -60,10 +57,8 @@ type SessionClaims struct {
 	Encrypted       EncryptedClaims `json:"encrypted"`
 }
 
-// IDGenerator is a function that generates unique IDs
 type IDGenerator func() string
 
-// JWTService handles creating and validating JWTs
 type JWTService struct {
 	signer      KMSSigner
 	encryptor   KMSEncryptor
@@ -72,7 +67,6 @@ type JWTService struct {
 	tokenExpiry time.Duration
 }
 
-// NewJWTService creates a new JWTService
 func NewJWTService(signer KMSSigner, encryptor KMSEncryptor, idGenerator IDGenerator, issuer string, tokenExpiry time.Duration) *JWTService {
 	return &JWTService{
 		signer:      signer,
@@ -226,7 +220,14 @@ func (s *JWTService) decryptSensitiveClaims(ctx context.Context, encrypted *Encr
 	return &result, nil
 }
 
-// kmsSigningMethod implements jwt.SigningMethod using KMS
+// kmsSigningMethod implements jwt.SigningMethod to enable JWT signing via AWS KMS.
+//
+// The golang-jwt library expects a SigningMethod that can sign arbitrary data.
+// Since KMS keeps private keys secure and never exposes them, we can't use the
+// library's built-in ES256 signer. Instead, this adapter sends the JWT's signing
+// string to KMS for signing and handles the signature format conversion.
+//
+// Verification uses the standard library path since we can retrieve the public key.
 type kmsSigningMethod struct {
 	signer KMSSigner
 	ctx    context.Context
@@ -236,6 +237,8 @@ func (m *kmsSigningMethod) Alg() string {
 	return "ES256"
 }
 
+// Verify is not implemented because we use the standard jwt.SigningMethodES256
+// verification path with the public key retrieved from KMS.
 func (m *kmsSigningMethod) Verify(signingString string, sig []byte, key interface{}) error {
 	return jwt.ErrSignatureInvalid
 }
@@ -245,22 +248,57 @@ func (m *kmsSigningMethod) Sign(signingString string, key interface{}) ([]byte, 
 	hasher.Write([]byte(signingString))
 	digest := hasher.Sum(nil)
 
-	signature, err := m.signer.Sign(m.ctx, digest)
+	derSignature, err := m.signer.Sign(m.ctx, digest)
 	if err != nil {
 		return nil, fmt.Errorf("KMS signing: %w", err)
 	}
 
-	return signature, nil
+	// KMS returns DER-encoded signatures, but JWT expects raw R||S format
+	rawSignature, err := derToRawECDSASignature(derSignature, 32)
+	if err != nil {
+		return nil, fmt.Errorf("converting signature format: %w", err)
+	}
+
+	return rawSignature, nil
 }
 
-// KMSSignerAdapter adapts a KMSClient to the KMSSigner interface
+// derToRawECDSASignature converts a DER-encoded ECDSA signature to raw R||S format.
+//
+// AWS KMS returns ECDSA signatures in DER/ASN.1 format (SEQUENCE { INTEGER r, INTEGER s }),
+// which is variable-length due to ASN.1 integer encoding rules. However, the JWT/JWS
+// specification (RFC 7518) requires ES256 signatures in a fixed 64-byte format: the R and S
+// values concatenated as fixed-size 32-byte big-endian integers.
+//
+// keySize is the size in bytes of each component (32 for P-256/ES256).
+func derToRawECDSASignature(derSig []byte, keySize int) ([]byte, error) {
+	var sig struct {
+		R, S *big.Int
+	}
+	if _, err := asn1.Unmarshal(derSig, &sig); err != nil {
+		return nil, fmt.Errorf("unmarshaling DER signature: %w", err)
+	}
+
+	rBytes := sig.R.Bytes()
+	sBytes := sig.S.Bytes()
+
+	// Pad R and S to keySize bytes
+	rawSig := make([]byte, keySize*2)
+	copy(rawSig[keySize-len(rBytes):keySize], rBytes)
+	copy(rawSig[keySize*2-len(sBytes):], sBytes)
+
+	return rawSig, nil
+}
+
+// KMSSignerAdapter binds a specific signing key to a KMSClient, so callers
+// don't need to pass the key ID on every signing operation. It caches the
+// public key after first retrieval.
 type KMSSignerAdapter struct {
 	client    KMSClient
 	keyID     string
+	mu        sync.Mutex
 	publicKey *ecdsa.PublicKey
 }
 
-// NewKMSSignerAdapter creates a new KMSSignerAdapter
 func NewKMSSignerAdapter(client KMSClient, keyID string) *KMSSignerAdapter {
 	return &KMSSignerAdapter{
 		client: client,
@@ -273,6 +311,9 @@ func (s *KMSSignerAdapter) Sign(ctx context.Context, digest []byte) ([]byte, err
 }
 
 func (s *KMSSignerAdapter) GetPublicKey(ctx context.Context) (*ecdsa.PublicKey, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	if s.publicKey != nil {
 		return s.publicKey, nil
 	}
@@ -296,13 +337,14 @@ func (s *KMSSignerAdapter) GetPublicKey(ctx context.Context) (*ecdsa.PublicKey, 
 	return ecdsaKey, nil
 }
 
-// KMSEncryptorAdapter adapts a KMSClient to the KMSEncryptor interface
+// KMSEncryptorAdapter binds a specific encryption key to a KMSClient for envelope
+// encryption. It uses KMS to generate and decrypt data keys, while the actual
+// data encryption/decryption happens locally with AES-GCM for performance.
 type KMSEncryptorAdapter struct {
 	client KMSClient
 	keyID  string
 }
 
-// NewKMSEncryptorAdapter creates a new KMSEncryptorAdapter
 func NewKMSEncryptorAdapter(client KMSClient, keyID string) *KMSEncryptorAdapter {
 	return &KMSEncryptorAdapter{
 		client: client,

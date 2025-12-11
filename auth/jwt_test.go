@@ -6,6 +6,8 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
+	"encoding/asn1"
+	"math/big"
 	"testing"
 	"time"
 
@@ -15,6 +17,10 @@ import (
 
 	"github.com/jonsabados/saturdaysspinout/auth/mocks"
 )
+
+type ecdsaSignature struct {
+	R, S *big.Int
+}
 
 func TestJWTService_CreateToken(t *testing.T) {
 	ctx := context.Background()
@@ -38,7 +44,7 @@ func TestJWTService_CreateToken(t *testing.T) {
 		GenerateDataKey(mock.Anything).
 		Return(dataKey, encryptedDataKey, nil)
 
-	// Set up signer to use the real private key for signing
+	// Set up signer to use the real private key for signing (returns DER-encoded like KMS)
 	mockSigner.EXPECT().
 		Sign(mock.Anything, mock.Anything).
 		RunAndReturn(func(ctx context.Context, digest []byte) ([]byte, error) {
@@ -46,16 +52,7 @@ func TestJWTService_CreateToken(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			// Convert to fixed-size format for ES256
-			curveBits := privateKey.Curve.Params().BitSize
-			keyBytes := curveBits / 8
-			if curveBits%8 > 0 {
-				keyBytes++
-			}
-			sig := make([]byte, 2*keyBytes)
-			r.FillBytes(sig[:keyBytes])
-			s.FillBytes(sig[keyBytes:])
-			return sig, nil
+			return asn1.Marshal(ecdsaSignature{R: r, S: s})
 		})
 
 	idGenerator := func() string { return "test-session-id" }
@@ -92,7 +89,7 @@ func TestJWTService_CreateAndValidateToken(t *testing.T) {
 		GenerateDataKey(mock.Anything).
 		Return(dataKey, encryptedDataKey, nil)
 
-	// Set up signer for token creation
+	// Set up signer for token creation (returns DER-encoded like KMS)
 	mockSigner.EXPECT().
 		Sign(mock.Anything, mock.Anything).
 		RunAndReturn(func(ctx context.Context, digest []byte) ([]byte, error) {
@@ -100,15 +97,7 @@ func TestJWTService_CreateAndValidateToken(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			curveBits := privateKey.Curve.Params().BitSize
-			keyBytes := curveBits / 8
-			if curveBits%8 > 0 {
-				keyBytes++
-			}
-			sig := make([]byte, 2*keyBytes)
-			r.FillBytes(sig[:keyBytes])
-			s.FillBytes(sig[keyBytes:])
-			return sig, nil
+			return asn1.Marshal(ecdsaSignature{R: r, S: s})
 		})
 
 	// Set up signer for token validation (returns public key)
@@ -176,15 +165,7 @@ func TestJWTService_ValidateToken_InvalidSignature(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			curveBits := privateKey1.Curve.Params().BitSize
-			keyBytes := curveBits / 8
-			if curveBits%8 > 0 {
-				keyBytes++
-			}
-			sig := make([]byte, 2*keyBytes)
-			r.FillBytes(sig[:keyBytes])
-			s.FillBytes(sig[keyBytes:])
-			return sig, nil
+			return asn1.Marshal(ecdsaSignature{R: r, S: s})
 		})
 
 	// Validate with key2's public key (should fail)
@@ -229,15 +210,7 @@ func TestJWTService_ValidateToken_Expired(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			curveBits := privateKey.Curve.Params().BitSize
-			keyBytes := curveBits / 8
-			if curveBits%8 > 0 {
-				keyBytes++
-			}
-			sig := make([]byte, 2*keyBytes)
-			r.FillBytes(sig[:keyBytes])
-			s.FillBytes(sig[keyBytes:])
-			return sig, nil
+			return asn1.Marshal(ecdsaSignature{R: r, S: s})
 		})
 
 	mockSigner.EXPECT().

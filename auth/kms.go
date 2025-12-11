@@ -8,7 +8,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kms/types"
 )
 
-// AWSKMS is the interface for the AWS KMS SDK operations we need
 type AWSKMS interface {
 	Sign(ctx context.Context, params *kms.SignInput, optFns ...func(*kms.Options)) (*kms.SignOutput, error)
 	GetPublicKey(ctx context.Context, params *kms.GetPublicKeyInput, optFns ...func(*kms.Options)) (*kms.GetPublicKeyOutput, error)
@@ -16,12 +15,10 @@ type AWSKMS interface {
 	Decrypt(ctx context.Context, params *kms.DecryptInput, optFns ...func(*kms.Options)) (*kms.DecryptOutput, error)
 }
 
-// AWSKMSClient wraps the AWS KMS SDK and implements KMSClient
 type AWSKMSClient struct {
 	kms AWSKMS
 }
 
-// NewAWSKMSClient creates a new AWSKMSClient
 func NewAWSKMSClient(kmsClient AWSKMS) *AWSKMSClient {
 	return &AWSKMSClient{kms: kmsClient}
 }

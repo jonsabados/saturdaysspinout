@@ -1,0 +1,4 @@
+{
+  "code_verifier": "test-code-verifier",
+  "redirect_uri": "http://localhost:5173/auth/ir/callback"
+}

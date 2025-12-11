@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="8" failures="0" errors="0" time="0.0052232">
+    <testsuite name="src/auth/pkce.test.ts" timestamp="2025-12-11T17:52:06.930Z" hostname="beast" tests="8" failures="0" errors="0" skipped="0" time="0.0052232">
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates a code verifier of 64 characters" time="0.0019788">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates a code verifier using only valid characters" time="0.0002552">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates a base64url encoded code challenge" time="0.000187">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates different values on each call" time="0.0006061">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates a code challenge that is the SHA256 hash of the verifier" time="0.0001993">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; sessionStorage helpers &gt; stores and retrieves a code verifier" time="0.0009994">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; sessionStorage helpers &gt; returns null when no code verifier is stored" time="0.0001234">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; sessionStorage helpers &gt; clears the stored code verifier" time="0.0001243">
+        </testcase>
+    </testsuite>
+</testsuites>

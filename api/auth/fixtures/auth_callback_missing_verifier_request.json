@@ -1,0 +1,4 @@
+{
+  "code": "test-auth-code",
+  "redirect_uri": "http://localhost:5173/auth/ir/callback"
+}
