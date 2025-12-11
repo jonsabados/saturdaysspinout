@@ -1,14 +1,11 @@
-all: false
 dir: "{{.InterfaceDir}}/mocks"
 filename: "mock_{{.InterfaceName | snakecase}}.go"
 formatter: goimports
 pkgname: mocks
 structname: "Mock{{.InterfaceName}}"
 template: testify
+recursive: true
 packages:
-  github.com/jonsabados/saturdaysspinout/auth:
-    interfaces:
-      KMSSigner:
-      KMSEncryptor:
-      KMSClient:
-      AWSKMS:
+  github.com/jonsabados/saturdaysspinout:
+    config:
+      all: true

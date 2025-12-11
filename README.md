@@ -61,9 +61,11 @@ Both entry points share the same API setup via [`cmd/api.go`](cmd/api.go), which
 | File | Purpose |
 |------|---------|
 | [`api/rest-api.go`](api/rest-api.go) | Router setup, middleware stack (CORS, logging, correlation IDs) |
-| [`api/ping-endpoint.go`](api/ping-endpoint.go) | Health check endpoint (`GET /health/ping`) |
-| [`api/auth-callback-endpoint.go`](api/auth-callback-endpoint.go) | OAuth callback handler (`GET /auth/callback`) |
+| [`api/auth-middleware.go`](api/auth-middleware.go) | JWT authentication middleware |
 | [`api/common-responses.go`](api/common-responses.go) | Shared response utilities |
+| [`api/health/`](api/health/) | Health check endpoints (`GET /health/ping`) |
+| [`api/auth/`](api/auth/) | Auth endpoints (`POST /auth/ir/callback`) |
+| [`api/doc/`](api/doc/) | iRacing API doc proxy (`GET /doc/iracing-api/*`) |
 
 ### Authentication
 
@@ -83,6 +85,7 @@ The `iracing/` package provides OAuth and API client functionality for iRacing.
 |------|---------|
 | [`iracing/oauth.go`](iracing/oauth.go) | OAuth token exchange with PKCE support |
 | [`iracing/client.go`](iracing/client.go) | iRacing API client for user info and data retrieval |
+| [`iracing/doc_client.go`](iracing/doc_client.go) | Proxy client for iRacing API documentation endpoints |
 
 ### Middleware
 

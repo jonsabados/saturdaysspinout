@@ -1,22 +1,9 @@
 <script setup lang="ts">
 import { initiateLogin } from '@/auth/iracing'
+import { useAuthStore } from '@/stores/auth'
 
+const authStore = useAuthStore()
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
-
-async function makeTestRequest() {
-  console.log('Making test request to', `${apiBaseUrl}/health/ping`)
-  try {
-    const response = await fetch(`${apiBaseUrl}/health/ping`)
-    console.log('Response status:', response.status)
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()))
-    const data = await response.json()
-    console.log('Response data:', data)
-    alert(`CORS call successful, response: ${JSON.stringify(data)}`)
-  } catch (error) {
-    console.error('Request failed:', error)
-    alert(`CORS call failed: ${error}`)
-  }
-}
 
 async function handleLogin() {
   try {
@@ -26,14 +13,40 @@ async function handleLogin() {
     alert(`Login failed: ${error}`)
   }
 }
+
+function handleLogout() {
+  authStore.logout()
+}
+
+async function testDocProxy() {
+  try {
+    const response = await fetch(`${apiBaseUrl}/doc/iracing-api/`, {
+      headers: {
+        'Authorization': `Bearer ${authStore.token}`
+      }
+    })
+    const text = await response.text()
+    alert(text)
+  } catch (error) {
+    alert(`Error: ${error}`)
+  }
+}
 </script>
 
 <template>
   <main>
-    <h1>Hello World</h1>
-    <p>Saturday's Spinout</p>
-    <button @click="makeTestRequest">Make Test Request</button>
-    <button @click="handleLogin">Login with iRacing</button>
+    <h1>Saturday's Spinout</h1>
+
+    <template v-if="authStore.isLoggedIn">
+      <p>Welcome, {{ authStore.userName }}!</p>
+      <button @click="testDocProxy">Test Doc Proxy</button>
+      <button @click="handleLogout">Logout</button>
+    </template>
+
+    <template v-else>
+      <p>Sign in to get started</p>
+      <button @click="handleLogin">Login with iRacing</button>
+    </template>
   </main>
 </template>
 

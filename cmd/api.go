@@ -15,6 +15,9 @@ import (
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/google/uuid"
+	apiAuth "github.com/jonsabados/saturdaysspinout/api/auth"
+	"github.com/jonsabados/saturdaysspinout/api/doc"
+	"github.com/jonsabados/saturdaysspinout/api/health"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
 
@@ -112,9 +115,11 @@ func CreateAPI() http.Handler {
 	// setup auth service
 	authService := auth.NewService(iracingOAuthClient, jwtService, iracingClient)
 
-	// setup endpoints
-	pingEndpoint := api.NewPingEndpoint()
-	authCallbackEndpoint := api.NewAuthCallbackEndpoint(authService)
+	routers := api.RootRouters{
+		HealthRouter: health.NewRouter(),
+		AuthRouter:   apiAuth.NewRouter(authService),
+		DocRouter:    doc.NewRouter(iracing.NewDocClient(httpClient)),
+	}
 
-	return api.NewRestAPI(logger, uuid.NewString, cfg.CORSAllowedOrigins, pingEndpoint, authCallbackEndpoint)
+	return api.NewRestAPI(logger, uuid.NewString, cfg.CORSAllowedOrigins, routers, jwtService)
 }
