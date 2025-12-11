@@ -12,6 +12,14 @@ type Track struct {
 	Name string
 }
 
+type Driver struct {
+	DriverID   int64
+	DriverName string
+	FirstLogin time.Time
+	LastLogin  time.Time
+	LoginCount int64
+}
+
 type DriverNote struct {
 	DriverID  int64
 	Timestamp time.Time
@@ -23,6 +31,7 @@ type DriverNote struct {
 }
 
 type GlobalCounters struct {
-	Tracks int64
-	Notes  int64
+	Drivers int64
+	Tracks  int64
+	Notes   int64
 }

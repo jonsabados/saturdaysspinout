@@ -20,6 +20,7 @@ const driverNoteSortKeyFormat = "note#%d" // note, the number should be a unix t
 
 const globalCountersPartitionKey = "global"
 const globalCountersSortKey = "counters"
+const globalCountersAttributeDrivers = "drivers"
 const globalCountersAttributeTracks = "tracks"
 const globalCountersAttributeNotes = "notes"
 
@@ -60,6 +61,14 @@ func trackFromAttributeMap(item map[string]types.AttributeValue) (*Track, error)
 
 func globalCountersFromAttributeMap(item map[string]types.AttributeValue) (*GlobalCounters, error) {
 	counters := &GlobalCounters{}
+
+	if driversAttr, ok := item[globalCountersAttributeDrivers].(*types.AttributeValueMemberN); ok {
+		drivers, err := strconv.ParseInt(driversAttr.Value, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid 'drivers' value: %w", err)
+		}
+		counters.Drivers = drivers
+	}
 
 	if tracksAttr, ok := item[globalCountersAttributeTracks].(*types.AttributeValueMemberN); ok {
 		tracks, err := strconv.ParseInt(tracksAttr.Value, 10, 64)
@@ -154,5 +163,76 @@ func driverNoteFromAttributeMap(driverID int64, item map[string]types.AttributeV
 		IsMistake: isMistakeAttr.Value,
 		Category:  categoryAttr.Value,
 		Notes:     notesAttr.Value,
+	}, nil
+}
+
+type driverModel struct {
+	driverID   int64
+	driverName string
+	firstLogin int64
+	lastLogin  int64
+	loginCount int64
+}
+
+func (d driverModel) toAttributeMap() map[string]types.AttributeValue {
+	return map[string]types.AttributeValue{
+		partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, d.driverID)},
+		sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
+		"driver_id":      &types.AttributeValueMemberN{Value: strconv.FormatInt(d.driverID, 10)},
+		"driver_name":    &types.AttributeValueMemberS{Value: d.driverName},
+		"first_login":    &types.AttributeValueMemberN{Value: strconv.FormatInt(d.firstLogin, 10)},
+		"last_login":     &types.AttributeValueMemberN{Value: strconv.FormatInt(d.lastLogin, 10)},
+		"login_count":    &types.AttributeValueMemberN{Value: strconv.FormatInt(d.loginCount, 10)},
+	}
+}
+
+func driverFromAttributeMap(item map[string]types.AttributeValue) (*Driver, error) {
+	driverIDAttr, ok := item["driver_id"].(*types.AttributeValueMemberN)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid 'driver_id' attribute")
+	}
+	driverID, err := strconv.ParseInt(driverIDAttr.Value, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid 'driver_id' value: %w", err)
+	}
+
+	driverNameAttr, ok := item["driver_name"].(*types.AttributeValueMemberS)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid 'driver_name' attribute")
+	}
+
+	firstLoginAttr, ok := item["first_login"].(*types.AttributeValueMemberN)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid 'first_login' attribute")
+	}
+	firstLogin, err := strconv.ParseInt(firstLoginAttr.Value, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid 'first_login' value: %w", err)
+	}
+
+	lastLoginAttr, ok := item["last_login"].(*types.AttributeValueMemberN)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid 'last_login' attribute")
+	}
+	lastLogin, err := strconv.ParseInt(lastLoginAttr.Value, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid 'last_login' value: %w", err)
+	}
+
+	loginCountAttr, ok := item["login_count"].(*types.AttributeValueMemberN)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid 'login_count' attribute")
+	}
+	loginCount, err := strconv.ParseInt(loginCountAttr.Value, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid 'login_count' value: %w", err)
+	}
+
+	return &Driver{
+		DriverID:   driverID,
+		DriverName: driverNameAttr.Value,
+		FirstLogin: time.Unix(firstLogin, 0),
+		LastLogin:  time.Unix(lastLogin, 0),
+		LoginCount: loginCount,
 	}, nil
 }

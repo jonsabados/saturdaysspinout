@@ -6,12 +6,13 @@ import (
 	"time"
 
 	"github.com/jonsabados/saturdaysspinout/iracing"
+	"github.com/jonsabados/saturdaysspinout/store"
 )
 
 type Result struct {
 	Token     string
 	ExpiresAt time.Time
-	UserID    int
+	UserID    int64
 	UserName  string
 }
 
@@ -24,20 +25,30 @@ type UserInfoProvider interface {
 }
 
 type JWTCreator interface {
-	CreateToken(ctx context.Context, userID int, userName string, accessToken, refreshToken string, tokenExpiry time.Time) (string, error)
+	CreateToken(ctx context.Context, userID int64, userName string, accessToken, refreshToken string, tokenExpiry time.Time) (string, error)
+}
+
+type DriverStore interface {
+	GetDriver(ctx context.Context, driverID int64) (*store.Driver, error)
+	InsertDriver(ctx context.Context, driver store.Driver) error
+	RecordLogin(ctx context.Context, driverID int64, loginTime time.Time) error
 }
 
 type Service struct {
 	oauthClient      OAuthClient
 	jwtCreator       JWTCreator
 	userInfoProvider UserInfoProvider
+	driverStore      DriverStore
+	now              func() time.Time
 }
 
-func NewService(oauthClient OAuthClient, jwtCreator JWTCreator, userInfoProvider UserInfoProvider) *Service {
+func NewService(oauthClient OAuthClient, jwtCreator JWTCreator, userInfoProvider UserInfoProvider, driverStore DriverStore) *Service {
 	return &Service{
 		oauthClient:      oauthClient,
 		jwtCreator:       jwtCreator,
 		userInfoProvider: userInfoProvider,
+		driverStore:      driverStore,
+		now:              time.Now,
 	}
 }
 
@@ -53,7 +64,30 @@ func (s *Service) HandleCallback(ctx context.Context, code, codeVerifier, redire
 		return nil, fmt.Errorf("getting user info: %w", err)
 	}
 
-	tokenExpiry := tokenResp.TokenExpiry()
+	driverRecord, err := s.driverStore.GetDriver(ctx, userInfo.UserID)
+	if err != nil {
+		return nil, fmt.Errorf("getting driver record: %w", err)
+	}
+	if driverRecord == nil {
+		now := s.now()
+		err := s.driverStore.InsertDriver(ctx, store.Driver{
+			DriverID:   userInfo.UserID,
+			DriverName: userInfo.UserName,
+			FirstLogin: now,
+			LastLogin:  now,
+			LoginCount: 1,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("creating driver: %w", err)
+		}
+	} else {
+		err := s.driverStore.RecordLogin(ctx, userInfo.UserID, s.now())
+		if err != nil {
+			return nil, fmt.Errorf("recording login: %w", err)
+		}
+	}
+
+	tokenExpiry := s.now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
 	jwt, err := s.jwtCreator.CreateToken(ctx, userInfo.UserID, userInfo.UserName, tokenResp.AccessToken, tokenResp.RefreshToken, tokenExpiry)
 	if err != nil {
 		return nil, fmt.Errorf("creating JWT: %w", err)

@@ -20,7 +20,7 @@ type CallbackRequest struct {
 type CallbackResponse struct {
 	Token     string `json:"token"`
 	ExpiresAt int64  `json:"expires_at"`
-	UserID    int    `json:"user_id"`
+	UserID    int64  `json:"user_id"`
 	UserName  string `json:"user_name"`
 }
 
@@ -65,7 +65,7 @@ func NewAuthCallbackEndpoint(authService Service) http.Handler {
 			return
 		}
 
-		logger.Info().Int("user_id", result.UserID).Str("user_name", result.UserName).Msg("user authenticated successfully")
+		logger.Info().Int64("user_id", result.UserID).Str("user_name", result.UserName).Msg("user authenticated successfully")
 
 		api.DoOKResponse(ctx, CallbackResponse{
 			Token:     result.Token,

@@ -8,6 +8,7 @@ locals {
     IRACING_CREDENTIALS_SECRET = data.aws_secretsmanager_secret.iracing_credentials.arn
     JWT_SIGNING_KEY_ARN        = aws_kms_key.jwt.arn
     JWT_ENCRYPTION_KEY_ARN     = aws_kms_key.jwt_encryption.arn
+    DYNAMODB_TABLE             = aws_dynamodb_table.application_store.name
   }
 }
 
@@ -167,32 +168,6 @@ resource "aws_route53_record" "api" {
   ttl     = 300
 }
 
-resource "aws_api_gateway_resource" "health" {
-  rest_api_id = aws_api_gateway_rest_api.api.id
-  parent_id   = aws_api_gateway_rest_api.api.root_resource_id
-  path_part   = "health"
-}
-
-resource "aws_api_gateway_resource" "health_ping" {
-  rest_api_id = aws_api_gateway_rest_api.api.id
-  parent_id   = aws_api_gateway_resource.health.id
-  path_part   = "ping"
-}
-
-resource "aws_api_gateway_method" "health_ping_get" {
-  rest_api_id   = aws_api_gateway_rest_api.api.id
-  resource_id   = aws_api_gateway_resource.health_ping.id
-  http_method   = "GET"
-  authorization = "NONE"
-}
-
-resource "aws_api_gateway_method" "health_ping_options" {
-  rest_api_id   = aws_api_gateway_rest_api.api.id
-  resource_id   = aws_api_gateway_resource.health_ping.id
-  http_method   = "OPTIONS"
-  authorization = "NONE"
-}
-
 resource "aws_lambda_permission" "api_gateway_api_lambda" {
   statement_id  = "AllowExecutionFromAPIGateway"
   action        = "lambda:InvokeFunction"
@@ -202,80 +177,16 @@ resource "aws_lambda_permission" "api_gateway_api_lambda" {
   source_arn = "arn:aws:execute-api:us-east-1:${data.aws_caller_identity.current.account_id}:${aws_api_gateway_rest_api.api.id}/*/*"
 }
 
-resource "aws_api_gateway_integration" "health_ping_get" {
-  rest_api_id             = aws_api_gateway_rest_api.api.id
-  resource_id             = aws_api_gateway_resource.health_ping.id
-  http_method             = aws_api_gateway_method.health_ping_get.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.api_lambda.invoke_arn
-}
-
-resource "aws_api_gateway_integration" "health_ping_options" {
-  rest_api_id             = aws_api_gateway_rest_api.api.id
-  resource_id             = aws_api_gateway_resource.health_ping.id
-  http_method             = aws_api_gateway_method.health_ping_options.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.api_lambda.invoke_arn
-}
-
-resource "aws_api_gateway_resource" "auth" {
-  rest_api_id = aws_api_gateway_rest_api.api.id
-  parent_id   = aws_api_gateway_rest_api.api.root_resource_id
-  path_part   = "auth"
-}
-
-resource "aws_api_gateway_resource" "auth_ir" {
-  rest_api_id = aws_api_gateway_rest_api.api.id
-  parent_id   = aws_api_gateway_resource.auth.id
-  path_part   = "ir"
-}
-
-resource "aws_api_gateway_resource" "auth_ir_callback" {
-  rest_api_id = aws_api_gateway_rest_api.api.id
-  parent_id   = aws_api_gateway_resource.auth_ir.id
-  path_part   = "callback"
-}
-
-resource "aws_api_gateway_method" "auth_ir_callback_post" {
-  rest_api_id   = aws_api_gateway_rest_api.api.id
-  resource_id   = aws_api_gateway_resource.auth_ir_callback.id
-  http_method   = "POST"
-  authorization = "NONE"
-}
-
-resource "aws_api_gateway_method" "auth_ir_callback_options" {
-  rest_api_id   = aws_api_gateway_rest_api.api.id
-  resource_id   = aws_api_gateway_resource.auth_ir_callback.id
-  http_method   = "OPTIONS"
-  authorization = "NONE"
-}
-
-resource "aws_api_gateway_integration" "auth_ir_callback_post" {
-  rest_api_id             = aws_api_gateway_rest_api.api.id
-  resource_id             = aws_api_gateway_resource.auth_ir_callback.id
-  http_method             = aws_api_gateway_method.auth_ir_callback_post.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.api_lambda.invoke_arn
-}
-
-resource "aws_api_gateway_integration" "auth_ir_callback_options" {
-  rest_api_id             = aws_api_gateway_rest_api.api.id
-  resource_id             = aws_api_gateway_resource.auth_ir_callback.id
-  http_method             = aws_api_gateway_method.auth_ir_callback_options.http_method
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.api_lambda.invoke_arn
-}
-
 resource "aws_api_gateway_deployment" "api" {
   depends_on = [
-    aws_api_gateway_integration.health_ping_get,
-    aws_api_gateway_integration.health_ping_options,
-    aws_api_gateway_integration.auth_ir_callback_post,
-    aws_api_gateway_integration.auth_ir_callback_options,
+    module.health_ping_get,
+    module.health_ping_options,
+    module.auth_ir_callback_post,
+    module.auth_ir_callback_options,
+    module.doc_iracing_api_get,
+    module.doc_iracing_api_options,
+    module.doc_iracing_api_proxy_get,
+    module.doc_iracing_api_proxy_options,
   ]
   rest_api_id = aws_api_gateway_rest_api.api.id
 

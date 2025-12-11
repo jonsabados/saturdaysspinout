@@ -23,6 +23,12 @@ const sensitiveClaimsKey = sensitiveClaimsKeyType("sensitiveClaims")
 func AuthMiddleware(validator TokenValidator) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// allow OPTIONS calls for CORS checks
+			if r.Method == http.MethodOptions {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			ctx := r.Context()
 
 			authHeader := r.Header.Get("Authorization")

@@ -124,7 +124,7 @@ func TestJWTService_CreateAndValidateToken(t *testing.T) {
 
 	// Verify session claims
 	assert.Equal(t, "test-session-id", sessionClaims.SessionID)
-	assert.Equal(t, 12345, sessionClaims.IRacingUserID)
+	assert.Equal(t, int64(12345), sessionClaims.IRacingUserID)
 	assert.Equal(t, "TestDriver", sessionClaims.IRacingUserName)
 	assert.Equal(t, "test-issuer", sessionClaims.Issuer)
 	assert.Equal(t, "12345", sessionClaims.Subject)

@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"time"
 )
 
 const (
@@ -23,11 +22,6 @@ type TokenResponse struct {
 	TokenType    string `json:"token_type"`
 	ExpiresIn    int    `json:"expires_in"`
 	RefreshToken string `json:"refresh_token"`
-}
-
-// TokenExpiry calculates the token expiry time from the ExpiresIn value
-func (t *TokenResponse) TokenExpiry() time.Time {
-	return time.Now().Add(time.Duration(t.ExpiresIn) * time.Second)
 }
 
 // OAuthClient handles OAuth operations with iRacing

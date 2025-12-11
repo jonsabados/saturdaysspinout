@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
@@ -24,6 +25,7 @@ import (
 	"github.com/jonsabados/saturdaysspinout/api"
 	"github.com/jonsabados/saturdaysspinout/auth"
 	"github.com/jonsabados/saturdaysspinout/iracing"
+	"github.com/jonsabados/saturdaysspinout/store"
 )
 
 type appCfg struct {
@@ -32,6 +34,7 @@ type appCfg struct {
 	IRacingCredentialsSecret string   `envconfig:"IRACING_CREDENTIALS_SECRET" required:"true"`
 	JWTSigningKeyARN         string   `envconfig:"JWT_SIGNING_KEY_ARN" required:"true"`
 	JWTEncryptionKeyARN      string   `envconfig:"JWT_ENCRYPTION_KEY_ARN" required:"true"`
+	DynamoDBTable            string   `envconfig:"DYNAMODB_TABLE" required:"true"`
 }
 
 type iRacingCredentials struct {
@@ -108,12 +111,16 @@ func CreateAPI() http.Handler {
 	// setup JWT service
 	jwtService := auth.NewJWTService(jwtSigner, jwtEncryptor, uuid.NewString, "saturdaysspinout", 24*time.Hour)
 
+	// setup DynamoDB store
+	dynamoClient := dynamodb.NewFromConfig(awsCfg)
+	driverStore := store.NewDynamoStore(dynamoClient, cfg.DynamoDBTable)
+
 	// setup iRacing clients
 	iracingOAuthClient := iracing.NewOAuthClient(httpClient, iRacingCreds.OauthClientID, iRacingCreds.OauthClientSecret)
 	iracingClient := iracing.NewClient(httpClient)
 
 	// setup auth service
-	authService := auth.NewService(iracingOAuthClient, jwtService, iracingClient)
+	authService := auth.NewService(iracingOAuthClient, jwtService, iracingClient, driverStore)
 
 	routers := api.RootRouters{
 		HealthRouter: health.NewRouter(),

@@ -11,6 +11,7 @@
 - Prefer functional handler pattern (higher-order functions returning `http.HandlerFunc`) over struct-based handlers
 - Interfaces belong with the consumer, not the implementation - accept interfaces, return concrete types
 - Table-driven tests with fixtures in a `fixtures/` directory
+- In mock expectations, avoid `mock.Anything` except for `context.Context` parameters - be explicit about expected values
 
 ## IDE Integration
 - IntelliJ is configured to auto-optimize imports on save
