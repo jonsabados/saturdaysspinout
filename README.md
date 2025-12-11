@@ -24,11 +24,14 @@ flowchart TB
 
 ```
 .
+├── .github/workflows/      # CI/CD pipeline (GitHub Actions)
 ├── api/                    # API endpoint handlers and HTTP setup
+├── auth/                   # JWT creation and KMS-based signing/encryption
 ├── cmd/                    # Application entry points
 │   ├── lambda-based-api/   # AWS Lambda handler
 │   └── standalone-api/     # Local development server
 ├── correlation/            # Request correlation ID middleware
+├── iracing/                # iRacing API client and OAuth integration
 ├── store/                  # Data persistence layer (DynamoDB)
 ├── frontend/               # Vue 3 SPA
 ├── terraform/              # Infrastructure as Code
@@ -59,7 +62,27 @@ Both entry points share the same API setup via [`cmd/api.go`](cmd/api.go), which
 |------|---------|
 | [`api/rest-api.go`](api/rest-api.go) | Router setup, middleware stack (CORS, logging, correlation IDs) |
 | [`api/ping-endpoint.go`](api/ping-endpoint.go) | Health check endpoint (`GET /health/ping`) |
+| [`api/auth-callback-endpoint.go`](api/auth-callback-endpoint.go) | OAuth callback handler (`GET /auth/callback`) |
 | [`api/common-responses.go`](api/common-responses.go) | Shared response utilities |
+
+### Authentication
+
+The `auth/` package handles JWT creation with AWS KMS for signing and encryption. JWTs contain encrypted iRacing tokens, allowing the backend to make iRacing API calls on behalf of authenticated users.
+
+| File | Purpose |
+|------|---------|
+| [`auth/service.go`](auth/service.go) | Auth service orchestrating OAuth callback flow |
+| [`auth/jwt.go`](auth/jwt.go) | JWT creation with KMS signing and payload encryption |
+| [`auth/kms.go`](auth/kms.go) | AWS KMS client wrappers for signing and encryption |
+
+### iRacing Integration
+
+The `iracing/` package provides OAuth and API client functionality for iRacing.
+
+| File | Purpose |
+|------|---------|
+| [`iracing/oauth.go`](iracing/oauth.go) | OAuth token exchange with PKCE support |
+| [`iracing/client.go`](iracing/client.go) | iRacing API client for user info and data retrieval |
 
 ### Middleware
 
@@ -94,21 +117,36 @@ All AWS infrastructure is defined in Terraform with workspace support for multip
 
 | File | Purpose |
 |------|---------|
-| [`terraform/api.tf`](terraform/api.tf) | Lambda, API Gateway, certificates |
+| [`terraform/api.tf`](terraform/api.tf) | Lambda, API Gateway, certificates, environment variables |
 | [`terraform/front-end.tf`](terraform/front-end.tf) | S3 bucket, CloudFront distribution for SPA |
 | [`terraform/website.tf`](terraform/website.tf) | S3 bucket, CloudFront for static site |
 | [`terraform/store.tf`](terraform/store.tf) | DynamoDB table |
+| [`terraform/kms.tf`](terraform/kms.tf) | KMS keys for JWT signing and encryption |
+| [`terraform/secrets.tf`](terraform/secrets.tf) | Secrets Manager references (iRacing credentials) |
 | [`terraform/backend.tf`](terraform/backend.tf) | S3 backend for Terraform state |
+
+## CI/CD
+
+GitHub Actions runs on push and PR to `main`. The workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
+
+1. **Backend tests** - Runs Go tests with race detection and coverage against a DynamoDB Local service container
+2. **Frontend tests** - Runs Vitest with coverage
+3. **Build** - Builds the Lambda deployment package (only after tests pass)
+
+Test results are published as GitHub check annotations and coverage is uploaded to Codecov.
 
 ## Development
 
 ### Prerequisites
 
+- Make (included on Linux/macOS; Windows users can use [GnuWin32](http://gnuwin32.sourceforge.net/packages/make.htm) or WSL)
 - Go 1.21+
 - Node.js 18+
 - Terraform 1.0+
 - AWS CLI (configured)
 - Docker (for local DynamoDB)
+
+Run `make` or `make help` to see all available targets.
 
 ### Local Development
 
@@ -123,6 +161,43 @@ make run-frontend
 ```
 
 The frontend dev server runs on `http://localhost:5173` and the API on `http://localhost:8080`.
+
+#### Environment Variables from Terraform
+
+The `make run-rest-api` target automatically sources environment variables from Terraform, ensuring local development uses the same configuration as the deployed Lambda. This is accomplished via the `app_env_vars` output:
+
+```hcl
+# In terraform/api.tf
+locals {
+  app_env_vars = {
+    LOG_LEVEL                  = "info"
+    CORS_ALLOWED_ORIGINS       = "..."
+    IRACING_CREDENTIALS_SECRET = data.aws_secretsmanager_secret.iracing_credentials.arn
+    JWT_SIGNING_KEY_ARN        = aws_kms_key.jwt.arn
+    JWT_ENCRYPTION_KEY_ARN     = aws_kms_key.jwt_encryption.arn
+  }
+}
+
+# Lambda uses the same map
+resource "aws_lambda_function" "api_lambda" {
+  environment {
+    variables = local.app_env_vars
+  }
+}
+
+# Output for local dev (formatted as KEY=VALUE pairs)
+output "app_env_vars" {
+  value = join(" ", [for k, v in local.app_env_vars : "${k}=${v}"])
+}
+```
+
+The Makefile then uses this output:
+```makefile
+run-rest-api:
+	env $(terraform -chdir=terraform output -raw app_env_vars) LOG_LEVEL=trace go run ...
+```
+
+This pattern ensures that any new environment variables added to the Lambda are automatically available during local development without manual synchronization.
 
 ### Testing
 
@@ -177,13 +252,19 @@ make deploy-website
 
 ### Backend
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `LOG_LEVEL` | Yes | Logging level (trace, debug, info, warn, error) |
-| `CORS_ALLOWED_ORIGINS` | Yes | Comma-separated list of allowed origins |
+These are managed in `terraform/api.tf` as `local.app_env_vars` and automatically provided to both Lambda and local development.
+
+| Variable | Description |
+|----------|-------------|
+| `LOG_LEVEL` | Logging level (trace, debug, info, warn, error) |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed origins |
+| `IRACING_CREDENTIALS_SECRET` | ARN of Secrets Manager secret containing iRacing OAuth credentials |
+| `JWT_SIGNING_KEY_ARN` | ARN of KMS key used to sign JWTs |
+| `JWT_ENCRYPTION_KEY_ARN` | ARN of KMS key used to encrypt JWT payloads |
 
 ### Frontend
 
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `VITE_API_BASE_URL` | No | API base URL (defaults to `http://localhost:8080`) |
+| `VITE_IRACING_CLIENT_ID` | Yes | iRacing OAuth client ID (see `frontend/.env.local.example`) |
