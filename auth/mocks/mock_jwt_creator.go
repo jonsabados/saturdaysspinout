@@ -39,7 +39,7 @@ func (_m *MockJWTCreator) EXPECT() *MockJWTCreator_Expecter {
 }
 
 // CreateToken provides a mock function for the type MockJWTCreator
-func (_mock *MockJWTCreator) CreateToken(ctx context.Context, userID int, userName string, accessToken string, refreshToken string, tokenExpiry time.Time) (string, error) {
+func (_mock *MockJWTCreator) CreateToken(ctx context.Context, userID int64, userName string, accessToken string, refreshToken string, tokenExpiry time.Time) (string, error) {
 	ret := _mock.Called(ctx, userID, userName, accessToken, refreshToken, tokenExpiry)
 
 	if len(ret) == 0 {
@@ -48,15 +48,15 @@ func (_mock *MockJWTCreator) CreateToken(ctx context.Context, userID int, userNa
 
 	var r0 string
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, string, string, string, time.Time) (string, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, string, string, time.Time) (string, error)); ok {
 		return returnFunc(ctx, userID, userName, accessToken, refreshToken, tokenExpiry)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, string, string, string, time.Time) string); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, string, string, time.Time) string); ok {
 		r0 = returnFunc(ctx, userID, userName, accessToken, refreshToken, tokenExpiry)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int, string, string, string, time.Time) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, string, string, string, time.Time) error); ok {
 		r1 = returnFunc(ctx, userID, userName, accessToken, refreshToken, tokenExpiry)
 	} else {
 		r1 = ret.Error(1)
@@ -71,7 +71,7 @@ type MockJWTCreator_CreateToken_Call struct {
 
 // CreateToken is a helper method to define mock.On call
 //   - ctx context.Context
-//   - userID int
+//   - userID int64
 //   - userName string
 //   - accessToken string
 //   - refreshToken string
@@ -80,15 +80,15 @@ func (_e *MockJWTCreator_Expecter) CreateToken(ctx interface{}, userID interface
 	return &MockJWTCreator_CreateToken_Call{Call: _e.mock.On("CreateToken", ctx, userID, userName, accessToken, refreshToken, tokenExpiry)}
 }
 
-func (_c *MockJWTCreator_CreateToken_Call) Run(run func(ctx context.Context, userID int, userName string, accessToken string, refreshToken string, tokenExpiry time.Time)) *MockJWTCreator_CreateToken_Call {
+func (_c *MockJWTCreator_CreateToken_Call) Run(run func(ctx context.Context, userID int64, userName string, accessToken string, refreshToken string, tokenExpiry time.Time)) *MockJWTCreator_CreateToken_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 int
+		var arg1 int64
 		if args[1] != nil {
-			arg1 = args[1].(int)
+			arg1 = args[1].(int64)
 		}
 		var arg2 string
 		if args[2] != nil {
@@ -123,7 +123,7 @@ func (_c *MockJWTCreator_CreateToken_Call) Return(s string, err error) *MockJWTC
 	return _c
 }
 
-func (_c *MockJWTCreator_CreateToken_Call) RunAndReturn(run func(ctx context.Context, userID int, userName string, accessToken string, refreshToken string, tokenExpiry time.Time) (string, error)) *MockJWTCreator_CreateToken_Call {
+func (_c *MockJWTCreator_CreateToken_Call) RunAndReturn(run func(ctx context.Context, userID int64, userName string, accessToken string, refreshToken string, tokenExpiry time.Time) (string, error)) *MockJWTCreator_CreateToken_Call {
 	_c.Call.Return(run)
 	return _c
 }

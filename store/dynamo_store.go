@@ -150,6 +150,70 @@ func mapTransactionError(err error) error {
 	return err
 }
 
+func (s *DynamoStore) GetDriver(ctx context.Context, driverID int64) (*Driver, error) {
+	result, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
+			sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if result.Item == nil {
+		return nil, nil
+	}
+	return driverFromAttributeMap(result.Item)
+}
+
+func (s *DynamoStore) InsertDriver(ctx context.Context, driver Driver) error {
+	_, err := s.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
+			{
+				Put: &types.Put{
+					Item: driverModel{
+						driverID:   driver.DriverID,
+						driverName: driver.DriverName,
+						firstLogin: driver.FirstLogin.Unix(),
+						lastLogin:  driver.LastLogin.Unix(),
+						loginCount: driver.LoginCount,
+					}.toAttributeMap(),
+					TableName:           aws.String(s.table),
+					ConditionExpression: aws.String("attribute_not_exists(#pk)"),
+					ExpressionAttributeNames: map[string]string{
+						"#pk": partitionKeyName,
+					},
+				},
+			},
+			s.incrementCounter(globalCountersAttributeDrivers),
+		},
+	})
+	return mapTransactionError(err)
+}
+
+func (s *DynamoStore) RecordLogin(ctx context.Context, driverID int64, loginTime time.Time) error {
+	_, err := s.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
+			sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
+		},
+		UpdateExpression: aws.String("SET #last_login = :login_time ADD #login_count :inc"),
+		ExpressionAttributeNames: map[string]string{
+			"#pk":          partitionKeyName,
+			"#last_login":  "last_login",
+			"#login_count": "login_count",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":login_time": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", loginTime.Unix())},
+			":inc":        &types.AttributeValueMemberN{Value: "1"},
+		},
+		ConditionExpression: aws.String("attribute_exists(#pk)"),
+	})
+	return err
+}
+
 func (s *DynamoStore) incrementCounter(name string) types.TransactWriteItem {
 	return types.TransactWriteItem{
 		Update: &types.Update{

@@ -207,6 +207,133 @@ func TestGetGlobalCounters_IncludesNotes(t *testing.T) {
 	assert.Equal(t, int64(2), counters.Notes)
 }
 
+func TestGetDriver_NotFound(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	got, err := s.GetDriver(ctx, 999)
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}
+
+func TestInsertDriver_Success(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	driver := store.Driver{
+		DriverID:   12345,
+		DriverName: "Jon Sabados",
+		FirstLogin: time.Unix(1000, 0),
+		LastLogin:  time.Unix(1000, 0),
+		LoginCount: 1,
+	}
+
+	err := s.InsertDriver(ctx, driver)
+	require.NoError(t, err)
+
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	assert.Equal(t, &driver, got)
+}
+
+func TestInsertDriver_DuplicateReturnsError(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	driver := store.Driver{
+		DriverID:   12345,
+		DriverName: "Jon Sabados",
+		FirstLogin: time.Unix(1000, 0),
+		LastLogin:  time.Unix(1000, 0),
+		LoginCount: 1,
+	}
+
+	err := s.InsertDriver(ctx, driver)
+	require.NoError(t, err)
+
+	err = s.InsertDriver(ctx, driver)
+	assert.ErrorIs(t, err, store.ErrEntityAlreadyExists)
+}
+
+func TestInsertDriver_IncrementsGlobalCounter(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, s.InsertDriver(ctx, store.Driver{
+		DriverID:   1,
+		DriverName: "Driver 1",
+		FirstLogin: time.Unix(1000, 0),
+		LastLogin:  time.Unix(1000, 0),
+		LoginCount: 1,
+	}))
+	require.NoError(t, s.InsertDriver(ctx, store.Driver{
+		DriverID:   2,
+		DriverName: "Driver 2",
+		FirstLogin: time.Unix(2000, 0),
+		LastLogin:  time.Unix(2000, 0),
+		LoginCount: 1,
+	}))
+
+	counters, err := s.GetGlobalCounters(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, int64(2), counters.Drivers)
+}
+
+func TestRecordLogin_Success(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	driver := store.Driver{
+		DriverID:   12345,
+		DriverName: "Jon Sabados",
+		FirstLogin: time.Unix(1000, 0),
+		LastLogin:  time.Unix(1000, 0),
+		LoginCount: 1,
+	}
+	require.NoError(t, s.InsertDriver(ctx, driver))
+
+	err := s.RecordLogin(ctx, 12345, time.Unix(2000, 0))
+	require.NoError(t, err)
+
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	assert.Equal(t, time.Unix(1000, 0), got.FirstLogin)
+	assert.Equal(t, time.Unix(2000, 0), got.LastLogin)
+	assert.Equal(t, int64(2), got.LoginCount)
+}
+
+func TestRecordLogin_MultipleLogins(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	driver := store.Driver{
+		DriverID:   12345,
+		DriverName: "Jon Sabados",
+		FirstLogin: time.Unix(1000, 0),
+		LastLogin:  time.Unix(1000, 0),
+		LoginCount: 1,
+	}
+	require.NoError(t, s.InsertDriver(ctx, driver))
+
+	require.NoError(t, s.RecordLogin(ctx, 12345, time.Unix(2000, 0)))
+	require.NoError(t, s.RecordLogin(ctx, 12345, time.Unix(3000, 0)))
+	require.NoError(t, s.RecordLogin(ctx, 12345, time.Unix(4000, 0)))
+
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	assert.Equal(t, time.Unix(1000, 0), got.FirstLogin)
+	assert.Equal(t, time.Unix(4000, 0), got.LastLogin)
+	assert.Equal(t, int64(4), got.LoginCount)
+}
+
+func TestRecordLogin_DriverNotFound(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	err := s.RecordLogin(ctx, 999, time.Unix(1000, 0))
+	assert.Error(t, err)
+}
+
 func setupTestStore(t *testing.T) *store.DynamoStore {
 	t.Helper()
 	t.Parallel()

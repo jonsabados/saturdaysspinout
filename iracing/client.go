@@ -15,7 +15,7 @@ const DataAPIBaseURL = "https://members-ng.iracing.com"
 
 // UserInfo contains basic info about an iRacing user
 type UserInfo struct {
-	UserID   int
+	UserID   int64
 	UserName string
 }
 
@@ -121,7 +121,7 @@ func (c *client) GetUserInfo(ctx context.Context, accessToken string) (*UserInfo
 	}
 
 	var apiResp struct {
-		CustID      int    `json:"cust_id"`
+		CustID      int64  `json:"cust_id"`
 		DisplayName string `json:"display_name"`
 	}
 	if err := json.Unmarshal(dataBody, &apiResp); err != nil {

@@ -52,7 +52,7 @@ type SensitiveClaims struct {
 type SessionClaims struct {
 	jwt.RegisteredClaims
 	SessionID       string          `json:"sid"`
-	IRacingUserID   int             `json:"ir_uid"`
+	IRacingUserID   int64           `json:"ir_uid"`
 	IRacingUserName string          `json:"ir_name"`
 	Encrypted       EncryptedClaims `json:"encrypted"`
 }
@@ -77,7 +77,7 @@ func NewJWTService(signer KMSSigner, encryptor KMSEncryptor, idGenerator IDGener
 	}
 }
 
-func (s *JWTService) CreateToken(ctx context.Context, userID int, userName string, accessToken, refreshToken string, tokenExpiry time.Time) (string, error) {
+func (s *JWTService) CreateToken(ctx context.Context, userID int64, userName string, accessToken, refreshToken string, tokenExpiry time.Time) (string, error) {
 	encryptedClaims, err := s.encryptSensitiveClaims(ctx, &SensitiveClaims{
 		IRacingAccessToken:  accessToken,
 		IRacingRefreshToken: refreshToken,
