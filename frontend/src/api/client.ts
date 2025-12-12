@@ -61,7 +61,11 @@ export class ApiClient {
   private async parseError(response: Response): Promise<Error> {
     try {
       const data = await response.json() as ApiError
-      return new Error(data.message || `Request failed: ${response.status}`)
+      let message = data.message || `Request failed: ${response.status}`
+      if (data.correlationId) {
+        message += ` (Correlation ID: ${data.correlationId})`
+      }
+      return new Error(message)
     } catch {
       return new Error(`Request failed: ${response.status}`)
     }
