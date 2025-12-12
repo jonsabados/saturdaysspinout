@@ -35,3 +35,9 @@ type GlobalCounters struct {
 	Tracks  int64
 	Notes   int64
 }
+
+type WebSocketConnection struct {
+	DriverID     int64
+	ConnectionID string
+	ConnectedAt  time.Time
+}
