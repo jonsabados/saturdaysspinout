@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/rs/zerolog"
 )
@@ -15,8 +17,9 @@ const DataAPIBaseURL = "https://members-ng.iracing.com"
 
 // UserInfo contains basic info about an iRacing user
 type UserInfo struct {
-	UserID   int64
-	UserName string
+	UserID      int64
+	UserName    string
+	MemberSince time.Time
 }
 
 // Client is the interface for the iRacing data API
@@ -56,6 +59,23 @@ func NewClient(httpClient HTTPClient, opts ...ClientOption) *client {
 // that return a signed S3 URL to fetch the actual data
 type linkResponse struct {
 	Link string `json:"link"`
+}
+
+// dateOnly handles unmarshaling date-only strings like "2024-08-07"
+type dateOnly time.Time
+
+func (d *dateOnly) UnmarshalJSON(data []byte) error {
+	s := strings.Trim(string(data), `"`)
+	t, err := time.Parse("2006-01-02", s)
+	if err != nil {
+		return err
+	}
+	*d = dateOnly(t)
+	return nil
+}
+
+func (d dateOnly) Time() time.Time {
+	return time.Time(d)
 }
 
 // GetUserInfo retrieves the current user's info from iRacing
@@ -121,15 +141,17 @@ func (c *client) GetUserInfo(ctx context.Context, accessToken string) (*UserInfo
 	}
 
 	var apiResp struct {
-		CustID      int64  `json:"cust_id"`
-		DisplayName string `json:"display_name"`
+		CustID      int64    `json:"cust_id"`
+		DisplayName string   `json:"display_name"`
+		MemberSince dateOnly `json:"member_since"`
 	}
 	if err := json.Unmarshal(dataBody, &apiResp); err != nil {
 		return nil, fmt.Errorf("parsing user info response: %w", err)
 	}
 
 	return &UserInfo{
-		UserID:   apiResp.CustID,
-		UserName: apiResp.DisplayName,
+		UserID:      apiResp.CustID,
+		UserName:    apiResp.DisplayName,
+		MemberSince: apiResp.MemberSince.Time(),
 	}, nil
 }

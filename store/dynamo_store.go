@@ -170,17 +170,24 @@ func (s *DynamoStore) GetDriver(ctx context.Context, driverID int64) (*Driver, e
 }
 
 func (s *DynamoStore) InsertDriver(ctx context.Context, driver Driver) error {
+	model := driverModel{
+		driverID:    driver.DriverID,
+		driverName:  driver.DriverName,
+		memberSince: driver.MemberSince.Unix(),
+		firstLogin:  driver.FirstLogin.Unix(),
+		lastLogin:   driver.LastLogin.Unix(),
+		loginCount:  driver.LoginCount,
+	}
+	if driver.RacesIngestedTo != nil {
+		rit := driver.RacesIngestedTo.Unix()
+		model.racesIngestedTo = &rit
+	}
+
 	_, err := s.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
 		TransactItems: []types.TransactWriteItem{
 			{
 				Put: &types.Put{
-					Item: driverModel{
-						driverID:   driver.DriverID,
-						driverName: driver.DriverName,
-						firstLogin: driver.FirstLogin.Unix(),
-						lastLogin:  driver.LastLogin.Unix(),
-						loginCount: driver.LoginCount,
-					}.toAttributeMap(),
+					Item:                model.toAttributeMap(),
 					TableName:           aws.String(s.table),
 					ConditionExpression: aws.String("attribute_not_exists(#pk)"),
 					ExpressionAttributeNames: map[string]string{

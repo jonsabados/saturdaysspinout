@@ -21,7 +21,12 @@
 - Delegate simple verification tasks to the user rather than running them directly
 - Examples: "does it build?", "do tests pass?", "does `make lint` succeed?"
 - Ask the user to run these and report back if there are issues
-  
+
+## Workflow
+- ALWAYS prompt the user for approval before making any file changes
+- Never auto-pilot through multiple changes without explicit go-ahead
+- Present proposed changes and wait for confirmation
+
 ## Architecture
 
 ### Directory Structure
@@ -58,3 +63,6 @@
   - Functional handlers: `NewXxxEndpoint(deps) → http.HandlerFunc`
   - Context carries: logger (zerolog), correlation ID, session claims
   - X-Ray tracing on all AWS SDK and HTTP clients
+
+### Terraform
+  - Tags are configured at the provider level - don't add `tags` blocks on individual resources

@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-
-	"github.com/jonsabados/saturdaysspinout/auth/mocks"
 )
 
 type ecdsaSignature struct {
@@ -36,8 +34,8 @@ func TestJWTService_CreateToken(t *testing.T) {
 
 	encryptedDataKey := []byte("encrypted-data-key")
 
-	mockSigner := mocks.NewMockKMSSigner(t)
-	mockEncryptor := mocks.NewMockKMSEncryptor(t)
+	mockSigner := NewMockKMSSigner(t)
+	mockEncryptor := NewMockKMSEncryptor(t)
 
 	// Set up encryptor expectations
 	mockEncryptor.EXPECT().
@@ -81,8 +79,8 @@ func TestJWTService_CreateAndValidateToken(t *testing.T) {
 
 	encryptedDataKey := []byte("encrypted-data-key")
 
-	mockSigner := mocks.NewMockKMSSigner(t)
-	mockEncryptor := mocks.NewMockKMSEncryptor(t)
+	mockSigner := NewMockKMSSigner(t)
+	mockEncryptor := NewMockKMSEncryptor(t)
 
 	// Set up encryptor for token creation
 	mockEncryptor.EXPECT().
@@ -150,8 +148,8 @@ func TestJWTService_ValidateToken_InvalidSignature(t *testing.T) {
 
 	encryptedDataKey := []byte("encrypted-data-key")
 
-	mockSigner := mocks.NewMockKMSSigner(t)
-	mockEncryptor := mocks.NewMockKMSEncryptor(t)
+	mockSigner := NewMockKMSSigner(t)
+	mockEncryptor := NewMockKMSEncryptor(t)
 
 	// Create token signed with key1
 	mockEncryptor.EXPECT().
@@ -196,8 +194,8 @@ func TestJWTService_ValidateToken_Expired(t *testing.T) {
 
 	encryptedDataKey := []byte("encrypted-data-key")
 
-	mockSigner := mocks.NewMockKMSSigner(t)
-	mockEncryptor := mocks.NewMockKMSEncryptor(t)
+	mockSigner := NewMockKMSSigner(t)
+	mockEncryptor := NewMockKMSEncryptor(t)
 
 	mockEncryptor.EXPECT().
 		GenerateDataKey(mock.Anything).
@@ -235,7 +233,7 @@ func TestKMSSignerAdapter(t *testing.T) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	mockClient := mocks.NewMockKMSClient(t)
+	mockClient := NewMockKMSClient(t)
 
 	testDigest := []byte("test-digest")
 	testSignature := []byte("test-signature")
@@ -274,7 +272,7 @@ func TestKMSSignerAdapter(t *testing.T) {
 func TestKMSEncryptorAdapter(t *testing.T) {
 	ctx := context.Background()
 
-	mockClient := mocks.NewMockKMSClient(t)
+	mockClient := NewMockKMSClient(t)
 	testKeyID := "test-key-id"
 
 	plaintext := []byte("plaintext-key")

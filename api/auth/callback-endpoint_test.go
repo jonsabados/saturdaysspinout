@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jonsabados/saturdaysspinout/api/auth/mocks"
 	"github.com/jonsabados/saturdaysspinout/auth"
 	"github.com/jonsabados/saturdaysspinout/correlation"
 	"github.com/stretchr/testify/assert"
@@ -108,7 +107,7 @@ func TestNewAuthCallbackEndpoint(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
 
-			authService := mocks.NewMockService(t)
+			authService := NewMockService(t)
 			for _, call := range tc.expectedAuthServiceCalls {
 				authService.EXPECT().HandleCallback(mock.Anything, call.inputCode, call.inputCodeVerifier, call.redirectURI).Return(call.result, call.resultErr)
 			}

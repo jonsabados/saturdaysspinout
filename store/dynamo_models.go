@@ -168,23 +168,30 @@ func driverNoteFromAttributeMap(driverID int64, item map[string]types.AttributeV
 }
 
 type driverModel struct {
-	driverID   int64
-	driverName string
-	firstLogin int64
-	lastLogin  int64
-	loginCount int64
+	driverID        int64
+	driverName      string
+	memberSince     int64
+	racesIngestedTo *int64
+	firstLogin      int64
+	lastLogin       int64
+	loginCount      int64
 }
 
 func (d driverModel) toAttributeMap() map[string]types.AttributeValue {
-	return map[string]types.AttributeValue{
+	m := map[string]types.AttributeValue{
 		partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, d.driverID)},
 		sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
 		"driver_id":      &types.AttributeValueMemberN{Value: strconv.FormatInt(d.driverID, 10)},
 		"driver_name":    &types.AttributeValueMemberS{Value: d.driverName},
+		"member_since":   &types.AttributeValueMemberN{Value: strconv.FormatInt(d.memberSince, 10)},
 		"first_login":    &types.AttributeValueMemberN{Value: strconv.FormatInt(d.firstLogin, 10)},
 		"last_login":     &types.AttributeValueMemberN{Value: strconv.FormatInt(d.lastLogin, 10)},
 		"login_count":    &types.AttributeValueMemberN{Value: strconv.FormatInt(d.loginCount, 10)},
 	}
+	if d.racesIngestedTo != nil {
+		m["races_ingested_to"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(*d.racesIngestedTo, 10)}
+	}
+	return m
 }
 
 func driverFromAttributeMap(item map[string]types.AttributeValue) (*Driver, error) {
@@ -229,12 +236,33 @@ func driverFromAttributeMap(item map[string]types.AttributeValue) (*Driver, erro
 		return nil, fmt.Errorf("invalid 'login_count' value: %w", err)
 	}
 
+	memberSinceAttr, ok := item["member_since"].(*types.AttributeValueMemberN)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid 'member_since' attribute")
+	}
+	memberSince, err := strconv.ParseInt(memberSinceAttr.Value, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid 'member_since' value: %w", err)
+	}
+
+	var racesIngestedTo *time.Time
+	if racesIngestedToAttr, ok := item["races_ingested_to"].(*types.AttributeValueMemberN); ok {
+		rit, err := strconv.ParseInt(racesIngestedToAttr.Value, 10, 64)
+		if err != nil {
+			return nil, fmt.Errorf("invalid 'races_ingested_to' value: %w", err)
+		}
+		t := time.Unix(rit, 0)
+		racesIngestedTo = &t
+	}
+
 	return &Driver{
-		DriverID:   driverID,
-		DriverName: driverNameAttr.Value,
-		FirstLogin: time.Unix(firstLogin, 0),
-		LastLogin:  time.Unix(lastLogin, 0),
-		LoginCount: loginCount,
+		DriverID:        driverID,
+		DriverName:      driverNameAttr.Value,
+		MemberSince:     time.Unix(memberSince, 0),
+		RacesIngestedTo: racesIngestedTo,
+		FirstLogin:      time.Unix(firstLogin, 0),
+		LastLogin:       time.Unix(lastLogin, 0),
+		LoginCount:      loginCount,
 	}, nil
 }
 

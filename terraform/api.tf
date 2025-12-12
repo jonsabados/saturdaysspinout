@@ -9,6 +9,7 @@ locals {
     JWT_SIGNING_KEY_ARN        = aws_kms_key.jwt.arn
     JWT_ENCRYPTION_KEY_ARN     = aws_kms_key.jwt_encryption.arn
     DYNAMODB_TABLE             = aws_dynamodb_table.application_store.name
+    RACE_INGESTION_QUEUE_URL   = aws_sqs_queue.race_ingestion_requests.url
   }
 }
 
@@ -96,6 +97,17 @@ data "aws_iam_policy_document" "api_lambda" {
     ]
     resources = [
       aws_kms_key.jwt_encryption.arn
+    ]
+  }
+
+  statement {
+    sid    = "AllowSQSSendMessage"
+    effect = "Allow"
+    actions = [
+      "sqs:SendMessage"
+    ]
+    resources = [
+      aws_sqs_queue.race_ingestion_requests.arn
     ]
   }
 }

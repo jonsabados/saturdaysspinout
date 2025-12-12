@@ -2,12 +2,11 @@
 // github.com/vektra/mockery
 // template: testify
 
-package mocks
+package iracing
 
 import (
 	"context"
 
-	"github.com/jonsabados/saturdaysspinout/iracing"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -39,23 +38,23 @@ func (_m *MockClient) EXPECT() *MockClient_Expecter {
 }
 
 // GetUserInfo provides a mock function for the type MockClient
-func (_mock *MockClient) GetUserInfo(ctx context.Context, accessToken string) (*iracing.UserInfo, error) {
+func (_mock *MockClient) GetUserInfo(ctx context.Context, accessToken string) (*UserInfo, error) {
 	ret := _mock.Called(ctx, accessToken)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetUserInfo")
 	}
 
-	var r0 *iracing.UserInfo
+	var r0 *UserInfo
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*iracing.UserInfo, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) (*UserInfo, error)); ok {
 		return returnFunc(ctx, accessToken)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *iracing.UserInfo); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string) *UserInfo); ok {
 		r0 = returnFunc(ctx, accessToken)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*iracing.UserInfo)
+			r0 = ret.Get(0).(*UserInfo)
 		}
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string) error); ok {
@@ -96,12 +95,12 @@ func (_c *MockClient_GetUserInfo_Call) Run(run func(ctx context.Context, accessT
 	return _c
 }
 
-func (_c *MockClient_GetUserInfo_Call) Return(userInfo *iracing.UserInfo, err error) *MockClient_GetUserInfo_Call {
+func (_c *MockClient_GetUserInfo_Call) Return(userInfo *UserInfo, err error) *MockClient_GetUserInfo_Call {
 	_c.Call.Return(userInfo, err)
 	return _c
 }
 
-func (_c *MockClient_GetUserInfo_Call) RunAndReturn(run func(ctx context.Context, accessToken string) (*iracing.UserInfo, error)) *MockClient_GetUserInfo_Call {
+func (_c *MockClient_GetUserInfo_Call) RunAndReturn(run func(ctx context.Context, accessToken string) (*UserInfo, error)) *MockClient_GetUserInfo_Call {
 	_c.Call.Return(run)
 	return _c
 }

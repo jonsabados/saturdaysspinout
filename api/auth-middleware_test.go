@@ -10,7 +10,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/jonsabados/saturdaysspinout/api/mocks"
 	"github.com/jonsabados/saturdaysspinout/auth"
 	"github.com/jonsabados/saturdaysspinout/correlation"
 	"github.com/stretchr/testify/assert"
@@ -42,39 +41,39 @@ func TestAuthMiddleware(t *testing.T) {
 	testCases := []struct {
 		name string
 
-		httpMethod      string
-		authHeader      string
-		validatorCalls  []validatorCall
+		httpMethod       string
+		authHeader       string
+		validatorCalls   []validatorCall
 		expectNextCalled bool
 
 		expectedResponseStatus      int
 		expectedResponseBodyFixture string
 	}{
 		{
-			name:             "OPTIONS bypasses auth",
-			httpMethod:       http.MethodOptions,
-			authHeader:       "",
-			validatorCalls:   []validatorCall{},
-			expectNextCalled: true,
-			expectedResponseStatus: http.StatusOK,
+			name:                        "OPTIONS bypasses auth",
+			httpMethod:                  http.MethodOptions,
+			authHeader:                  "",
+			validatorCalls:              []validatorCall{},
+			expectNextCalled:            true,
+			expectedResponseStatus:      http.StatusOK,
 			expectedResponseBodyFixture: "fixtures/auth_middleware_options_response.json",
 		},
 		{
-			name:             "missing authorization header",
-			httpMethod:       http.MethodGet,
-			authHeader:       "",
-			validatorCalls:   []validatorCall{},
-			expectNextCalled: false,
-			expectedResponseStatus: http.StatusUnauthorized,
+			name:                        "missing authorization header",
+			httpMethod:                  http.MethodGet,
+			authHeader:                  "",
+			validatorCalls:              []validatorCall{},
+			expectNextCalled:            false,
+			expectedResponseStatus:      http.StatusUnauthorized,
 			expectedResponseBodyFixture: "fixtures/auth_middleware_missing_header_response.json",
 		},
 		{
-			name:             "invalid authorization header format",
-			httpMethod:       http.MethodGet,
-			authHeader:       "Basic dXNlcjpwYXNz",
-			validatorCalls:   []validatorCall{},
-			expectNextCalled: false,
-			expectedResponseStatus: http.StatusUnauthorized,
+			name:                        "invalid authorization header format",
+			httpMethod:                  http.MethodGet,
+			authHeader:                  "Basic dXNlcjpwYXNz",
+			validatorCalls:              []validatorCall{},
+			expectNextCalled:            false,
+			expectedResponseStatus:      http.StatusUnauthorized,
 			expectedResponseBodyFixture: "fixtures/auth_middleware_invalid_format_response.json",
 		},
 		{
@@ -89,8 +88,8 @@ func TestAuthMiddleware(t *testing.T) {
 					err:             errors.New("token expired"),
 				},
 			},
-			expectNextCalled: false,
-			expectedResponseStatus: http.StatusUnauthorized,
+			expectNextCalled:            false,
+			expectedResponseStatus:      http.StatusUnauthorized,
 			expectedResponseBodyFixture: "fixtures/auth_middleware_invalid_token_response.json",
 		},
 		{
@@ -105,8 +104,8 @@ func TestAuthMiddleware(t *testing.T) {
 					err:             nil,
 				},
 			},
-			expectNextCalled: true,
-			expectedResponseStatus: http.StatusOK,
+			expectNextCalled:            true,
+			expectedResponseStatus:      http.StatusOK,
 			expectedResponseBodyFixture: "fixtures/auth_middleware_success_response.json",
 		},
 	}
@@ -115,7 +114,7 @@ func TestAuthMiddleware(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
 
-			validator := mocks.NewMockTokenValidator(t)
+			validator := NewMockTokenValidator(t)
 			for _, call := range tc.validatorCalls {
 				validator.EXPECT().ValidateToken(mock.Anything, call.inputToken).Return(call.sessionClaims, call.sensitiveClaims, call.err)
 			}
@@ -133,8 +132,8 @@ func TestAuthMiddleware(t *testing.T) {
 				}
 				if claims := SessionClaimsFromContext(r.Context()); claims != nil {
 					response["session_claims"] = map[string]any{
-						"session_id":      claims.SessionID,
-						"iracing_user_id": claims.IRacingUserID,
+						"session_id":        claims.SessionID,
+						"iracing_user_id":   claims.IRacingUserID,
 						"iracing_user_name": claims.IRacingUserName,
 					}
 				}

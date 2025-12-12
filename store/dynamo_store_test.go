@@ -221,11 +221,12 @@ func TestInsertDriver_Success(t *testing.T) {
 	ctx := context.Background()
 
 	driver := store.Driver{
-		DriverID:   12345,
-		DriverName: "Jon Sabados",
-		FirstLogin: time.Unix(1000, 0),
-		LastLogin:  time.Unix(1000, 0),
-		LoginCount: 1,
+		DriverID:    12345,
+		DriverName:  "Jon Sabados",
+		MemberSince: time.Unix(500, 0),
+		FirstLogin:  time.Unix(1000, 0),
+		LastLogin:   time.Unix(1000, 0),
+		LoginCount:  1,
 	}
 
 	err := s.InsertDriver(ctx, driver)
@@ -241,11 +242,12 @@ func TestInsertDriver_DuplicateReturnsError(t *testing.T) {
 	ctx := context.Background()
 
 	driver := store.Driver{
-		DriverID:   12345,
-		DriverName: "Jon Sabados",
-		FirstLogin: time.Unix(1000, 0),
-		LastLogin:  time.Unix(1000, 0),
-		LoginCount: 1,
+		DriverID:    12345,
+		DriverName:  "Jon Sabados",
+		MemberSince: time.Unix(500, 0),
+		FirstLogin:  time.Unix(1000, 0),
+		LastLogin:   time.Unix(1000, 0),
+		LoginCount:  1,
 	}
 
 	err := s.InsertDriver(ctx, driver)
@@ -260,18 +262,20 @@ func TestInsertDriver_IncrementsGlobalCounter(t *testing.T) {
 	ctx := context.Background()
 
 	require.NoError(t, s.InsertDriver(ctx, store.Driver{
-		DriverID:   1,
-		DriverName: "Driver 1",
-		FirstLogin: time.Unix(1000, 0),
-		LastLogin:  time.Unix(1000, 0),
-		LoginCount: 1,
+		DriverID:    1,
+		DriverName:  "Driver 1",
+		MemberSince: time.Unix(500, 0),
+		FirstLogin:  time.Unix(1000, 0),
+		LastLogin:   time.Unix(1000, 0),
+		LoginCount:  1,
 	}))
 	require.NoError(t, s.InsertDriver(ctx, store.Driver{
-		DriverID:   2,
-		DriverName: "Driver 2",
-		FirstLogin: time.Unix(2000, 0),
-		LastLogin:  time.Unix(2000, 0),
-		LoginCount: 1,
+		DriverID:    2,
+		DriverName:  "Driver 2",
+		MemberSince: time.Unix(1500, 0),
+		FirstLogin:  time.Unix(2000, 0),
+		LastLogin:   time.Unix(2000, 0),
+		LoginCount:  1,
 	}))
 
 	counters, err := s.GetGlobalCounters(ctx)
@@ -284,11 +288,12 @@ func TestRecordLogin_Success(t *testing.T) {
 	ctx := context.Background()
 
 	driver := store.Driver{
-		DriverID:   12345,
-		DriverName: "Jon Sabados",
-		FirstLogin: time.Unix(1000, 0),
-		LastLogin:  time.Unix(1000, 0),
-		LoginCount: 1,
+		DriverID:    12345,
+		DriverName:  "Jon Sabados",
+		MemberSince: time.Unix(500, 0),
+		FirstLogin:  time.Unix(1000, 0),
+		LastLogin:   time.Unix(1000, 0),
+		LoginCount:  1,
 	}
 	require.NoError(t, s.InsertDriver(ctx, driver))
 
@@ -307,11 +312,12 @@ func TestRecordLogin_MultipleLogins(t *testing.T) {
 	ctx := context.Background()
 
 	driver := store.Driver{
-		DriverID:   12345,
-		DriverName: "Jon Sabados",
-		FirstLogin: time.Unix(1000, 0),
-		LastLogin:  time.Unix(1000, 0),
-		LoginCount: 1,
+		DriverID:    12345,
+		DriverName:  "Jon Sabados",
+		MemberSince: time.Unix(500, 0),
+		FirstLogin:  time.Unix(1000, 0),
+		LastLogin:   time.Unix(1000, 0),
+		LoginCount:  1,
 	}
 	require.NoError(t, s.InsertDriver(ctx, driver))
 
