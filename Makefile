@@ -72,11 +72,14 @@ dist:
 dist/apiLambda.zip: dist $(GO_FILES)
 	./scripts/build-lambda.sh github.com/jonsabados/saturdaysspinout/cmd/lambda-based-api dist/apiLambda.zip
 
+dist/websocketLambda.zip: dist $(GO_FILES)
+	./scripts/build-lambda.sh github.com/jonsabados/saturdaysspinout/cmd/websocket-lambda dist/websocketLambda.zip
+
 .PHONY: build
-build: dist/apiLambda.zip ## Build all Lambda deployment packages
+build: dist/apiLambda.zip dist/websocketLambda.zip ## Build all Lambda deployment packages
 
 frontend/dist: $(FRONTEND_FILES) frontend/package.json frontend/package-lock.json frontend/index.html
-	cd frontend && npm ci && VITE_API_BASE_URL=$$(terraform -chdir=../terraform output -raw api_url) npm run build
+	cd frontend && npm ci && VITE_API_BASE_URL=$$(terraform -chdir=../terraform output -raw api_url) VITE_WS_BASE_URL=$$(terraform -chdir=../terraform output -raw ws_url) npm run build
 
 .PHONY: build-frontend
 build-frontend: frontend/dist ## Build frontend for deployment
@@ -100,4 +103,4 @@ run-rest-api: ## Run backend API locally
 
 .PHONY: run-frontend
 run-frontend: ## Run frontend dev server
-	cd frontend && npm install && npm run dev
+	cd frontend && npm install && VITE_WS_BASE_URL=$$(terraform -chdir=../terraform output -raw ws_url) npm run dev

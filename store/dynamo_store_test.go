@@ -334,6 +334,162 @@ func TestRecordLogin_DriverNotFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestSaveConnection_Success(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	conn := store.WebSocketConnection{
+		DriverID:     12345,
+		ConnectionID: "abc123",
+	}
+
+	err := s.SaveConnection(ctx, conn)
+	require.NoError(t, err)
+
+	// Verify by reading it back
+	got, err := s.GetConnection(ctx, 12345, "abc123")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, int64(12345), got.DriverID)
+	assert.Equal(t, "abc123", got.ConnectionID)
+	assert.False(t, got.ConnectedAt.IsZero())
+}
+
+func TestSaveConnection_OverwritesExisting(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	conn := store.WebSocketConnection{
+		DriverID:     12345,
+		ConnectionID: "abc123",
+	}
+
+	err := s.SaveConnection(ctx, conn)
+	require.NoError(t, err)
+
+	// Save again with same IDs - should overwrite without error
+	err = s.SaveConnection(ctx, conn)
+	require.NoError(t, err)
+
+	// Should still only have one connection
+	connections, err := s.GetConnectionsByDriver(ctx, 12345)
+	require.NoError(t, err)
+	assert.Len(t, connections, 1)
+}
+
+func TestGetConnection_NotFound(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	got, err := s.GetConnection(ctx, 999, "nonexistent")
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}
+
+func TestGetConnection_WrongDriver(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	conn := store.WebSocketConnection{
+		DriverID:     12345,
+		ConnectionID: "abc123",
+	}
+	require.NoError(t, s.SaveConnection(ctx, conn))
+
+	// Try to get with wrong driver ID
+	got, err := s.GetConnection(ctx, 99999, "abc123")
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}
+
+func TestDeleteConnection_Success(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	conn := store.WebSocketConnection{
+		DriverID:     12345,
+		ConnectionID: "abc123",
+	}
+	require.NoError(t, s.SaveConnection(ctx, conn))
+
+	err := s.DeleteConnection(ctx, 12345, "abc123")
+	require.NoError(t, err)
+
+	// Verify it's gone
+	got, err := s.GetConnection(ctx, 12345, "abc123")
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}
+
+func TestDeleteConnection_NotFoundNoError(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Deleting non-existent connection should not error
+	err := s.DeleteConnection(ctx, 999, "nonexistent")
+	require.NoError(t, err)
+}
+
+func TestGetConnectionsByDriver_Success(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Create multiple connections for same driver
+	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+		DriverID:     12345,
+		ConnectionID: "conn1",
+	}))
+	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+		DriverID:     12345,
+		ConnectionID: "conn2",
+	}))
+	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+		DriverID:     12345,
+		ConnectionID: "conn3",
+	}))
+
+	connections, err := s.GetConnectionsByDriver(ctx, 12345)
+	require.NoError(t, err)
+	assert.Len(t, connections, 3)
+
+	// Verify all connection IDs are present
+	connIDs := make([]string, len(connections))
+	for i, c := range connections {
+		connIDs[i] = c.ConnectionID
+	}
+	assert.ElementsMatch(t, []string{"conn1", "conn2", "conn3"}, connIDs)
+}
+
+func TestGetConnectionsByDriver_Empty(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	connections, err := s.GetConnectionsByDriver(ctx, 999)
+	require.NoError(t, err)
+	assert.Empty(t, connections)
+}
+
+func TestGetConnectionsByDriver_IsolatedByDriver(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Create connections for different drivers
+	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+		DriverID:     111,
+		ConnectionID: "conn-driver1",
+	}))
+	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+		DriverID:     222,
+		ConnectionID: "conn-driver2",
+	}))
+
+	// Query for driver 111 only
+	connections, err := s.GetConnectionsByDriver(ctx, 111)
+	require.NoError(t, err)
+	require.Len(t, connections, 1)
+	assert.Equal(t, "conn-driver1", connections[0].ConnectionID)
+}
+
 func setupTestStore(t *testing.T) *store.DynamoStore {
 	t.Helper()
 	t.Parallel()
