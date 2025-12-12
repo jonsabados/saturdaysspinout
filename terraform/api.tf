@@ -183,6 +183,8 @@ resource "aws_api_gateway_deployment" "api" {
     module.health_ping_options,
     module.auth_ir_callback_post,
     module.auth_ir_callback_options,
+    module.auth_refresh_post,
+    module.auth_refresh_options,
     module.doc_iracing_api_get,
     module.doc_iracing_api_options,
     module.doc_iracing_api_proxy_get,

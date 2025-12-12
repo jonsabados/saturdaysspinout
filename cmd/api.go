@@ -50,21 +50,18 @@ func CreateAPI() http.Handler {
 
 	logger.Info().Msg("starting rest API")
 
-	// load our config from environmental variables
 	var cfg appCfg
 	err := envconfig.Process("", &cfg)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("error loading config")
 	}
 
-	// set the log level per our config
 	logLevel, err := zerolog.ParseLevel(cfg.LogLevel)
 	if err != nil {
 		logger.Fatal().Str("input", cfg.LogLevel).Err(err).Msg("error parsing log level")
 	}
 	logger = logger.Level(logLevel)
 
-	// initialize x-ray
 	err = xray.Configure(xray.Config{
 		LogLevel: "warn",
 	})
@@ -75,7 +72,6 @@ func CreateAPI() http.Handler {
 	// get x-ray goodness going with the http client we will be using
 	httpClient := xray.Client(http.DefaultClient)
 
-	// get our AWS environment setup
 	awsCfg, err := config.LoadDefaultConfig(ctx, config.WithHTTPClient(httpClient))
 	if err != nil {
 		logger.Fatal().Err(err).Msg("error loading default config")
@@ -84,7 +80,6 @@ func CreateAPI() http.Handler {
 	// add x-ray instrumentation to all the AWS clients
 	awsv2.AWSV2Instrumentor(&awsCfg.APIOptions)
 
-	// fetch iRacing OAuth credentials from secrets manager
 	secretsClient := secretsmanager.NewFromConfig(awsCfg)
 	secretResult, err := secretsClient.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
 		SecretId: &cfg.IRacingCredentialsSecret,
@@ -102,31 +97,28 @@ func CreateAPI() http.Handler {
 	secretHash := sha256.Sum256([]byte(iRacingCreds.OauthClientSecret))
 	logger.Info().Str("oauth_client_id", iRacingCreds.OauthClientID).Str("oauth_client_secret_sha256", hex.EncodeToString(secretHash[:])).Msg("loaded iRacing OAuth credentials")
 
-	// setup KMS clients for JWT signing and encryption
 	kmsClient := kms.NewFromConfig(awsCfg)
 	awsKMSClient := auth.NewAWSKMSClient(kmsClient)
 	jwtSigner := auth.NewKMSSignerAdapter(awsKMSClient, cfg.JWTSigningKeyARN)
 	jwtEncryptor := auth.NewKMSEncryptorAdapter(awsKMSClient, cfg.JWTEncryptionKeyARN)
 
-	// setup JWT service
 	jwtService := auth.NewJWTService(jwtSigner, jwtEncryptor, uuid.NewString, "saturdaysspinout", 24*time.Hour)
 
-	// setup DynamoDB store
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	driverStore := store.NewDynamoStore(dynamoClient, cfg.DynamoDBTable)
 
-	// setup iRacing clients
-	iracingOAuthClient := iracing.NewOAuthClient(httpClient, iRacingCreds.OauthClientID, iRacingCreds.OauthClientSecret)
-	iracingClient := iracing.NewClient(httpClient)
+	iRacingOAuthClient := iracing.NewOAuthClient(httpClient, iRacingCreds.OauthClientID, iRacingCreds.OauthClientSecret)
+	iRacingClient := iracing.NewClient(httpClient)
 
-	// setup auth service
-	authService := auth.NewService(iracingOAuthClient, jwtService, iracingClient, driverStore)
+	authService := auth.NewService(iRacingOAuthClient, jwtService, iRacingClient, driverStore)
+
+	authMiddleware := api.AuthMiddleware(jwtService)
 
 	routers := api.RootRouters{
 		HealthRouter: health.NewRouter(),
-		AuthRouter:   apiAuth.NewRouter(authService),
-		DocRouter:    doc.NewRouter(iracing.NewDocClient(httpClient)),
+		AuthRouter:   apiAuth.NewRouter(authService, authMiddleware),
+		DocRouter:    doc.NewRouter(iracing.NewDocClient(httpClient), authMiddleware),
 	}
 
-	return api.NewRestAPI(logger, uuid.NewString, cfg.CORSAllowedOrigins, routers, jwtService)
+	return api.NewRestAPI(logger, uuid.NewString, cfg.CORSAllowedOrigins, routers)
 }

@@ -18,6 +18,7 @@ type Result struct {
 
 type OAuthClient interface {
 	ExchangeCode(ctx context.Context, code, codeVerifier, redirectURI string) (*iracing.TokenResponse, error)
+	RefreshToken(ctx context.Context, refreshToken string) (*iracing.TokenResponse, error)
 }
 
 type UserInfoProvider interface {
@@ -50,6 +51,27 @@ func NewService(oauthClient OAuthClient, jwtCreator JWTCreator, userInfoProvider
 		driverStore:      driverStore,
 		now:              time.Now,
 	}
+}
+
+// HandleRefresh refreshes the iRacing tokens and issues a new JWT
+func (s *Service) HandleRefresh(ctx context.Context, userID int64, userName string, refreshToken string) (*Result, error) {
+	tokenResp, err := s.oauthClient.RefreshToken(ctx, refreshToken)
+	if err != nil {
+		return nil, fmt.Errorf("refreshing iRacing token: %w", err)
+	}
+
+	tokenExpiry := s.now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
+	jwt, err := s.jwtCreator.CreateToken(ctx, userID, userName, tokenResp.AccessToken, tokenResp.RefreshToken, tokenExpiry)
+	if err != nil {
+		return nil, fmt.Errorf("creating JWT: %w", err)
+	}
+
+	return &Result{
+		Token:     jwt,
+		ExpiresAt: tokenExpiry,
+		UserID:    userID,
+		UserName:  userName,
+	}, nil
 }
 
 // HandleCallback processes an OAuth callback from iRacing after a user has authenticated is returning to our site
