@@ -47,6 +47,7 @@ router.afterEach(() => {
 
     <div class="nav-links" :class="{ open: menuOpen }">
       <template v-if="authStore.isLoggedIn">
+        <RouterLink to="/race-history" class="nav-link" @click="closeMenu">Race History</RouterLink>
         <RouterLink to="/iracing-api" class="nav-link" @click="closeMenu">iRacing API Explorer</RouterLink>
         <span class="user-name">{{ authStore.userName }}</span>
         <button @click="handleLogout" class="nav-button">Logout</button>

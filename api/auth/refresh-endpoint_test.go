@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -11,14 +12,20 @@ import (
 	"time"
 
 	"github.com/jonsabados/saturdaysspinout/api"
-	"github.com/jonsabados/saturdaysspinout/api/auth/mocks"
-	apiMocks "github.com/jonsabados/saturdaysspinout/api/mocks"
 	"github.com/jonsabados/saturdaysspinout/auth"
 	"github.com/jonsabados/saturdaysspinout/correlation"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
+
+type stubTokenValidator struct {
+	validateFunc func(ctx context.Context, token string) (*auth.SessionClaims, *auth.SensitiveClaims, error)
+}
+
+func (s *stubTokenValidator) ValidateToken(ctx context.Context, token string) (*auth.SessionClaims, *auth.SensitiveClaims, error) {
+	return s.validateFunc(ctx, token)
+}
 
 func TestNewAuthRefreshEndpoint(t *testing.T) {
 	type validatorCall struct {
@@ -130,12 +137,20 @@ func TestNewAuthRefreshEndpoint(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
 
-			validator := apiMocks.NewMockTokenValidator(t)
-			for _, call := range tc.expectedValidatorCalls {
-				validator.EXPECT().ValidateToken(mock.Anything, call.inputToken).Return(call.sessionClaims, call.sensitiveClaims, call.err)
+			validator := &stubTokenValidator{
+				validateFunc: func(ctx context.Context, token string) (*auth.SessionClaims, *auth.SensitiveClaims, error) {
+					if len(tc.expectedValidatorCalls) == 0 {
+						return nil, nil, fmt.Errorf("unexpected call to ValidateToken")
+					}
+					call := tc.expectedValidatorCalls[0]
+					if token != call.inputToken {
+						return nil, nil, fmt.Errorf("unexpected token: got %s, want %s", token, call.inputToken)
+					}
+					return call.sessionClaims, call.sensitiveClaims, call.err
+				},
 			}
 
-			authService := mocks.NewMockService(t)
+			authService := NewMockService(t)
 			for _, call := range tc.expectedAuthServiceCalls {
 				authService.EXPECT().HandleRefresh(mock.Anything, call.inputUserID, call.inputUserName, call.inputRefreshToken).Return(call.result, call.resultErr)
 			}

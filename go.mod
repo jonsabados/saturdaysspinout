@@ -11,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.53.3
 	github.com/aws/aws-sdk-go-v2/service/kms v1.49.3
 	github.com/aws/aws-sdk-go-v2/service/secretsmanager v1.40.4
+	github.com/aws/aws-sdk-go-v2/service/sqs v1.42.20
 	github.com/aws/aws-xray-sdk-go/v2 v2.0.0
 	github.com/awslabs/aws-lambda-go-api-proxy v0.16.2
 	github.com/go-chi/chi/v5 v5.2.3

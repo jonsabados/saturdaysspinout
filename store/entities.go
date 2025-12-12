@@ -13,11 +13,13 @@ type Track struct {
 }
 
 type Driver struct {
-	DriverID   int64
-	DriverName string
-	FirstLogin time.Time
-	LastLogin  time.Time
-	LoginCount int64
+	DriverID        int64
+	DriverName      string
+	MemberSince     time.Time
+	RacesIngestedTo *time.Time
+	FirstLogin      time.Time
+	LastLogin       time.Time
+	LoginCount      int64
 }
 
 type DriverNote struct {
