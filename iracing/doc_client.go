@@ -63,6 +63,10 @@ func (c *DocClient) Fetch(ctx context.Context, accessToken string, path string) 
 		contentType = "application/json"
 	}
 
+	if resp.StatusCode == http.StatusUnauthorized {
+		return nil, "", fmt.Errorf("%w: %s", ErrUpstreamUnauthorized, string(body))
+	}
+
 	if resp.StatusCode != http.StatusOK {
 		return nil, "", fmt.Errorf("request failed with status %d: %s", resp.StatusCode, string(body))
 	}

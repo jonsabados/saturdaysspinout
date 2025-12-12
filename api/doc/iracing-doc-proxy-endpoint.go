@@ -2,12 +2,14 @@ package doc
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog"
 
 	"github.com/jonsabados/saturdaysspinout/api"
+	"github.com/jonsabados/saturdaysspinout/iracing"
 )
 
 type Fetcher interface {
@@ -29,6 +31,11 @@ func NewIRacingDocProxyEndpoint(fetcher Fetcher) http.Handler {
 
 		body, contentType, err := fetcher.Fetch(ctx, claims.IRacingAccessToken, path)
 		if err != nil {
+			if errors.Is(err, iracing.ErrUpstreamUnauthorized) {
+				logger.Warn().Err(err).Str("path", path).Msg("iracing token expired")
+				api.DoUnauthorizedResponse(ctx, "iRacing access token expired", w)
+				return
+			}
 			logger.Error().Err(err).Str("path", path).Msg("failed to fetch iracing doc")
 			api.DoErrorResponse(ctx, w)
 			return
