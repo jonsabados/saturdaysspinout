@@ -17,6 +17,7 @@ const trackPartitionKeyFormat = "track#%d"
 
 const driverPartitionFormat = "driver#%d"
 const driverNoteSortKeyFormat = "note#%d" // note, the number should be a unix timestamp allowing us to find notes within a specified time period
+const wsConnectionSortKeyFormat = "ws#%s"
 
 const globalCountersPartitionKey = "global"
 const globalCountersSortKey = "counters"
@@ -234,5 +235,55 @@ func driverFromAttributeMap(item map[string]types.AttributeValue) (*Driver, erro
 		FirstLogin: time.Unix(firstLogin, 0),
 		LastLogin:  time.Unix(lastLogin, 0),
 		LoginCount: loginCount,
+	}, nil
+}
+
+type wsConnectionModel struct {
+	driverID     int64
+	connectionID string
+	connectedAt  int64
+	ttl          int64
+}
+
+func (c wsConnectionModel) toAttributeMap() map[string]types.AttributeValue {
+	return map[string]types.AttributeValue{
+		partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, c.driverID)},
+		sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(wsConnectionSortKeyFormat, c.connectionID)},
+		"connection_id":  &types.AttributeValueMemberS{Value: c.connectionID},
+		"connected_at":   &types.AttributeValueMemberN{Value: strconv.FormatInt(c.connectedAt, 10)},
+		"ttl":            &types.AttributeValueMemberN{Value: strconv.FormatInt(c.ttl, 10)},
+	}
+}
+
+func wsConnectionFromAttributeMap(item map[string]types.AttributeValue) (*WebSocketConnection, error) {
+	connectionIDAttr, ok := item["connection_id"].(*types.AttributeValueMemberS)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid 'connection_id' attribute")
+	}
+
+	connectedAtAttr, ok := item["connected_at"].(*types.AttributeValueMemberN)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid 'connected_at' attribute")
+	}
+	connectedAt, err := strconv.ParseInt(connectedAtAttr.Value, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid 'connected_at' value: %w", err)
+	}
+
+	// Extract driver ID from partition key (format: "driver#123")
+	pkAttr, ok := item[partitionKeyName].(*types.AttributeValueMemberS)
+	if !ok {
+		return nil, fmt.Errorf("missing or invalid partition key")
+	}
+	var driverID int64
+	_, err = fmt.Sscanf(pkAttr.Value, driverPartitionFormat, &driverID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid partition key format: %w", err)
+	}
+
+	return &WebSocketConnection{
+		DriverID:     driverID,
+		ConnectionID: connectionIDAttr.Value,
+		ConnectedAt:  time.Unix(connectedAt, 0),
 	}, nil
 }

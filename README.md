@@ -13,11 +13,16 @@ flowchart TB
     end
 
     CF1 --> S3_SPA["S3 Bucket<br/>(Vue SPA)"]
-    CF2 --> APIGW["API Gateway"]
+    CF2 --> APIGW["API Gateway<br/>(REST)"]
     CF3 --> S3_Static["S3 Bucket<br/>(Static)"]
 
     APIGW --> Lambda["Lambda<br/>(Go)"]
     Lambda --> DynamoDB["DynamoDB"]
+    Lambda --> KMS["KMS"]
+
+    WS_APIGW["API Gateway<br/>(WebSocket)"] --> WS_Lambda["WebSocket Lambda<br/>(Go)"]
+    WS_Lambda --> DynamoDB
+    WS_Lambda --> KMS["KMS"]
 ```
 
 ## Project Structure
@@ -28,11 +33,13 @@ flowchart TB
 ├── api/                    # API endpoint handlers and HTTP setup
 ├── auth/                   # JWT creation and KMS-based signing/encryption
 ├── cmd/                    # Application entry points
-│   ├── lambda-based-api/   # AWS Lambda handler
-│   └── standalone-api/     # Local development server
+│   ├── lambda-based-api/   # AWS Lambda handler (REST API)
+│   ├── standalone-api/     # Local development server
+│   └── websocket-lambda/   # WebSocket Lambda handler
 ├── correlation/            # Request correlation ID middleware
 ├── iracing/                # iRacing API client and OAuth integration
 ├── store/                  # Data persistence layer (DynamoDB)
+├── ws/                     # WebSocket handler package
 ├── frontend/               # Vue 3 SPA
 ├── terraform/              # Infrastructure as Code
 ├── website/                # Static marketing site
@@ -48,8 +55,9 @@ The API is built with [chi](https://github.com/go-chi/chi) and can run either as
 
 | Mode | File | Description |
 |------|------|-------------|
-| Lambda | [`cmd/lambda-based-api/main.go`](cmd/lambda-based-api/main.go) | AWS Lambda handler using `aws-lambda-go-api-proxy` |
+| REST Lambda | [`cmd/lambda-based-api/main.go`](cmd/lambda-based-api/main.go) | AWS Lambda handler using `aws-lambda-go-api-proxy` |
 | Standalone | [`cmd/standalone-api/main.go`](cmd/standalone-api/main.go) | Standard `net/http` server for local development |
+| WebSocket Lambda | [`cmd/websocket-lambda/main.go`](cmd/websocket-lambda/main.go) | WebSocket API Gateway handler for real-time connections |
 
 Both entry points share the same API setup via [`cmd/api.go`](cmd/api.go), which configures:
 - Structured logging with [zerolog](https://github.com/rs/zerolog)
@@ -103,6 +111,24 @@ The persistence layer uses DynamoDB with a single-table design. See the [DynamoD
 | [`store/dynamo_models.go`](store/dynamo_models.go) | Attribute mapping between entities and DynamoDB items |
 | [`store/entities.go`](store/entities.go) | Domain entity definitions |
 
+### WebSocket
+
+The `ws/` package handles real-time WebSocket connections via API Gateway WebSocket APIs.
+
+| File | Purpose |
+|------|---------|
+| [`ws/handler.go`](ws/handler.go) | Main router - dispatches to route-specific handlers |
+| [`ws/push.go`](ws/push.go) | `Pusher` abstraction for sending messages and managing connections |
+| [`ws/auth/handler.go`](ws/auth/handler.go) | Authentication handler - validates JWT, stores connection |
+| [`ws/ping/handler.go`](ws/ping/handler.go) | Heartbeat handler - verifies connection, responds with pong |
+
+**Connection Flow:**
+1. Client connects to `wss://ws.{domain}`
+2. Client sends `{"action": "auth", "token": "<JWT>"}` to authenticate
+3. Server validates JWT, stores connection mapping in DynamoDB
+4. Client sends periodic `{"action": "pingRequest", "driverId": <id>}` for heartbeat
+5. Connections have 24h TTL in DynamoDB for automatic cleanup
+
 ## Frontend (Vue 3 + TypeScript)
 
 A single-page application built with Vue 3, TypeScript, and Vite.
@@ -120,10 +146,12 @@ All AWS infrastructure is defined in Terraform with workspace support for multip
 
 | File | Purpose |
 |------|---------|
-| [`terraform/api.tf`](terraform/api.tf) | Lambda, API Gateway, certificates, environment variables |
+| [`terraform/api.tf`](terraform/api.tf) | REST API Lambda, API Gateway, certificates, environment variables |
+| [`terraform/websockets.tf`](terraform/websockets.tf) | WebSocket API Gateway, custom domain, routes |
+| [`terraform/websockets-lambda.tf`](terraform/websockets-lambda.tf) | WebSocket Lambda function and IAM permissions |
 | [`terraform/front-end.tf`](terraform/front-end.tf) | S3 bucket, CloudFront distribution for SPA |
 | [`terraform/website.tf`](terraform/website.tf) | S3 bucket, CloudFront for static site |
-| [`terraform/store.tf`](terraform/store.tf) | DynamoDB table |
+| [`terraform/store.tf`](terraform/store.tf) | DynamoDB table (with TTL for WebSocket connections) |
 | [`terraform/kms.tf`](terraform/kms.tf) | KMS keys for JWT signing and encryption |
 | [`terraform/secrets.tf`](terraform/secrets.tf) | Secrets Manager references (iRacing credentials) |
 | [`terraform/backend.tf`](terraform/backend.tf) | S3 backend for Terraform state |
@@ -270,4 +298,5 @@ These are managed in `terraform/api.tf` as `local.app_env_vars` and automaticall
 | Variable | Required | Description |
 |----------|----------|-------------|
 | `VITE_API_BASE_URL` | No | API base URL (defaults to `http://localhost:8080`) |
+| `VITE_WS_BASE_URL` | No | WebSocket base URL (defaults to `ws://localhost:8081`) |
 | `VITE_IRACING_CLIENT_ID` | Yes | iRacing OAuth client ID (see `frontend/.env.local.example`) |

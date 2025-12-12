@@ -14,4 +14,9 @@ resource "aws_dynamodb_table" "application_store" {
     name = "sort_key"
     type = "S"
   }
+
+  ttl {
+    attribute_name = "ttl"
+    enabled        = true
+  }
 }

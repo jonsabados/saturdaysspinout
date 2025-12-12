@@ -11,6 +11,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
 )
 
+const wsConnectionTTLDuration = 24 * time.Hour
+
 type DynamoStore struct {
 	client *dynamodb.Client
 	table  string
@@ -231,4 +233,74 @@ func (s *DynamoStore) incrementCounter(name string) types.TransactWriteItem {
 			},
 		},
 	}
+}
+
+func (s *DynamoStore) SaveConnection(ctx context.Context, conn WebSocketConnection) error {
+	now := time.Now()
+	_, err := s.client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(s.table),
+		Item: wsConnectionModel{
+			driverID:     conn.DriverID,
+			connectionID: conn.ConnectionID,
+			connectedAt:  now.Unix(),
+			ttl:          now.Add(wsConnectionTTLDuration).Unix(),
+		}.toAttributeMap(),
+	})
+	return err
+}
+
+func (s *DynamoStore) DeleteConnection(ctx context.Context, driverID int64, connectionID string) error {
+	_, err := s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
+			sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(wsConnectionSortKeyFormat, connectionID)},
+		},
+	})
+	return err
+}
+
+func (s *DynamoStore) GetConnectionsByDriver(ctx context.Context, driverID int64) ([]WebSocketConnection, error) {
+	result, err := s.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(s.table),
+		KeyConditionExpression: aws.String("#pk = :pk AND begins_with(#sk, :sk_prefix)"),
+		ExpressionAttributeNames: map[string]string{
+			"#pk": partitionKeyName,
+			"#sk": sortKeyName,
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk":        &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
+			":sk_prefix": &types.AttributeValueMemberS{Value: "ws#"},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	connections := make([]WebSocketConnection, 0, len(result.Items))
+	for _, item := range result.Items {
+		conn, err := wsConnectionFromAttributeMap(item)
+		if err != nil {
+			return nil, err
+		}
+		connections = append(connections, *conn)
+	}
+	return connections, nil
+}
+
+func (s *DynamoStore) GetConnection(ctx context.Context, driverID int64, connectionID string) (*WebSocketConnection, error) {
+	result, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
+			sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(wsConnectionSortKeyFormat, connectionID)},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if result.Item == nil {
+		return nil, nil
+	}
+	return wsConnectionFromAttributeMap(result.Item)
 }
