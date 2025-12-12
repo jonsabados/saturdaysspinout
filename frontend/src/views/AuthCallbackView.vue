@@ -102,7 +102,7 @@ main {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  min-height: calc(100vh - 120px);
 }
 
 h1 {
@@ -111,11 +111,11 @@ h1 {
 }
 
 p {
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .error {
-  color: #c00;
+  color: var(--color-error);
 }
 
 button {
@@ -123,5 +123,13 @@ button {
   padding: 0.5rem 1rem;
   font-size: 1rem;
   cursor: pointer;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-light);
+  border-radius: 4px;
+  color: var(--color-text-primary);
+}
+
+button:hover {
+  border-color: var(--color-accent);
 }
 </style>
