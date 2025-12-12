@@ -36,6 +36,13 @@ resource "aws_api_gateway_resource" "auth_ir_callback" {
   path_part   = "callback"
 }
 
+# /auth/refresh
+resource "aws_api_gateway_resource" "auth_refresh" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.auth.id
+  path_part   = "refresh"
+}
+
 # /doc
 resource "aws_api_gateway_resource" "doc" {
   rest_api_id = aws_api_gateway_rest_api.api.id
@@ -88,6 +95,22 @@ module "auth_ir_callback_options" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id
   resource_id       = aws_api_gateway_resource.auth_ir_callback.id
+  http_method       = "OPTIONS"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "auth_refresh_post" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.auth_refresh.id
+  http_method       = "POST"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "auth_refresh_options" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.auth_refresh.id
   http_method       = "OPTIONS"
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }

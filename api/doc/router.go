@@ -7,8 +7,9 @@ import (
 	"github.com/jonsabados/saturdaysspinout/api"
 )
 
-func NewRouter(docFetcher Fetcher) http.Handler {
+func NewRouter(docFetcher Fetcher, authMiddleware func(http.Handler) http.Handler) http.Handler {
 	r := chi.NewRouter()
+	r.Use(authMiddleware)
 
 	r.Get("/iracing-api/*", api.WrapWithSegment("iracingDocProxyEndpoint", NewIRacingDocProxyEndpoint(docFetcher)).ServeHTTP)
 

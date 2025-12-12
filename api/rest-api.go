@@ -20,7 +20,7 @@ type RootRouters struct {
 	DocRouter    http.Handler
 }
 
-func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGenerator, corsAllowedOrigins []string, routers RootRouters, validator TokenValidator) http.Handler {
+func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGenerator, corsAllowedOrigins []string, routers RootRouters) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
@@ -38,11 +38,7 @@ func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGene
 
 	r.Mount("/health", routers.HealthRouter)
 	r.Mount("/auth", routers.AuthRouter)
-
-	r.Group(func(r chi.Router) {
-		r.Use(AuthMiddleware(validator))
-		r.Mount("/doc", routers.DocRouter)
-	})
+	r.Mount("/doc", routers.DocRouter)
 
 	return xray.Handler(xray.NewFixedSegmentNamer("processHttpRequest"), r)
 }

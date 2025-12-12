@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { initiateLogin } from '@/auth/iracing'
 import { useAuthStore } from '@/stores/auth'
+import { useApiClient } from '@/api/client'
 
 const authStore = useAuthStore()
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+const apiClient = useApiClient()
 
 async function handleLogin() {
   try {
@@ -20,13 +21,8 @@ function handleLogout() {
 
 async function testDocProxy() {
   try {
-    const response = await fetch(`${apiBaseUrl}/doc/iracing-api/`, {
-      headers: {
-        'Authorization': `Bearer ${authStore.token}`
-      }
-    })
-    const text = await response.text()
-    alert(text)
+    const data = await apiClient.fetch<Record<string, unknown>>('/doc/iracing-api/')
+    alert(JSON.stringify(data, null, 2))
   } catch (error) {
     alert(`Error: ${error}`)
   }
