@@ -1,73 +1,97 @@
 <script setup lang="ts">
-import { initiateLogin } from '@/auth/iracing'
+import { RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useApiClient } from '@/api/client'
 
 const authStore = useAuthStore()
-const apiClient = useApiClient()
-
-async function handleLogin() {
-  try {
-    await initiateLogin()
-  } catch (error) {
-    console.error('Login failed:', error)
-    alert(`Login failed: ${error}`)
-  }
-}
-
-function handleLogout() {
-  authStore.logout()
-}
-
-async function testDocProxy() {
-  try {
-    const data = await apiClient.fetch<Record<string, unknown>>('/doc/iracing-api/')
-    alert(JSON.stringify(data, null, 2))
-  } catch (error) {
-    alert(`Error: ${error}`)
-  }
-}
 </script>
 
 <template>
-  <main>
-    <h1>Saturday's Spinout</h1>
+  <div class="home">
+    <div class="hero">
+      <h1>Saturday's Spinout</h1>
+      <p class="tagline">Race logging and analysis for iRacing</p>
 
-    <template v-if="authStore.isLoggedIn">
-      <p>Welcome, {{ authStore.userName }}!</p>
-      <button @click="testDocProxy">Test Doc Proxy</button>
-      <button @click="handleLogout">Logout</button>
-    </template>
+      <div v-if="authStore.isLoggedIn" class="welcome">
+        <p>Welcome back, {{ authStore.userName }}!</p>
+        <RouterLink to="/iracing-api" class="cta-button">
+          Explore iRacing API
+        </RouterLink>
+      </div>
 
-    <template v-else>
-      <p>Sign in to get started</p>
-      <button @click="handleLogin">Login with iRacing</button>
-    </template>
-  </main>
+      <div v-else class="guest">
+        <p>Sign in with your iRacing account to get started</p>
+      </div>
+    </div>
+  </div>
 </template>
 
 <style scoped>
-main {
+.home {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
+  min-height: calc(100vh - 120px);
+}
+
+.hero {
+  text-align: center;
+  max-width: 600px;
 }
 
 h1 {
   font-size: 3rem;
-  margin-bottom: 0.5rem;
+  margin: 0 0 0.5rem;
+  color: var(--color-accent);
 }
 
-p {
-  color: #666;
+.tagline {
+  font-size: 1.25rem;
+  color: var(--color-text-secondary);
+  margin: 0 0 2rem;
 }
 
-button {
-  margin-top: 1rem;
-  padding: 0.5rem 1rem;
-  font-size: 1rem;
-  cursor: pointer;
+.welcome p,
+.guest p {
+  color: var(--color-text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.cta-button {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  background: var(--color-accent);
+  color: var(--color-bg-deep);
+  text-decoration: none;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.cta-button:hover {
+  background: var(--color-accent-hover);
+}
+
+@media (max-width: 768px) {
+  .hero {
+    padding: 0 1rem;
+  }
+
+  h1 {
+    font-size: 2.25rem;
+  }
+
+  .tagline {
+    font-size: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  h1 {
+    font-size: 1.75rem;
+  }
+
+  .tagline {
+    font-size: 1rem;
+  }
 }
 </style>

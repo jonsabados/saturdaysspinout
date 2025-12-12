@@ -1,0 +1,26 @@
+:root {
+  /* Background colors - darkest to lightest */
+  --color-bg-deep: #0a0a0a;
+  --color-bg-surface: #121212;
+  --color-bg-elevated: #1a1a1a;
+
+  /* Border colors */
+  --color-border: #2a2a2a;
+  --color-border-light: #333;
+
+  /* Text colors */
+  --color-text-primary: #e8e8e8;
+  --color-text-secondary: #9a9a9a;
+  --color-text-muted: #666;
+
+  /* Accent - primary brand color (racing yellow) */
+  --color-accent: #faff00;
+  --color-accent-hover: #e0e500;
+  --color-accent-muted: rgba(250, 255, 0, 0.15);
+  --color-accent-subtle: rgba(250, 255, 0, 0.08);
+
+  /* Status colors */
+  --color-error: #ff6b6b;
+  --color-warning: #ffaa00;
+  --color-success: #4caf50;
+}
