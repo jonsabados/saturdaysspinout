@@ -74,7 +74,9 @@ data "aws_iam_policy_document" "race_ingestion_lambda" {
     effect = "Allow"
     actions = [
       "dynamodb:GetItem",
-      "dynamodb:UpdateItem"
+      "dynamodb:UpdateItem",
+      "dynamodb:PutItem",
+      "dynamodb:Query"
     ]
     resources = [
       aws_dynamodb_table.application_store.arn

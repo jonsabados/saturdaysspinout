@@ -127,7 +127,36 @@ The `iracing/` package provides OAuth and API client functionality for iRacing.
 
 ### Data Store
 
-The persistence layer uses DynamoDB with a single-table design. See the [DynamoDB Schema](https://docs.google.com/spreadsheets/d/180olt3Va13ixvT3XxMSK6MDvFg8pyDLWFzAqu48gUJM/edit?gid=0#gid=0) for the full table structure.
+The persistence layer uses DynamoDB with a single-table design.
+
+#### `driver#<id>` partition
+
+| Sort Key | Description | Attributes                                                                                                                                                               |
+|----------|-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `info` | Driver record | driver_name, member_since, races_ingested_to, first_login, last_login, login_count, session_count                                                                        |
+| `ws#<connectionId>` | WebSocket connection | connected_at, ttl                                                                                                                                                        |
+| `session#<timestamp>` | Race participation (list view) | subsession_id, track_id, car_id, start_time, start_position, start_position_in_class, finish_position, finish_position_in_class, incidents, old_cpi, new_cpi, old_irating, new_irating, reason_out |
+
+#### `session#<id>` partition
+
+| Sort Key                                | Description | Attributes                                                                                                                                                                |
+|-----------------------------------------|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `info`                                  | Race metadata | subsession_id, track_id, start_time                                                                                                                                       |
+| `car_class#<car_class_id>`              | Car class in session | subsession_id, strength_of_field, num_entries                                                                                                                             |
+| `car_class#<car_class_id>#car#<car_id>` | Car in class | subsession_id, car_id                                                                                                                                                     |
+| `drivers#driver#<driver_id>`            | Driver's result | subsession_id, driver_id, car_id, start_position, start_position_in_class, finish_position, finish_position_in_class, old_cpi, new_cpi, incidents, old_irating, new_irating, reason_out, ai |
+| `laps#driver#<driver_id>#lap#<lap>`     | Lap data | subsession_id, driver_id, lap_number, lap_time, flags, incident, lap_events                                                                                               |
+
+Expected access patterns: 
+* Retrieving high level session details (pulls info and car_class stuff in one go)
+* Pulling drivers by session
+* Pulling laps by driver and session
+
+#### `global` partition
+
+| Sort Key | Description | Attributes                             |
+|----------|-------------|----------------------------------------|
+| `counters` | Aggregate counts | drivers, tracks, notes, sessions, laps |
 
 | File | Purpose |
 |------|---------|

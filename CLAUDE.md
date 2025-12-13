@@ -73,11 +73,8 @@
 **Race Ingestion:** REST API enqueues to SQS (driver ID + iRacing token) → Lambda consumes → queries iRacing `/data/results/search_series` (chunked response) → filters for races (event_type=5) → stores in DynamoDB → updates `races_ingested_to` for incremental sync. 90-day max search window per request.
 
 ### Data Model (DynamoDB Single-Table)
-  - `driver#<id> / info` - Driver record (name, login stats)
-  - `driver#<id> / note#<timestamp>#<session>#<lap>` - Driver notes
-  - `driver#<id> / ws#<connectionId>` - WebSocket connection (TTL-based cleanup)
-  - `track#<id> / info` - Track info
-  - `global / counters` - Aggregate counts
+
+See [README.md](README.md#data-store) for the full schema with attributes.
 
 ### External Dependencies
   - **iRacing:** OAuth (oauth.iracing.com), Data API (members-ng.iracing.com)
