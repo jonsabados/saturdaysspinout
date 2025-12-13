@@ -1,1 +1,1 @@
-{"errors":["code is required"],"fieldErrors":null,"correlationId":"test-correlation-id"}
+{"errors":null,"fieldErrors":[{"field":"code","error":"required"}],"correlationId":"test-correlation-id"}

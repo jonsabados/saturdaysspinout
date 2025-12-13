@@ -3,27 +3,30 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"os"
 	"time"
 
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/jonsabados/saturdaysspinout/ingestion"
+	"github.com/jonsabados/saturdaysspinout/iracing"
+	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
 )
 
 type appCfg struct {
-	LogLevel string `envconfig:"LOG_LEVEL" required:"true"`
-}
-
-type raceIngestionMessage struct {
-	DriverID           int64  `json:"driverId"`
-	IRacingAccessToken string `json:"IRacingAccessToken"`
+	LogLevel      string `envconfig:"LOG_LEVEL" required:"true"`
+	DynamoDBTable string `envconfig:"DYNAMODB_TABLE" required:"true"`
 }
 
 func main() {
+	ctx := context.Background()
 	zerolog.TimeFieldFormat = time.RFC3339Nano
 	zerolog.LevelFieldName = "severity"
 	logger := zerolog.New(os.Stdout).With().Timestamp().Logger()
@@ -49,14 +52,27 @@ func main() {
 		logger.Fatal().Err(err).Msg("error configuring x-ray")
 	}
 
-	processor := ingestion.NewRaceProcessor()
+	httpClient := xray.Client(http.DefaultClient)
+
+	awsCfg, err := config.LoadDefaultConfig(ctx, config.WithHTTPClient(httpClient))
+	if err != nil {
+		logger.Fatal().Err(err).Msg("error loading AWS config")
+	}
+	awsv2.AWSV2Instrumentor(&awsCfg.APIOptions)
+
+	dynamoClient := dynamodb.NewFromConfig(awsCfg)
+	driverStore := store.NewDynamoStore(dynamoClient, cfg.DynamoDBTable)
+
+	iracingClient := iracing.NewClient(httpClient)
+
+	processor := ingestion.NewRaceProcessor(driverStore, iracingClient)
 
 	lambda.Start(func(ctx context.Context, event events.SQSEvent) error {
 		ctx = logger.WithContext(ctx)
 		log := zerolog.Ctx(ctx)
 
 		for _, record := range event.Records {
-			var msg raceIngestionMessage
+			var msg ingestion.RaceIngestionRequest
 			if err := json.Unmarshal([]byte(record.Body), &msg); err != nil {
 				log.Error().Err(err).Str("messageId", record.MessageId).Msg("failed to parse message")
 				continue
@@ -64,7 +80,7 @@ func main() {
 
 			log.Info().Int64("driverId", msg.DriverID).Str("messageId", record.MessageId).Msg("processing race ingestion")
 
-			if err := processor.IngestRaces(ctx, msg.DriverID, msg.IRacingAccessToken); err != nil {
+			if err := processor.IngestRaces(ctx, msg); err != nil {
 				log.Error().Err(err).Int64("driverId", msg.DriverID).Msg("failed to ingest races")
 				return err
 			}

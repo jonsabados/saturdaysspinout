@@ -12,6 +12,7 @@ interface WebSocketState {
   error: string | null
   lastPong: number | null
   driverId: number | null
+  connectionId: string | null
 }
 
 interface Message {
@@ -27,6 +28,7 @@ interface AuthMessage {
 interface AuthResponse {
   success: boolean
   userId?: number
+  connectionId?: string
   error?: string
 }
 
@@ -36,6 +38,7 @@ export const useWebSocketStore = defineStore('websocket', {
     error: null,
     lastPong: null,
     driverId: null,
+    connectionId: null,
   }),
 
   actions: {
@@ -113,6 +116,7 @@ export const useWebSocketStore = defineStore('websocket', {
       this.error = null
       this.lastPong = null
       this.driverId = null
+      this.connectionId = null
     },
 
     reconnect() {
@@ -196,11 +200,12 @@ export const useWebSocketStore = defineStore('websocket', {
     },
 
     _handleAuthResponse(response: AuthResponse) {
-      if (response.success && response.userId) {
-        console.log('[WS] Authenticated as user:', response.userId)
+      if (response.success && response.userId && response.connectionId) {
+        console.log('[WS] Authenticated as user:', response.userId, 'connection:', response.connectionId)
         this.status = 'connected'
         this.error = null
         this.driverId = response.userId
+        this.connectionId = response.connectionId
         this._startHeartbeat()
       } else {
         console.error('[WS] Auth failed:', response.error)

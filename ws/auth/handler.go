@@ -18,9 +18,10 @@ type Request struct {
 }
 
 type Response struct {
-	Success bool   `json:"success"`
-	UserID  int64  `json:"userId,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Success      bool   `json:"success"`
+	UserID       int64  `json:"userId,omitempty"`
+	ConnectionID string `json:"connectionId,omitempty"`
+	Error        string `json:"error,omitempty"`
 }
 
 type ConnectionStore interface {
@@ -91,7 +92,7 @@ func NewHandler(validator JWTValidator, pusher Pusher, connStore ConnectionStore
 			return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, err
 		}
 
-		err = pusher.Push(ctx, 0, connectionID, "authResponse", Response{Success: true, UserID: sessionClaims.IRacingUserID})
+		err = pusher.Push(ctx, 0, connectionID, "authResponse", Response{Success: true, UserID: sessionClaims.IRacingUserID, ConnectionID: connectionID})
 		if err != nil {
 			zerolog.Ctx(ctx).Err(err).Msg("error replying")
 			return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, nil

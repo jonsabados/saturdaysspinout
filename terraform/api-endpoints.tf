@@ -43,6 +43,20 @@ resource "aws_api_gateway_resource" "auth_refresh" {
   path_part   = "refresh"
 }
 
+# /ingestion
+resource "aws_api_gateway_resource" "ingestion" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_rest_api.api.root_resource_id
+  path_part   = "ingestion"
+}
+
+# /ingestion/race
+resource "aws_api_gateway_resource" "ingestion_race" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.ingestion.id
+  path_part   = "race"
+}
+
 # /doc
 resource "aws_api_gateway_resource" "doc" {
   rest_api_id = aws_api_gateway_rest_api.api.id
@@ -111,6 +125,22 @@ module "auth_refresh_options" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id
   resource_id       = aws_api_gateway_resource.auth_refresh.id
+  http_method       = "OPTIONS"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "ingestion_race_post" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.ingestion_race.id
+  http_method       = "POST"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "ingestion_race_options" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.ingestion_race.id
   http_method       = "OPTIONS"
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }

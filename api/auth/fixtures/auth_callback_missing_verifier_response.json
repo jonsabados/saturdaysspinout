@@ -1,1 +1,1 @@
-{"errors":["code_verifier is required"],"fieldErrors":null,"correlationId":"test-correlation-id"}
+{"errors":null,"fieldErrors":[{"field":"code_verifier","error":"required"}],"correlationId":"test-correlation-id"}

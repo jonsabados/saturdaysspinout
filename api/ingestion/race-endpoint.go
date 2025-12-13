@@ -2,15 +2,16 @@ package ingestion
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	"github.com/jonsabados/saturdaysspinout/api"
+	"github.com/jonsabados/saturdaysspinout/ingestion"
 	"github.com/rs/zerolog"
 )
 
 type RaceIngestionRequest struct {
-	DriverID           int64  `json:"driverId"`
-	IRacingAccessToken string `json:"IRacingAccessToken"`
+	NotifyConnectionID string `json:"notifyConnectionId"`
 }
 
 type EventDispatcher interface {
@@ -34,12 +35,26 @@ func NewRaceIngestionEndpoint(dispatcher EventDispatcher) http.Handler {
 			return
 		}
 
-		event := RaceIngestionRequest{
-			DriverID:           sessionClaims.IRacingUserID,
-			IRacingAccessToken: sensitiveClaims.IRacingAccessToken,
+		var req RaceIngestionRequest
+		if err := json.NewDecoder(request.Body).Decode(&req); err != nil {
+			api.DoBadRequestResponse(ctx, api.RequestErrors{}.WithError("invalid request body"), writer)
+			return
 		}
 
-		if err := dispatcher.PublishEvent(ctx, event); err != nil {
+		var errs api.RequestErrors
+		if req.NotifyConnectionID == "" {
+			errs = errs.WithFieldError("notifyConnectionId", "required")
+		}
+		if errs.HasAnyError() {
+			api.DoBadRequestResponse(ctx, errs, writer)
+			return
+		}
+
+		if err := dispatcher.PublishEvent(ctx, ingestion.RaceIngestionRequest{
+			DriverID:           sessionClaims.IRacingUserID,
+			IRacingAccessToken: sensitiveClaims.IRacingAccessToken,
+			NotifyConnectionID: req.NotifyConnectionID,
+		}); err != nil {
 			logger.Error().Err(err).Msg("failed to publish race ingestion event")
 			api.DoErrorResponse(ctx, writer)
 			return
