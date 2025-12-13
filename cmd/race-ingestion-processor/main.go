@@ -21,8 +21,9 @@ import (
 )
 
 type appCfg struct {
-	LogLevel      string `envconfig:"LOG_LEVEL" required:"true"`
-	DynamoDBTable string `envconfig:"DYNAMODB_TABLE" required:"true"`
+	LogLevel           string `envconfig:"LOG_LEVEL" required:"true"`
+	DynamoDBTable      string `envconfig:"DYNAMODB_TABLE" required:"true"`
+	SearchWindowInDays int    `envconfig:"SEARCH_WINDOW_IN_DAYS" default:"10"`
 }
 
 func main() {
@@ -65,7 +66,7 @@ func main() {
 
 	iracingClient := iracing.NewClient(httpClient)
 
-	processor := ingestion.NewRaceProcessor(driverStore, iracingClient)
+	processor := ingestion.NewRaceProcessor(driverStore, iracingClient, ingestion.WithSearchWindowInDays(cfg.SearchWindowInDays))
 
 	lambda.Start(func(ctx context.Context, event events.SQSEvent) error {
 		ctx = logger.WithContext(ctx)
