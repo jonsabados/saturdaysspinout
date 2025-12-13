@@ -20,6 +20,7 @@ type Driver struct {
 	FirstLogin      time.Time
 	LastLogin       time.Time
 	LoginCount      int64
+	SessionCount    int64
 }
 
 type DriverNote struct {
@@ -32,14 +33,90 @@ type DriverNote struct {
 	Notes     string
 }
 
+// DriverSession represents drivers records of sessions (for use in list views of races)
+type DriverSession struct {
+	DriverID              int64
+	SubsessionID          int64
+	TrackID               int64
+	CarID                 int64
+	StartTime             time.Time
+	StartPosition         int
+	StartPositionInClass  int
+	FinishPosition        int
+	FinishPositionInClass int
+	Incidents             int
+	OldCPI                float64
+	NewCPI                float64
+	OldIRating            int
+	NewIRating            int
+	ReasonOut             string
+}
+
+type Session struct {
+	SubsessionID int64
+	TrackID      int64
+	StartTime    time.Time
+	CarClasses   []SessionCarClass
+}
+
+type SessionCarClass struct {
+	SubsessionID    int64
+	CarClassID      int64
+	StrengthOfField int
+	NumberOfEntries int
+	Cars            []SessionCarClassCar
+}
+
+type SessionCarClassCar struct {
+	SubsessionID int64
+	CarClassID   int64
+	CarID        int64
+}
+
+type SessionDriver struct {
+	SubsessionID          int64
+	DriverID              int64
+	CarID                 int64
+	StartPosition         int
+	StartPositionInClass  int
+	FinishPosition        int
+	FinishPositionInClass int
+	Incidents             int
+	OldCPI                float64
+	NewCPI                float64
+	OldIRating            int
+	NewIRating            int
+	ReasonOut             string
+	AI                    bool
+}
+
+type SessionDriverLap struct {
+	SubsessionID int64
+	DriverID     int64
+	LapNumber    int
+	LapTime      time.Duration
+	Flags        int
+	Incident     bool
+	LapEvents    []string
+}
+
 type GlobalCounters struct {
-	Drivers int64
-	Tracks  int64
-	Notes   int64
+	Drivers  int64
+	Tracks   int64
+	Notes    int64
+	Sessions int64
+	Laps     int64
 }
 
 type WebSocketConnection struct {
 	DriverID     int64
 	ConnectionID string
 	ConnectedAt  time.Time
+}
+
+type SessionDataInsertion struct {
+	SessionEntries          []Session
+	SessionDriverEntries    []SessionDriver
+	SessionDriverLapEntries []SessionDriverLap
+	DriverSessionEntries    []DriverSession
 }
