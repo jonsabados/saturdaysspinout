@@ -1,17 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useApiClient } from '@/api/client'
+import { useSessionStore } from '@/stores/session'
 
 const apiClient = useApiClient()
+const session = useSessionStore()
 const status = ref<'idle' | 'loading' | 'success' | 'error'>('idle')
 const errorMessage = ref('')
 
 async function triggerIngestion() {
+  if (!session.isReady) {
+    return
+  }
+
   status.value = 'loading'
   errorMessage.value = ''
 
   try {
-    await apiClient.fetch('/ingestion/race', { method: 'POST' })
+    await apiClient.triggerRaceIngestion()
     status.value = 'success'
   } catch (err) {
     status.value = 'error'
@@ -20,7 +26,15 @@ async function triggerIngestion() {
 }
 
 onMounted(() => {
-  triggerIngestion()
+  if (session.isReady) {
+    triggerIngestion()
+  }
+})
+
+watch(() => session.isReady, (ready) => {
+  if (ready && status.value === 'idle') {
+    triggerIngestion()
+  }
 })
 </script>
 
@@ -28,7 +42,11 @@ onMounted(() => {
   <div class="race-history">
     <h1>Race History</h1>
 
-    <div v-if="status === 'loading'" class="status-message">
+    <div v-if="!session.isReady && status === 'idle'" class="status-message">
+      Connecting...
+    </div>
+
+    <div v-else-if="status === 'loading'" class="status-message">
       Requesting race history ingestion...
     </div>
 

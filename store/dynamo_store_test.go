@@ -496,6 +496,68 @@ func TestGetConnectionsByDriver_IsolatedByDriver(t *testing.T) {
 	assert.Equal(t, "conn-driver1", connections[0].ConnectionID)
 }
 
+func TestUpdateDriverRacesIngestedTo_Success(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	driver := store.Driver{
+		DriverID:    12345,
+		DriverName:  "Jon Sabados",
+		MemberSince: time.Unix(500, 0),
+		FirstLogin:  time.Unix(1000, 0),
+		LastLogin:   time.Unix(1000, 0),
+		LoginCount:  1,
+	}
+	require.NoError(t, s.InsertDriver(ctx, driver))
+
+	ingestedTo := time.Unix(5000, 0)
+	err := s.UpdateDriverRacesIngestedTo(ctx, 12345, ingestedTo)
+	require.NoError(t, err)
+
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	require.NotNil(t, got.RacesIngestedTo)
+	assert.Equal(t, ingestedTo, *got.RacesIngestedTo)
+	// Verify other fields unchanged
+	assert.Equal(t, driver.DriverName, got.DriverName)
+	assert.Equal(t, driver.FirstLogin, got.FirstLogin)
+	assert.Equal(t, driver.LoginCount, got.LoginCount)
+}
+
+func TestUpdateDriverRacesIngestedTo_DriverNotFound(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	err := s.UpdateDriverRacesIngestedTo(ctx, 999, time.Unix(1000, 0))
+	assert.Error(t, err)
+}
+
+func TestUpdateDriverRacesIngestedTo_UpdatesExistingValue(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	ingestedTo := time.Unix(3000, 0)
+	driver := store.Driver{
+		DriverID:        12345,
+		DriverName:      "Jon Sabados",
+		MemberSince:     time.Unix(500, 0),
+		FirstLogin:      time.Unix(1000, 0),
+		LastLogin:       time.Unix(1000, 0),
+		LoginCount:      1,
+		RacesIngestedTo: &ingestedTo,
+	}
+	require.NoError(t, s.InsertDriver(ctx, driver))
+
+	newIngestedTo := time.Unix(6000, 0)
+	err := s.UpdateDriverRacesIngestedTo(ctx, 12345, newIngestedTo)
+	require.NoError(t, err)
+
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	require.NotNil(t, got.RacesIngestedTo)
+	assert.Equal(t, newIngestedTo, *got.RacesIngestedTo)
+}
+
 func setupTestStore(t *testing.T) *store.DynamoStore {
 	t.Helper()
 	t.Parallel()

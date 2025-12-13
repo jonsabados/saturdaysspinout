@@ -223,6 +223,26 @@ func (s *DynamoStore) RecordLogin(ctx context.Context, driverID int64, loginTime
 	return err
 }
 
+func (s *DynamoStore) UpdateDriverRacesIngestedTo(ctx context.Context, driverID int64, racesIngestedTo time.Time) error {
+	_, err := s.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
+			sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
+		},
+		UpdateExpression: aws.String("SET #races_ingested_to = :val"),
+		ExpressionAttributeNames: map[string]string{
+			"#pk":               partitionKeyName,
+			"#races_ingested_to": "races_ingested_to",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":val": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", racesIngestedTo.Unix())},
+		},
+		ConditionExpression: aws.String("attribute_exists(#pk)"),
+	})
+	return err
+}
+
 func (s *DynamoStore) incrementCounter(name string) types.TransactWriteItem {
 	return types.TransactWriteItem{
 		Update: &types.Update{

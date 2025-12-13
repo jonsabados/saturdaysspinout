@@ -68,6 +68,18 @@ data "aws_iam_policy_document" "race_ingestion_lambda" {
       aws_sqs_queue.race_ingestion_requests.arn
     ]
   }
+
+  statement {
+    sid    = "AllowDynamoDB"
+    effect = "Allow"
+    actions = [
+      "dynamodb:GetItem",
+      "dynamodb:UpdateItem"
+    ]
+    resources = [
+      aws_dynamodb_table.application_store.arn
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "race_ingestion_lambda" {
@@ -92,7 +104,8 @@ resource "aws_lambda_function" "race_ingestion_lambda" {
 
   environment {
     variables = {
-      LOG_LEVEL = "info"
+      LOG_LEVEL      = "info"
+      DYNAMODB_TABLE = aws_dynamodb_table.application_store.name
     }
   }
 }
