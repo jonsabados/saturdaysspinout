@@ -346,16 +346,11 @@ func (s *DynamoStore) GetConnectionsByDriver(ctx context.Context, driverID int64
 }
 
 func (s *DynamoStore) GetDriverIDByConnection(ctx context.Context, connectionID string) (*int64, error) {
-	result, err := s.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              aws.String(s.table),
-		KeyConditionExpression: aws.String("#pk = :pk AND #sk = :sk"),
-		ExpressionAttributeNames: map[string]string{
-			"#pk": partitionKeyName,
-			"#sk": sortKeyName,
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":pk": &types.AttributeValueMemberS{Value: fmt.Sprintf(websocketPartitionFormat, connectionID)},
-			":sk": &types.AttributeValueMemberS{Value: defaultSortKey},
+	result, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(websocketPartitionFormat, connectionID)},
+			sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
 		},
 	})
 
@@ -363,11 +358,11 @@ func (s *DynamoStore) GetDriverIDByConnection(ctx context.Context, connectionID 
 		return nil, err
 	}
 
-	if len(result.Items) == 0 {
+	if result.Item == nil {
 		return nil, nil
 	}
 
-	ret, err := getInt64Attr(result.Items[0], "driver_id")
+	ret, err := getInt64Attr(result.Item, "driver_id")
 	if err != nil {
 		return nil, err
 	}
