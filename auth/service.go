@@ -93,11 +93,12 @@ func (s *Service) HandleCallback(ctx context.Context, code, codeVerifier, redire
 	if driverRecord == nil {
 		now := s.now()
 		err := s.driverStore.InsertDriver(ctx, store.Driver{
-			DriverID:   userInfo.UserID,
-			DriverName: userInfo.UserName,
-			FirstLogin: now,
-			LastLogin:  now,
-			LoginCount: 1,
+			DriverID:    userInfo.UserID,
+			DriverName:  userInfo.UserName,
+			MemberSince: userInfo.MemberSince,
+			FirstLogin:  now,
+			LastLogin:   now,
+			LoginCount:  1,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("creating driver: %w", err)

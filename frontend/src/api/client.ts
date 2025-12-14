@@ -1,4 +1,5 @@
 import { useAuthStore } from '@/stores/auth'
+import { useSessionStore } from '@/stores/session'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
@@ -9,9 +10,11 @@ export interface ApiError {
 
 export class ApiClient {
   private authStore: ReturnType<typeof useAuthStore>
+  private sessionStore: ReturnType<typeof useSessionStore>
 
-  constructor(authStore: ReturnType<typeof useAuthStore>) {
+  constructor(authStore: ReturnType<typeof useAuthStore>, sessionStore: ReturnType<typeof useSessionStore>) {
     this.authStore = authStore
+    this.sessionStore = sessionStore
   }
 
   async fetch<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -70,9 +73,22 @@ export class ApiClient {
       return new Error(`Request failed: ${response.status}`)
     }
   }
+
+  async triggerRaceIngestion(): Promise<void> {
+    if (!this.sessionStore.isReady) {
+      throw new Error('Session not ready')
+    }
+
+    await this.fetch('/ingestion/race', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notifyConnectionId: this.sessionStore.connectionId }),
+    })
+  }
 }
 
 export function useApiClient() {
   const authStore = useAuthStore()
-  return new ApiClient(authStore)
+  const sessionStore = useSessionStore()
+  return new ApiClient(authStore, sessionStore)
 }

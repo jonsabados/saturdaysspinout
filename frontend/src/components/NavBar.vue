@@ -2,9 +2,9 @@
 import { ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { initiateLogin } from '@/auth/iracing'
-import { useAuthStore } from '@/stores/auth'
+import { useSessionStore } from '@/stores/session'
 
-const authStore = useAuthStore()
+const session = useSessionStore()
 const router = useRouter()
 const menuOpen = ref(false)
 
@@ -17,7 +17,7 @@ async function handleLogin() {
 }
 
 function handleLogout() {
-  authStore.logout()
+  session.logout()
   menuOpen.value = false
 }
 
@@ -46,9 +46,10 @@ router.afterEach(() => {
     </button>
 
     <div class="nav-links" :class="{ open: menuOpen }">
-      <template v-if="authStore.isLoggedIn">
+      <template v-if="session.isLoggedIn">
+        <RouterLink to="/race-history" class="nav-link" @click="closeMenu">Race History</RouterLink>
         <RouterLink to="/iracing-api" class="nav-link" @click="closeMenu">iRacing API Explorer</RouterLink>
-        <span class="user-name">{{ authStore.userName }}</span>
+        <span class="user-name">{{ session.userName }}</span>
         <button @click="handleLogout" class="nav-button">Logout</button>
       </template>
       <template v-else>

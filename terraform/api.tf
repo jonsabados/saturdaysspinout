@@ -9,6 +9,7 @@ locals {
     JWT_SIGNING_KEY_ARN        = aws_kms_key.jwt.arn
     JWT_ENCRYPTION_KEY_ARN     = aws_kms_key.jwt_encryption.arn
     DYNAMODB_TABLE             = aws_dynamodb_table.application_store.name
+    RACE_INGESTION_QUEUE_URL   = aws_sqs_queue.race_ingestion_requests.url
   }
 }
 
@@ -98,6 +99,17 @@ data "aws_iam_policy_document" "api_lambda" {
       aws_kms_key.jwt_encryption.arn
     ]
   }
+
+  statement {
+    sid    = "AllowSQSSendMessage"
+    effect = "Allow"
+    actions = [
+      "sqs:SendMessage"
+    ]
+    resources = [
+      aws_sqs_queue.race_ingestion_requests.arn
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "api_lambda" {
@@ -185,6 +197,8 @@ resource "aws_api_gateway_deployment" "api" {
     module.auth_ir_callback_options,
     module.auth_refresh_post,
     module.auth_refresh_options,
+    module.ingestion_race_post,
+    module.ingestion_race_options,
     module.doc_iracing_api_get,
     module.doc_iracing_api_options,
     module.doc_iracing_api_proxy_get,

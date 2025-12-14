@@ -2,6 +2,20 @@
 
 A full-stack web application for race logging, built with Go, Vue 3, and deployed to AWS.
 
+## Disclaimer
+
+This is a toy project, meant to scratch an itch while also giving me time to play with the core elements of my craft 
+without being distracted by things like mentoring, orchestrating and politicking. There are no delivery timelines, worries
+about will this make sense & be maintainable to junior engineers, and so on. So there is lots of over-engineering, which feels
+appropriate given the itch this is scratching is focused around an activity where we are driving simulated cars as fast
+as we can just for shits and giggles.
+
+Budget however is a real issue, and even though this architecture at its core would scale as far as your wallet allows
+it should be incredibly inexpensive well beyond the point where the user base gets big enough to be problematic on its own.
+So, the technologies in use are serverless and billed based on usage. Expectation is the primary cost center will be Route53 
+fees, maybe a couple bucks a month in dynamo storage, and pocket change for compute (via Lambdas, all of which have very low 
+reserved concurrency limits set as a safety).
+
 ## Architecture Overview
 
 ```mermaid
@@ -10,15 +24,22 @@ flowchart TB
         CF1["app.* (Frontend)"]
         CF2["api.* (API)"]
         CF3["www/root (Website)"]
+        CF4["ws.* (WebSocket)"]
     end
 
     CF1 --> S3_SPA["S3 Bucket<br/>(Vue SPA)"]
     CF2 --> APIGW["API Gateway<br/>(REST)"]
     CF3 --> S3_Static["S3 Bucket<br/>(Static)"]
+    CF4 --> WS_APIGW
 
-    APIGW --> Lambda["Lambda<br/>(Go)"]
+    APIGW --> Lambda["API Lambda<br/>(Go)"]
     Lambda --> DynamoDB["DynamoDB"]
     Lambda --> KMS["KMS"]
+    Lambda --> SQS["SQS<br/>(Race Ingestion)"]
+
+    SQS --> IngestionLambda["Ingestion Lambda<br/>(Go)"]
+    IngestionLambda --> DynamoDB
+    IngestionLambda --> iRacingAPI["iRacing Data API"]
 
     WS_APIGW["API Gateway<br/>(WebSocket)"] --> WS_Lambda["WebSocket Lambda<br/>(Go)"]
     WS_Lambda --> DynamoDB
@@ -34,9 +55,11 @@ flowchart TB
 ├── auth/                   # JWT creation and KMS-based signing/encryption
 ├── cmd/                    # Application entry points
 │   ├── lambda-based-api/   # AWS Lambda handler (REST API)
+│   ├── race-ingestion-lambda/ # SQS consumer for race data ingestion
 │   ├── standalone-api/     # Local development server
 │   └── websocket-lambda/   # WebSocket Lambda handler
 ├── correlation/            # Request correlation ID middleware
+├── ingestion/              # Race data ingestion processing
 ├── iracing/                # iRacing API client and OAuth integration
 ├── store/                  # Data persistence layer (DynamoDB)
 ├── ws/                     # WebSocket handler package
@@ -58,6 +81,7 @@ The API is built with [chi](https://github.com/go-chi/chi) and can run either as
 | REST Lambda | [`cmd/lambda-based-api/main.go`](cmd/lambda-based-api/main.go) | AWS Lambda handler using `aws-lambda-go-api-proxy` |
 | Standalone | [`cmd/standalone-api/main.go`](cmd/standalone-api/main.go) | Standard `net/http` server for local development |
 | WebSocket Lambda | [`cmd/websocket-lambda/main.go`](cmd/websocket-lambda/main.go) | WebSocket API Gateway handler for real-time connections |
+| Race Ingestion Lambda | [`cmd/race-ingestion-lambda/main.go`](cmd/race-ingestion-lambda/main.go) | SQS consumer for async race data ingestion |
 
 Both entry points share the same API setup via [`cmd/api.go`](cmd/api.go), which configures:
 - Structured logging with [zerolog](https://github.com/rs/zerolog)
@@ -103,7 +127,36 @@ The `iracing/` package provides OAuth and API client functionality for iRacing.
 
 ### Data Store
 
-The persistence layer uses DynamoDB with a single-table design. See the [DynamoDB Schema](https://docs.google.com/spreadsheets/d/180olt3Va13ixvT3XxMSK6MDvFg8pyDLWFzAqu48gUJM/edit?gid=0#gid=0) for the full table structure.
+The persistence layer uses DynamoDB with a single-table design.
+
+#### `driver#<id>` partition
+
+| Sort Key | Description | Attributes                                                                                                                                                               |
+|----------|-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `info` | Driver record | driver_name, member_since, races_ingested_to, first_login, last_login, login_count, session_count                                                                        |
+| `ws#<connectionId>` | WebSocket connection | connected_at, ttl                                                                                                                                                        |
+| `session#<timestamp>` | Race participation (list view) | subsession_id, track_id, car_id, start_time, start_position, start_position_in_class, finish_position, finish_position_in_class, incidents, old_cpi, new_cpi, old_irating, new_irating, reason_out |
+
+#### `session#<id>` partition
+
+| Sort Key                                | Description | Attributes                                                                                                                                                                |
+|-----------------------------------------|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `info`                                  | Race metadata | subsession_id, track_id, start_time                                                                                                                                       |
+| `car_class#<car_class_id>`              | Car class in session | subsession_id, strength_of_field, num_entries                                                                                                                             |
+| `car_class#<car_class_id>#car#<car_id>` | Car in class | subsession_id, car_id                                                                                                                                                     |
+| `drivers#driver#<driver_id>`            | Driver's result | subsession_id, driver_id, car_id, start_position, start_position_in_class, finish_position, finish_position_in_class, old_cpi, new_cpi, incidents, old_irating, new_irating, reason_out, ai |
+| `laps#driver#<driver_id>#lap#<lap>`     | Lap data | subsession_id, driver_id, lap_number, lap_time, flags, incident, lap_events                                                                                               |
+
+Expected access patterns: 
+* Retrieving high level session details (pulls info and car_class stuff in one go)
+* Pulling drivers by session
+* Pulling laps by driver and session
+
+#### `global` partition
+
+| Sort Key | Description | Attributes                             |
+|----------|-------------|----------------------------------------|
+| `counters` | Aggregate counts | drivers, tracks, notes, sessions, laps |
 
 | File | Purpose |
 |------|---------|
@@ -129,6 +182,23 @@ The `ws/` package handles real-time WebSocket connections via API Gateway WebSoc
 4. Client sends periodic `{"action": "pingRequest", "driverId": <id>}` for heartbeat
 5. Connections have 24h TTL in DynamoDB for automatic cleanup
 
+### Race Ingestion
+
+The `ingestion/` package handles asynchronous ingestion of race history from the iRacing Data API. Processing is decoupled from the REST API via SQS.
+
+| File | Purpose |
+|------|---------|
+| [`ingestion/race-processor.go`](ingestion/race-processor.go) | Fetches race results from iRacing and stores them |
+
+**Ingestion Flow:**
+1. REST API receives request at `POST /ingestion/race` with authenticated user
+2. API enqueues message to SQS with driver ID and iRacing access token
+3. Race Ingestion Lambda consumes message, queries iRacing `/data/results/search_series`
+4. Results are filtered to races only (event_type=5) and stored in DynamoDB
+5. Driver's `races_ingested_to` timestamp is updated for incremental sync
+
+The iRacing search API returns chunked responses (results split across multiple S3 URLs). The client fetches all chunks and combines them. Search window is capped at 90 days per request.
+
 ## Frontend (Vue 3 + TypeScript)
 
 A single-page application built with Vue 3, TypeScript, and Vite.
@@ -147,6 +217,7 @@ All AWS infrastructure is defined in Terraform with workspace support for multip
 | File | Purpose |
 |------|---------|
 | [`terraform/api.tf`](terraform/api.tf) | REST API Lambda, API Gateway, certificates, environment variables |
+| [`terraform/race-ingestion.tf`](terraform/race-ingestion.tf) | SQS queue, Race Ingestion Lambda, event source mapping |
 | [`terraform/websockets.tf`](terraform/websockets.tf) | WebSocket API Gateway, custom domain, routes |
 | [`terraform/websockets-lambda.tf`](terraform/websockets-lambda.tf) | WebSocket Lambda function and IAM permissions |
 | [`terraform/front-end.tf`](terraform/front-end.tf) | S3 bucket, CloudFront distribution for SPA |

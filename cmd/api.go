@@ -13,12 +13,15 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
+	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/google/uuid"
 	apiAuth "github.com/jonsabados/saturdaysspinout/api/auth"
 	"github.com/jonsabados/saturdaysspinout/api/doc"
 	"github.com/jonsabados/saturdaysspinout/api/health"
+	"github.com/jonsabados/saturdaysspinout/api/ingestion"
+	"github.com/jonsabados/saturdaysspinout/event"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
 
@@ -35,6 +38,7 @@ type appCfg struct {
 	JWTSigningKeyARN         string   `envconfig:"JWT_SIGNING_KEY_ARN" required:"true"`
 	JWTEncryptionKeyARN      string   `envconfig:"JWT_ENCRYPTION_KEY_ARN" required:"true"`
 	DynamoDBTable            string   `envconfig:"DYNAMODB_TABLE" required:"true"`
+	RaceIngestionQueueURL    string   `envconfig:"RACE_INGESTION_QUEUE_URL" required:"true"`
 }
 
 type iRacingCredentials struct {
@@ -110,14 +114,18 @@ func CreateAPI() http.Handler {
 	iRacingOAuthClient := iracing.NewOAuthClient(httpClient, iRacingCreds.OauthClientID, iRacingCreds.OauthClientSecret)
 	iRacingClient := iracing.NewClient(httpClient)
 
+	sqsClient := sqs.NewFromConfig(awsCfg)
+	raceIngestionDispatcher := event.NewSQSEventDispatcher(sqsClient, cfg.RaceIngestionQueueURL)
+
 	authService := auth.NewService(iRacingOAuthClient, jwtService, iRacingClient, driverStore)
 
 	authMiddleware := api.AuthMiddleware(jwtService)
 
 	routers := api.RootRouters{
-		HealthRouter: health.NewRouter(),
-		AuthRouter:   apiAuth.NewRouter(authService, authMiddleware),
-		DocRouter:    doc.NewRouter(iracing.NewDocClient(httpClient), authMiddleware),
+		HealthRouter:    health.NewRouter(),
+		AuthRouter:      apiAuth.NewRouter(authService, authMiddleware),
+		DocRouter:       doc.NewRouter(iracing.NewDocClient(httpClient), authMiddleware),
+		IngestionRouter: ingestion.NewRouter(raceIngestionDispatcher, authMiddleware),
 	}
 
 	return api.NewRestAPI(logger, uuid.NewString, cfg.CORSAllowedOrigins, routers)

@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jonsabados/saturdaysspinout/auth/mocks"
 	"github.com/jonsabados/saturdaysspinout/iracing"
 	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/stretchr/testify/assert"
@@ -395,17 +394,17 @@ func TestService_HandleCallback(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx := context.Background()
 
-			oauthClient := mocks.NewMockOAuthClient(t)
+			oauthClient := NewMockOAuthClient(t)
 			for _, call := range tc.oauthClientCalls {
 				oauthClient.EXPECT().ExchangeCode(mock.Anything, call.inputCode, call.inputCodeVerifier, call.inputRedirectURI).Return(call.result, call.err)
 			}
 
-			userInfoProvider := mocks.NewMockUserInfoProvider(t)
+			userInfoProvider := NewMockUserInfoProvider(t)
 			for _, call := range tc.userInfoProviderCalls {
 				userInfoProvider.EXPECT().GetUserInfo(mock.Anything, call.inputAccessToken).Return(call.result, call.err)
 			}
 
-			driverStore := mocks.NewMockDriverStore(t)
+			driverStore := NewMockDriverStore(t)
 			for _, call := range tc.getDriverCalls {
 				driverStore.EXPECT().GetDriver(mock.Anything, call.inputDriverID).Return(call.result, call.err)
 			}
@@ -416,7 +415,7 @@ func TestService_HandleCallback(t *testing.T) {
 				driverStore.EXPECT().RecordLogin(mock.Anything, call.expectedDriverID, call.expectedLoginTime).Return(call.err)
 			}
 
-			jwtCreator := mocks.NewMockJWTCreator(t)
+			jwtCreator := NewMockJWTCreator(t)
 			for _, call := range tc.jwtCreatorCalls {
 				jwtCreator.EXPECT().CreateToken(mock.Anything, call.inputUserID, call.inputUserName, call.inputAccessToken, call.inputRefreshToken, call.inputTokenExpiry).Return(call.result, call.err)
 			}

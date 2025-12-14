@@ -9,3 +9,9 @@ variable "workspaces_ownership_txt_value" {
   description = "The value for domain ownership verification for google workspaces"
   default     = "google-site-verification=SR6l5mVpX3Slij5lAcNQ-rdKdTtoj_esr_T2z83mFDM"
 }
+
+variable "race_ingestion_processor_concurrency" {
+  description = "Reserved concurrent executions for the race ingestion processor Lambda"
+  type        = number
+  default     = 5
+}

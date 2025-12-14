@@ -1,1 +1,1 @@
-{"errors":["redirect_uri is required"],"fieldErrors":null,"correlationId":"test-correlation-id"}
+{"errors":null,"fieldErrors":[{"field":"redirect_uri","error":"required"}],"correlationId":"test-correlation-id"}

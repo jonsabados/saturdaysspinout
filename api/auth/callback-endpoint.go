@@ -42,20 +42,22 @@ func NewAuthCallbackEndpoint(authService Service) http.Handler {
 		var req CallbackRequest
 		if err := json.NewDecoder(request.Body).Decode(&req); err != nil {
 			logger.Warn().Err(err).Msg("failed to decode request body")
-			api.DoBadRequestResponse(ctx, []string{"invalid request body"}, nil, writer)
+			api.DoBadRequestResponse(ctx, api.RequestErrors{}.WithError("invalid request body"), writer)
 			return
 		}
 
+		var errs api.RequestErrors
 		if req.Code == "" {
-			api.DoBadRequestResponse(ctx, []string{"code is required"}, nil, writer)
-			return
+			errs = errs.WithFieldError("code", "required")
 		}
 		if req.CodeVerifier == "" {
-			api.DoBadRequestResponse(ctx, []string{"code_verifier is required"}, nil, writer)
-			return
+			errs = errs.WithFieldError("code_verifier", "required")
 		}
 		if req.RedirectURI == "" {
-			api.DoBadRequestResponse(ctx, []string{"redirect_uri is required"}, nil, writer)
+			errs = errs.WithFieldError("redirect_uri", "required")
+		}
+		if errs.HasAnyError() {
+			api.DoBadRequestResponse(ctx, errs, writer)
 			return
 		}
 

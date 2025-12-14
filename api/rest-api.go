@@ -15,9 +15,10 @@ import (
 )
 
 type RootRouters struct {
-	HealthRouter http.Handler
-	AuthRouter   http.Handler
-	DocRouter    http.Handler
+	HealthRouter    http.Handler
+	AuthRouter      http.Handler
+	DocRouter       http.Handler
+	IngestionRouter http.Handler
 }
 
 func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGenerator, corsAllowedOrigins []string, routers RootRouters) http.Handler {
@@ -38,6 +39,7 @@ func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGene
 
 	r.Mount("/health", routers.HealthRouter)
 	r.Mount("/auth", routers.AuthRouter)
+	r.Mount("/ingestion", routers.IngestionRouter)
 	r.Mount("/doc", routers.DocRouter)
 
 	return xray.Handler(xray.NewFixedSegmentNamer("processHttpRequest"), r)
