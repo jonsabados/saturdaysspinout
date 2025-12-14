@@ -266,24 +266,52 @@ func (s *DynamoStore) incrementCounter(name string) types.TransactWriteItem {
 
 func (s *DynamoStore) SaveConnection(ctx context.Context, conn WebSocketConnection) error {
 	now := time.Now()
-	_, err := s.client.PutItem(ctx, &dynamodb.PutItemInput{
-		TableName: aws.String(s.table),
-		Item: wsConnectionModel{
-			driverID:     conn.DriverID,
-			connectionID: conn.ConnectionID,
-			connectedAt:  toUnixSeconds(now),
-			ttl:          toUnixSeconds(now.Add(wsConnectionTTLDuration)),
-		}.toAttributeMap(),
+
+	rowsToWrite := wsConnectionModel{
+		driverID:     conn.DriverID,
+		connectionID: conn.ConnectionID,
+		connectedAt:  toUnixSeconds(now),
+		ttl:          toUnixSeconds(now.Add(wsConnectionTTLDuration)),
+	}.toAttributeMaps()
+
+	toWrite := make([]types.TransactWriteItem, len(rowsToWrite))
+
+	for i, row := range rowsToWrite {
+		toWrite[i] = types.TransactWriteItem{
+			Put: &types.Put{
+				TableName: aws.String(s.table),
+				Item:      row,
+			},
+		}
+	}
+
+	_, err := s.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+		TransactItems: toWrite,
 	})
 	return err
 }
 
 func (s *DynamoStore) DeleteConnection(ctx context.Context, driverID int64, connectionID string) error {
-	_, err := s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
-		TableName: aws.String(s.table),
-		Key: map[string]types.AttributeValue{
-			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
-			sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(wsConnectionSortKeyFormat, connectionID)},
+	_, err := s.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
+		TransactItems: []types.TransactWriteItem{
+			{
+				Delete: &types.Delete{
+					TableName: aws.String(s.table),
+					Key: map[string]types.AttributeValue{
+						partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
+						sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(wsConnectionSortKeyFormat, connectionID)},
+					},
+				},
+			},
+			{
+				Delete: &types.Delete{
+					TableName: aws.String(s.table),
+					Key: map[string]types.AttributeValue{
+						partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(websocketPartitionFormat, connectionID)},
+						sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
+					},
+				},
+			},
 		},
 	})
 	return err
@@ -315,6 +343,35 @@ func (s *DynamoStore) GetConnectionsByDriver(ctx context.Context, driverID int64
 		connections = append(connections, *conn)
 	}
 	return connections, nil
+}
+
+func (s *DynamoStore) GetDriverIDByConnection(ctx context.Context, connectionID string) (*int64, error) {
+	result, err := s.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(s.table),
+		KeyConditionExpression: aws.String("#pk = :pk AND #sk = :sk"),
+		ExpressionAttributeNames: map[string]string{
+			"#pk": partitionKeyName,
+			"#sk": sortKeyName,
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk": &types.AttributeValueMemberS{Value: fmt.Sprintf(websocketPartitionFormat, connectionID)},
+			":sk": &types.AttributeValueMemberS{Value: defaultSortKey},
+		},
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result.Items) == 0 {
+		return nil, nil
+	}
+
+	ret, err := getInt64Attr(result.Items[0], "driver_id")
+	if err != nil {
+		return nil, err
+	}
+	return &ret, nil
 }
 
 func (s *DynamoStore) GetConnection(ctx context.Context, driverID int64, connectionID string) (*WebSocketConnection, error) {

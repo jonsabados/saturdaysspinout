@@ -496,6 +496,44 @@ func TestGetConnectionsByDriver_IsolatedByDriver(t *testing.T) {
 	assert.Equal(t, "conn-driver1", connections[0].ConnectionID)
 }
 
+func TestGetDriverIDByConnection_RecordExists(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Create connections for different drivers
+	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+		DriverID:     111,
+		ConnectionID: "conn-driver1",
+	}))
+	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+		DriverID:     222,
+		ConnectionID: "conn-driver2",
+	}))
+
+	driver, err := s.GetDriverIDByConnection(ctx, "conn-driver1")
+	assert.NoError(t, err)
+	assert.Equal(t, aws.Int64(int64(111)), driver)
+}
+
+func TestGetDriverIDByConnection_RecordNotFound(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Create connections for different drivers
+	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+		DriverID:     111,
+		ConnectionID: "conn-driver1",
+	}))
+	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+		DriverID:     222,
+		ConnectionID: "conn-driver2",
+	}))
+
+	driver, err := s.GetDriverIDByConnection(ctx, "conn-driverBLAH")
+	assert.NoError(t, err)
+	assert.Nil(t, driver)
+}
+
 func TestUpdateDriverRacesIngestedTo_Success(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
