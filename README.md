@@ -137,6 +137,14 @@ The persistence layer uses DynamoDB with a single-table design.
 | `ws#<connectionId>` | WebSocket connection | connected_at, ttl                                                                                                                                                        |
 | `session#<timestamp>` | Race participation (list view) | subsession_id, track_id, car_id, start_time, start_position, start_position_in_class, finish_position, finish_position_in_class, incidents, old_cpi, new_cpi, old_irating, new_irating, reason_out |
 
+#### `websocket#<id>` partition
+
+| Sort Key | Description      | Attributes                            |
+|----------|------------------|---------------------------------------|
+| `info` | Websocket Record | driver_id |
+
+Note, this is basically just indexing websockets -> driver, could be a GSI but seems like less fuss just to explicitly write things
+
 #### `session#<id>` partition
 
 | Sort Key                                | Description | Attributes                                                                                                                                                                |

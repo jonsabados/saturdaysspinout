@@ -25,12 +25,17 @@ type AuthenticatedMessage struct {
 }
 
 type Handler struct {
-	authHandler RouteHandler
-	pingHandler RouteHandler
+	disconnectHandler RouteHandler
+	authHandler       RouteHandler
+	pingHandler       RouteHandler
 }
 
-func NewHandler(authHandler RouteHandler, pingHandler RouteHandler) *Handler {
-	return &Handler{authHandler: authHandler, pingHandler: pingHandler}
+func NewHandler(disconnectHandler, authHandler, pingHandler RouteHandler) *Handler {
+	return &Handler{
+		disconnectHandler: disconnectHandler,
+		authHandler:       authHandler,
+		pingHandler:       pingHandler,
+	}
 }
 
 func (h *Handler) Handle(ctx context.Context, request events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
@@ -49,7 +54,7 @@ func (h *Handler) Handle(ctx context.Context, request events.APIGatewayWebsocket
 	case "$connect":
 		return h.handleConnect(ctx, request)
 	case "$disconnect":
-		return h.handleDisconnect(ctx, request)
+		return h.disconnectHandler.HandleRequest(ctx, request)
 	case "auth":
 		return h.authHandler.HandleRequest(ctx, request)
 	case "pingRequest":
@@ -65,12 +70,6 @@ func (h *Handler) Handle(ctx context.Context, request events.APIGatewayWebsocket
 func (h *Handler) handleConnect(ctx context.Context, _ events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
 	logger := zerolog.Ctx(ctx)
 	logger.Info().Msg("websocket connected, awaiting auth")
-	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK}, nil
-}
-
-func (h *Handler) handleDisconnect(ctx context.Context, _ events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
-	logger := zerolog.Ctx(ctx)
-	logger.Info().Msg("websocket disconnected")
 	return events.APIGatewayProxyResponse{StatusCode: http.StatusOK}, nil
 }
 

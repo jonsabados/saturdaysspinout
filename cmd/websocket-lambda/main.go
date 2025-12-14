@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/google/uuid"
 	wsauth "github.com/jonsabados/saturdaysspinout/ws/auth"
+	"github.com/jonsabados/saturdaysspinout/ws/disconnect"
 	"github.com/jonsabados/saturdaysspinout/ws/ping"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
@@ -84,10 +85,11 @@ func main() {
 	})
 
 	pusher := ws.NewPusher(apiClient, connStore)
+	disconnectHandler := disconnect.NewHandler(connStore)
 	authHandler := wsauth.NewHandler(jwtService, pusher, connStore)
 	pingHandler := ping.NewHandler(pusher, connStore)
 
-	handler := ws.NewHandler(authHandler, pingHandler)
+	handler := ws.NewHandler(disconnectHandler, authHandler, pingHandler)
 
 	lambda.Start(func(ctx context.Context, request events.APIGatewayWebsocketProxyRequest) (events.APIGatewayProxyResponse, error) {
 		ctx = logger.WithContext(ctx)
