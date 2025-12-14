@@ -55,7 +55,7 @@ flowchart TB
 ├── auth/                   # JWT creation and KMS-based signing/encryption
 ├── cmd/                    # Application entry points
 │   ├── lambda-based-api/   # AWS Lambda handler (REST API)
-│   ├── race-ingestion-lambda/ # SQS consumer for race data ingestion
+│   ├── race-ingestion-processor/ # SQS consumer for race data ingestion
 │   ├── standalone-api/     # Local development server
 │   └── websocket-lambda/   # WebSocket Lambda handler
 ├── correlation/            # Request correlation ID middleware
@@ -81,7 +81,7 @@ The API is built with [chi](https://github.com/go-chi/chi) and can run either as
 | REST Lambda | [`cmd/lambda-based-api/main.go`](cmd/lambda-based-api/main.go) | AWS Lambda handler using `aws-lambda-go-api-proxy` |
 | Standalone | [`cmd/standalone-api/main.go`](cmd/standalone-api/main.go) | Standard `net/http` server for local development |
 | WebSocket Lambda | [`cmd/websocket-lambda/main.go`](cmd/websocket-lambda/main.go) | WebSocket API Gateway handler for real-time connections |
-| Race Ingestion Lambda | [`cmd/race-ingestion-lambda/main.go`](cmd/race-ingestion-lambda/main.go) | SQS consumer for async race data ingestion |
+| Race Ingestion Lambda | [`cmd/race-ingestion-processor/main.go`](cmd/race-ingestion-processor/main.go) | SQS consumer for async race data ingestion |
 
 Both entry points share the same API setup via [`cmd/api.go`](cmd/api.go), which configures:
 - Structured logging with [zerolog](https://github.com/rs/zerolog)
@@ -202,10 +202,12 @@ The `ingestion/` package handles asynchronous ingestion of race history from the
 1. REST API receives request at `POST /ingestion/race` with authenticated user
 2. API enqueues message to SQS with driver ID and iRacing access token
 3. Race Ingestion Lambda consumes message, queries iRacing `/data/results/search_series`
-4. Results are filtered to races only (event_type=5) and stored in DynamoDB
-5. Driver's `races_ingested_to` timestamp is updated for incremental sync
+4. Results are filtered to races only (event_type=5)
+5. For each race, fetches full session results and lap data for all drivers
+6. Stores session info, car classes, driver results, and lap data in DynamoDB (skips if session already exists from another driver's ingestion)
+7. Driver's `races_ingested_to` timestamp is updated for incremental sync
 
-The iRacing search API returns chunked responses (results split across multiple S3 URLs). The client fetches all chunks and combines them. Search window is capped at 90 days per request.
+The iRacing search API returns chunked responses (results split across multiple S3 URLs). The client fetches all chunks and combines them. Search window is configurable (default 10 days) via `SEARCH_WINDOW_IN_DAYS`.
 
 ## Frontend (Vue 3 + TypeScript)
 
@@ -371,6 +373,14 @@ These are managed in `terraform/api.tf` as `local.app_env_vars` and automaticall
 | `IRACING_CREDENTIALS_SECRET` | ARN of Secrets Manager secret containing iRacing OAuth credentials |
 | `JWT_SIGNING_KEY_ARN` | ARN of KMS key used to sign JWTs |
 | `JWT_ENCRYPTION_KEY_ARN` | ARN of KMS key used to encrypt JWT payloads |
+
+### Race Ingestion Lambda
+
+| Variable | Description |
+|----------|-------------|
+| `LOG_LEVEL` | Logging level (trace, debug, info, warn, error) |
+| `DYNAMODB_TABLE` | DynamoDB table name |
+| `SEARCH_WINDOW_IN_DAYS` | Days to search per invocation (default: 10) |
 
 ### Frontend
 
