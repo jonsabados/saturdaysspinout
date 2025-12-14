@@ -19,6 +19,8 @@ const driverPartitionFormat = "driver#%d"
 const driverNoteSortKeyFormat = "note#%d" // note, the number should be a unix timestamp allowing us to find notes within a specified time period
 const wsConnectionSortKeyFormat = "ws#%s"
 
+const websocketPartitionFormat = "websocket#%s"
+
 const driverSessionSortKeyFormat = "session#%d" // timestamp for ordering
 
 const sessionPartitionKeyFormat = "session#%d"
@@ -253,13 +255,21 @@ type wsConnectionModel struct {
 	ttl          int64
 }
 
-func (c wsConnectionModel) toAttributeMap() map[string]types.AttributeValue {
-	return map[string]types.AttributeValue{
-		partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, c.driverID)},
-		sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(wsConnectionSortKeyFormat, c.connectionID)},
-		"connection_id":  &types.AttributeValueMemberS{Value: c.connectionID},
-		"connected_at":   &types.AttributeValueMemberN{Value: strconv.FormatInt(c.connectedAt, 10)},
-		"ttl":            &types.AttributeValueMemberN{Value: strconv.FormatInt(c.ttl, 10)},
+func (c wsConnectionModel) toAttributeMaps() []map[string]types.AttributeValue {
+	return []map[string]types.AttributeValue{
+		{
+			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, c.driverID)},
+			sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(wsConnectionSortKeyFormat, c.connectionID)},
+			"connection_id":  &types.AttributeValueMemberS{Value: c.connectionID},
+			"connected_at":   &types.AttributeValueMemberN{Value: strconv.FormatInt(c.connectedAt, 10)},
+			"ttl":            &types.AttributeValueMemberN{Value: strconv.FormatInt(c.ttl, 10)},
+		},
+		{
+			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(websocketPartitionFormat, c.connectionID)},
+			sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
+			"driver_id":      &types.AttributeValueMemberN{Value: strconv.FormatInt(c.driverID, 10)},
+			"ttl":            &types.AttributeValueMemberN{Value: strconv.FormatInt(c.ttl, 10)},
+		},
 	}
 }
 
