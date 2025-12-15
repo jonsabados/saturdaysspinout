@@ -1,0 +1,7 @@
+{
+  "errors": [],
+  "fieldErrors": [
+    {"field": "endTime", "error": "required"}
+  ],
+  "correlationId": "test-correlation-id"
+}

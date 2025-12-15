@@ -1,1 +1,1 @@
-{"errors":null,"fieldErrors":[{"field":"code_verifier","error":"required"}],"correlationId":"test-correlation-id"}
+{"errors":[],"fieldErrors":[{"field":"code_verifier","error":"required"}],"correlationId":"test-correlation-id"}

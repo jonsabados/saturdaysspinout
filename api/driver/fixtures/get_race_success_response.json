@@ -1,0 +1,20 @@
+{
+  "response": {
+    "id": 1700000000,
+    "subsessionId": 100001,
+    "trackId": 1,
+    "carId": 10,
+    "startTime": "2023-11-14T22:13:20Z",
+    "startPosition": 5,
+    "startPositionInClass": 3,
+    "finishPosition": 2,
+    "finishPositionInClass": 1,
+    "incidents": 4,
+    "oldCpi": 1.5,
+    "newCpi": 1.4,
+    "oldIrating": 1500,
+    "newIrating": 1550,
+    "reasonOut": "Running"
+  },
+  "correlationId": "test-correlation-id"
+}

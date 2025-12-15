@@ -2,9 +2,11 @@
 import { ref, onMounted, watch } from 'vue'
 import { useApiClient } from '@/api/client'
 import { useSessionStore } from '@/stores/session'
+import { useAuthStore } from '@/stores/auth'
 
 const apiClient = useApiClient()
 const session = useSessionStore()
+const auth = useAuthStore()
 const status = ref<'idle' | 'loading' | 'success' | 'error'>('idle')
 const errorMessage = ref('')
 
@@ -25,10 +27,41 @@ async function triggerIngestion() {
   }
 }
 
+async function fetchRaces() {
+  if (!auth.userId) {
+    console.log('No userId available, skipping race fetch')
+    return
+  }
+
+  const endTime = new Date()
+  endTime.setFullYear(endTime.getFullYear() - 1)
+  endTime.setDate(endTime.getDate() - 2)
+  const startTime = new Date()
+  startTime.setFullYear(startTime.getFullYear() - 2)
+
+  try {
+    console.log('Fetching races for driver', auth.userId, 'from', startTime.toISOString(), 'to', endTime.toISOString())
+    const racesResponse = await apiClient.getRaces(auth.userId, startTime, endTime)
+    console.log('Races response:', racesResponse)
+
+    if (racesResponse.items.length > 0) {
+      const firstRace = racesResponse.items[0]
+      console.log('Fetching single race with id:', firstRace.id)
+      const raceResponse = await apiClient.getRace(auth.userId, firstRace.id)
+      console.log('Single race response:', raceResponse)
+    } else {
+      console.log('No races found in the past year')
+    }
+  } catch (err) {
+    console.error('Error fetching races:', err)
+  }
+}
+
 onMounted(() => {
   if (session.isReady) {
     triggerIngestion()
   }
+  fetchRaces()
 })
 
 watch(() => session.isReady, (ready) => {

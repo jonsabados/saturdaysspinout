@@ -20,6 +20,12 @@ reserved concurrency limits set as a safety).
 
 ```mermaid
 flowchart TB
+    Browser["Browser"]
+
+    Browser -->|"Load SPA"| CF1
+    Browser -->|"REST API"| CF2
+    Browser <-->|"WebSocket"| CF4
+
     subgraph CloudFront["CloudFront CDN"]
         CF1["app.* (Frontend)"]
         CF2["api.* (API)"]
@@ -98,6 +104,11 @@ Both entry points share the same API setup via [`cmd/api.go`](cmd/api.go), which
 | [`api/health/`](api/health/) | Health check endpoints (`GET /health/ping`) |
 | [`api/auth/`](api/auth/) | Auth endpoints (`POST /auth/ir/callback`) |
 | [`api/doc/`](api/doc/) | iRacing API doc proxy (`GET /doc/iracing-api/*`) |
+| [`api/driver/`](api/driver/) | Driver endpoints (`GET /driver/{driver_id}/races`) |
+
+#### API Naming Conventions
+
+Path parameters and resource IDs use descriptive prefixes to avoid confusion with iRacing's own identifiers. For example, `driver_race_id` (the unix timestamp of the race start time, used as an ID for a driver's race record) is distinct from `subsession_id` (iRacing's identifier for a session). This makes it clear which system "owns" the identifier and prevents ambiguity in API contracts.
 
 ### Authentication
 

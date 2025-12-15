@@ -39,6 +39,13 @@ type RequestErrors struct {
 	CorrelationID string       `json:"correlationId"`
 }
 
+func NewRequestErrors() RequestErrors {
+	return RequestErrors{
+		Errors:      []string{},
+		FieldErrors: []FieldError{},
+	}
+}
+
 func (r RequestErrors) WithError(error string) RequestErrors {
 	return RequestErrors{
 		Errors:        append(slices.Clone(r.Errors), error),
@@ -109,6 +116,42 @@ func DoUnauthorizedResponse(ctx context.Context, message string, writer http.Res
 	_, _ = writer.Write(bytes)
 }
 
+type ForbiddenResponse struct {
+	Message       string `json:"message"`
+	CorrelationID string `json:"correlationId"`
+}
+
+func DoForbiddenResponse(ctx context.Context, message string, writer http.ResponseWriter) {
+	writer.Header().Add("content-type", "application/json")
+	writer.WriteHeader(http.StatusForbidden)
+	bytes, err := json.Marshal(ForbiddenResponse{
+		Message:       message,
+		CorrelationID: correlation.FromContext(ctx),
+	})
+	if err != nil {
+		panic(fmt.Errorf("error marshalling ForbiddenResponse, this should not happen: %w", err))
+	}
+	_, _ = writer.Write(bytes)
+}
+
+type NotFoundResponse struct {
+	Message       string `json:"message"`
+	CorrelationID string `json:"correlationId"`
+}
+
+func DoNotFoundResponse(ctx context.Context, message string, writer http.ResponseWriter) {
+	writer.Header().Add("content-type", "application/json")
+	writer.WriteHeader(http.StatusNotFound)
+	bytes, err := json.Marshal(NotFoundResponse{
+		Message:       message,
+		CorrelationID: correlation.FromContext(ctx),
+	})
+	if err != nil {
+		panic(fmt.Errorf("error marshalling NotFoundResponse, this should not happen: %w", err))
+	}
+	_, _ = writer.Write(bytes)
+}
+
 type OKResponse struct {
 	Response      interface{} `json:"response"`
 	CorrelationID string      `json:"correlationId"`
@@ -122,7 +165,44 @@ func DoOKResponse(ctx context.Context, Response interface{}, writer http.Respons
 		CorrelationID: correlation.FromContext(ctx),
 	})
 	if err != nil {
-		panic(fmt.Errorf("error marshalling AcceptedResponse, this should not happen: %w", err))
+		panic(fmt.Errorf("error marshalling OKResponse, this should not happen: %w", err))
+	}
+	_, _ = writer.Write(bytes)
+}
+
+type Pagination struct {
+	Page           int `json:"page"`
+	ResultsPerPage int `json:"resultsPerPage"`
+	TotalResults   int `json:"totalResults"`
+	TotalPages     int `json:"totalPages"`
+}
+
+type OKListResponse[T any] struct {
+	Items         []T        `json:"items"`
+	Pagination    Pagination `json:"pagination"`
+	CorrelationID string     `json:"correlationId"`
+}
+
+func DoOKListResponse[T any](ctx context.Context, items []T, page, resultsPerPage, totalResults int, writer http.ResponseWriter) {
+	totalPages := totalResults / resultsPerPage
+	if totalResults%resultsPerPage != 0 {
+		totalPages++
+	}
+
+	writer.Header().Add("content-type", "application/json")
+	writer.WriteHeader(http.StatusOK)
+	bytes, err := json.Marshal(OKListResponse[T]{
+		Items: items,
+		Pagination: Pagination{
+			Page:           page,
+			ResultsPerPage: resultsPerPage,
+			TotalResults:   totalResults,
+			TotalPages:     totalPages,
+		},
+		CorrelationID: correlation.FromContext(ctx),
+	})
+	if err != nil {
+		panic(fmt.Errorf("error marshalling OKListResponse, this should not happen: %w", err))
 	}
 	_, _ = writer.Write(bytes)
 }
