@@ -78,6 +78,34 @@ resource "aws_api_gateway_resource" "doc_iracing_api_proxy" {
   path_part   = "{proxy+}"
 }
 
+# /driver
+resource "aws_api_gateway_resource" "driver" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_rest_api.api.root_resource_id
+  path_part   = "driver"
+}
+
+# /driver/{driver_id}
+resource "aws_api_gateway_resource" "driver_id" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.driver.id
+  path_part   = "{driver_id}"
+}
+
+# /driver/{driver_id}/races
+resource "aws_api_gateway_resource" "driver_races" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.driver_id.id
+  path_part   = "races"
+}
+
+# /driver/{driver_id}/races/{driver_race_id}
+resource "aws_api_gateway_resource" "driver_race" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.driver_races.id
+  path_part   = "{driver_race_id}"
+}
+
 # API Gateway Endpoints
 # =====================
 
@@ -173,6 +201,38 @@ module "doc_iracing_api_proxy_options" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id
   resource_id       = aws_api_gateway_resource.doc_iracing_api_proxy.id
+  http_method       = "OPTIONS"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "driver_races_get" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.driver_races.id
+  http_method       = "GET"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "driver_races_options" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.driver_races.id
+  http_method       = "OPTIONS"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "driver_race_get" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.driver_race.id
+  http_method       = "GET"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "driver_race_options" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.driver_race.id
   http_method       = "OPTIONS"
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }
