@@ -203,6 +203,10 @@ resource "aws_api_gateway_deployment" "api" {
     module.doc_iracing_api_options,
     module.doc_iracing_api_proxy_get,
     module.doc_iracing_api_proxy_options,
+    module.driver_races_get,
+    module.driver_races_options,
+    module.driver_race_get,
+    module.driver_race_options,
   ]
   rest_api_id = aws_api_gateway_rest_api.api.id
 
