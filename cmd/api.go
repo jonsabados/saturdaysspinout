@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 	apiAuth "github.com/jonsabados/saturdaysspinout/api/auth"
 	"github.com/jonsabados/saturdaysspinout/api/doc"
+	"github.com/jonsabados/saturdaysspinout/api/driver"
 	"github.com/jonsabados/saturdaysspinout/api/health"
 	"github.com/jonsabados/saturdaysspinout/api/ingestion"
 	"github.com/jonsabados/saturdaysspinout/event"
@@ -126,6 +127,7 @@ func CreateAPI() http.Handler {
 		AuthRouter:      apiAuth.NewRouter(authService, authMiddleware),
 		DocRouter:       doc.NewRouter(iracing.NewDocClient(httpClient), authMiddleware),
 		IngestionRouter: ingestion.NewRouter(raceIngestionDispatcher, authMiddleware),
+		DriverRouter:    driver.NewRouter(driverStore, authMiddleware),
 	}
 
 	return api.NewRestAPI(logger, uuid.NewString, cfg.CORSAllowedOrigins, routers)

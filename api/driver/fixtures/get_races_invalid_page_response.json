@@ -1,0 +1,7 @@
+{
+  "errors": [],
+  "fieldErrors": [
+    {"field": "page", "error": "must be a positive integer"}
+  ],
+  "correlationId": "test-correlation-id"
+}
