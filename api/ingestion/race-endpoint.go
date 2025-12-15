@@ -37,11 +37,11 @@ func NewRaceIngestionEndpoint(dispatcher EventDispatcher) http.Handler {
 
 		var req RaceIngestionRequest
 		if err := json.NewDecoder(request.Body).Decode(&req); err != nil {
-			api.DoBadRequestResponse(ctx, api.RequestErrors{}.WithError("invalid request body"), writer)
+			api.DoBadRequestResponse(ctx, api.NewRequestErrors().WithError("invalid request body"), writer)
 			return
 		}
 
-		var errs api.RequestErrors
+		errs := api.NewRequestErrors()
 		if req.NotifyConnectionID == "" {
 			errs = errs.WithFieldError("notifyConnectionId", "required")
 		}

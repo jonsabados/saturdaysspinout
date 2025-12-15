@@ -1,0 +1,5 @@
+{
+  "errors": ["date range cannot exceed 365 days"],
+  "fieldErrors": [],
+  "correlationId": "test-correlation-id"
+}
