@@ -40,7 +40,7 @@ flowchart TB
 
     APIGW --> Lambda["API Lambda<br/>(Go)"]
     Lambda --> DynamoDB["DynamoDB"]
-    Lambda --> KMS["KMS"]
+    Lambda --> SecretsManager["Secrets Manager"]
     Lambda --> SQS["SQS<br/>(Race Ingestion)"]
 
     SQS --> IngestionLambda["Ingestion Lambda<br/>(Go)"]
@@ -49,7 +49,7 @@ flowchart TB
 
     WS_APIGW["API Gateway<br/>(WebSocket)"] --> WS_Lambda["WebSocket Lambda<br/>(Go)"]
     WS_Lambda --> DynamoDB
-    WS_Lambda --> KMS["KMS"]
+    WS_Lambda --> SecretsManager
 ```
 
 ## Project Structure
@@ -58,7 +58,7 @@ flowchart TB
 .
 ├── .github/workflows/      # CI/CD pipeline (GitHub Actions)
 ├── api/                    # API endpoint handlers and HTTP setup
-├── auth/                   # JWT creation and KMS-based signing/encryption
+├── auth/                   # JWT creation with ES256 signing and AES-GCM encryption
 ├── cmd/                    # Application entry points
 │   ├── lambda-based-api/   # AWS Lambda handler (REST API)
 │   ├── race-ingestion-processor/ # SQS consumer for race data ingestion
@@ -112,13 +112,13 @@ Path parameters and resource IDs use descriptive prefixes to avoid confusion wit
 
 ### Authentication
 
-The `auth/` package handles JWT creation with AWS KMS for signing and encryption. JWTs contain encrypted iRacing tokens, allowing the backend to make iRacing API calls on behalf of authenticated users.
+The `auth/` package handles JWT creation with ES256 (ECDSA P-256) signing and AES-GCM encryption. JWTs contain encrypted iRacing tokens, allowing the backend to make iRacing API calls on behalf of authenticated users. Keys are stored in Secrets Manager and loaded at Lambda cold start.
 
 | File | Purpose |
 |------|---------|
 | [`auth/service.go`](auth/service.go) | Auth service orchestrating OAuth callback flow |
-| [`auth/jwt.go`](auth/jwt.go) | JWT creation with KMS signing and payload encryption |
-| [`auth/kms.go`](auth/kms.go) | AWS KMS client wrappers for signing and encryption |
+| [`auth/jwt.go`](auth/jwt.go) | JWT creation with ES256 signing and AES-GCM payload encryption |
+| [`auth/keys.go`](auth/keys.go) | Key parsing utilities for PEM and base64 encoded keys |
 
 ### iRacing Integration
 
@@ -244,8 +244,7 @@ All AWS infrastructure is defined in Terraform with workspace support for multip
 | [`terraform/front-end.tf`](terraform/front-end.tf) | S3 bucket, CloudFront distribution for SPA |
 | [`terraform/website.tf`](terraform/website.tf) | S3 bucket, CloudFront for static site |
 | [`terraform/store.tf`](terraform/store.tf) | DynamoDB table (with TTL for WebSocket connections) |
-| [`terraform/kms.tf`](terraform/kms.tf) | KMS keys for JWT signing and encryption |
-| [`terraform/secrets.tf`](terraform/secrets.tf) | Secrets Manager references (iRacing credentials) |
+| [`terraform/secrets.tf`](terraform/secrets.tf) | Secrets Manager secrets (iRacing credentials, JWT signing/encryption keys) |
 | [`terraform/backend.tf`](terraform/backend.tf) | S3 backend for Terraform state |
 
 ## CI/CD
@@ -298,8 +297,8 @@ locals {
     LOG_LEVEL                  = "info"
     CORS_ALLOWED_ORIGINS       = "..."
     IRACING_CREDENTIALS_SECRET = data.aws_secretsmanager_secret.iracing_credentials.arn
-    JWT_SIGNING_KEY_ARN        = aws_kms_key.jwt.arn
-    JWT_ENCRYPTION_KEY_ARN     = aws_kms_key.jwt_encryption.arn
+    JWT_SIGNING_KEY_SECRET     = aws_secretsmanager_secret.jwt_signing_key.arn
+    JWT_ENCRYPTION_KEY_SECRET  = aws_secretsmanager_secret.jwt_encryption_key.arn
   }
 }
 
@@ -384,8 +383,8 @@ These are managed in `terraform/api.tf` as `local.app_env_vars` and automaticall
 | `LOG_LEVEL` | Logging level (trace, debug, info, warn, error) |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated list of allowed origins |
 | `IRACING_CREDENTIALS_SECRET` | ARN of Secrets Manager secret containing iRacing OAuth credentials |
-| `JWT_SIGNING_KEY_ARN` | ARN of KMS key used to sign JWTs |
-| `JWT_ENCRYPTION_KEY_ARN` | ARN of KMS key used to encrypt JWT payloads |
+| `JWT_SIGNING_KEY_SECRET` | ARN of Secrets Manager secret containing ECDSA P-256 private key (PEM) |
+| `JWT_ENCRYPTION_KEY_SECRET` | ARN of Secrets Manager secret containing AES-256 key (base64) |
 
 ### Race Ingestion Lambda
 

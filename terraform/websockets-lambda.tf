@@ -1,10 +1,10 @@
 locals {
   ws_env_vars = {
-    LOG_LEVEL              = "info"
-    JWT_SIGNING_KEY_ARN    = aws_kms_key.jwt.arn
-    JWT_ENCRYPTION_KEY_ARN = aws_kms_key.jwt_encryption.arn
-    DYNAMODB_TABLE         = aws_dynamodb_table.application_store.name
-    WS_MANAGEMENT_ENDPOINT = "https://${aws_apigatewayv2_api.websockets.id}.execute-api.us-east-1.amazonaws.com/${aws_apigatewayv2_stage.ws.name}"
+    LOG_LEVEL                 = "info"
+    JWT_SIGNING_KEY_SECRET    = aws_secretsmanager_secret.jwt_signing_key.arn
+    JWT_ENCRYPTION_KEY_SECRET = aws_secretsmanager_secret.jwt_encryption_key.arn
+    DYNAMODB_TABLE            = aws_dynamodb_table.application_store.name
+    WS_MANAGEMENT_ENDPOINT    = "https://${aws_apigatewayv2_api.websockets.id}.execute-api.us-east-1.amazonaws.com/${aws_apigatewayv2_stage.ws.name}"
   }
 }
 
@@ -54,16 +54,14 @@ data "aws_iam_policy_document" "ws_lambda" {
   }
 
   statement {
-    sid    = "AllowKMSJWTValidation"
+    sid    = "AllowSecretsManager"
     effect = "Allow"
     actions = [
-      "kms:Verify",
-      "kms:GetPublicKey",
-      "kms:Decrypt"
+      "secretsmanager:GetSecretValue"
     ]
     resources = [
-      aws_kms_key.jwt.arn,
-      aws_kms_key.jwt_encryption.arn
+      aws_secretsmanager_secret.jwt_signing_key.arn,
+      aws_secretsmanager_secret.jwt_encryption_key.arn,
     ]
   }
 

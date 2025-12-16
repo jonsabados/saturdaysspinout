@@ -11,7 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/kms"
+	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/google/uuid"
@@ -27,11 +27,11 @@ import (
 )
 
 type appCfg struct {
-	LogLevel             string `envconfig:"LOG_LEVEL" required:"true"`
-	JWTSigningKeyARN     string `envconfig:"JWT_SIGNING_KEY_ARN" required:"true"`
-	JWTEncryptionKeyARN  string `envconfig:"JWT_ENCRYPTION_KEY_ARN" required:"true"`
-	DynamoDBTable        string `envconfig:"DYNAMODB_TABLE" required:"true"`
-	WSManagementEndpoint string `envconfig:"WS_MANAGEMENT_ENDPOINT" required:"true"`
+	LogLevel               string `envconfig:"LOG_LEVEL" required:"true"`
+	JWTSigningKeySecret    string `envconfig:"JWT_SIGNING_KEY_SECRET" required:"true"`
+	JWTEncryptionKeySecret string `envconfig:"JWT_ENCRYPTION_KEY_SECRET" required:"true"`
+	DynamoDBTable          string `envconfig:"DYNAMODB_TABLE" required:"true"`
+	WSManagementEndpoint   string `envconfig:"WS_MANAGEMENT_ENDPOINT" required:"true"`
 }
 
 func main() {
@@ -70,12 +70,38 @@ func main() {
 
 	awsv2.AWSV2Instrumentor(&awsCfg.APIOptions)
 
-	kmsClient := kms.NewFromConfig(awsCfg)
-	awsKMSClient := auth.NewAWSKMSClient(kmsClient)
-	jwtSigner := auth.NewKMSSignerAdapter(awsKMSClient, cfg.JWTSigningKeyARN)
-	jwtEncryptor := auth.NewKMSEncryptorAdapter(awsKMSClient, cfg.JWTEncryptionKeyARN)
+	secretsClient := secretsmanager.NewFromConfig(awsCfg)
 
-	jwtService := auth.NewJWTService(jwtSigner, jwtEncryptor, uuid.NewString, "saturdaysspinout", 24*time.Hour)
+	signingKeyResult, err := secretsClient.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
+		SecretId: &cfg.JWTSigningKeySecret,
+	})
+	if err != nil {
+		logger.Fatal().Err(err).Msg("error fetching JWT signing key from secrets manager")
+	}
+
+	signingKey, err := auth.ParseSigningKeyPEM([]byte(*signingKeyResult.SecretString))
+	if err != nil {
+		logger.Fatal().Err(err).Msg("error parsing JWT signing key")
+	}
+	logger.Info().Msg("loaded JWT signing key")
+
+	encryptionKeyResult, err := secretsClient.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
+		SecretId: &cfg.JWTEncryptionKeySecret,
+	})
+	if err != nil {
+		logger.Fatal().Err(err).Msg("error fetching JWT encryption key from secrets manager")
+	}
+
+	encryptionKey, err := auth.ParseEncryptionKeyBase64(*encryptionKeyResult.SecretString)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("error parsing JWT encryption key")
+	}
+	logger.Info().Msg("loaded JWT encryption key")
+
+	jwtService, err := auth.NewJWTService(signingKey, encryptionKey, uuid.NewString, "saturdaysspinout", 24*time.Hour)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("error creating JWT service")
+	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	connStore := store.NewDynamoStore(dynamoClient, cfg.DynamoDBTable)
