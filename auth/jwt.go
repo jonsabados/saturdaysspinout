@@ -6,40 +6,18 @@ import (
 	"crypto/cipher"
 	"crypto/ecdsa"
 	"crypto/rand"
-	"crypto/x509"
-	"encoding/asn1"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
-	"math/big"
-	"sync"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-type KMSSigner interface {
-	Sign(ctx context.Context, digest []byte) ([]byte, error)
-	GetPublicKey(ctx context.Context) (*ecdsa.PublicKey, error)
-}
-
-type KMSEncryptor interface {
-	GenerateDataKey(ctx context.Context) (plaintext []byte, ciphertext []byte, err error)
-	DecryptDataKey(ctx context.Context, ciphertext []byte) ([]byte, error)
-}
-
-type KMSClient interface {
-	Sign(ctx context.Context, keyID string, digest []byte) ([]byte, error)
-	GetPublicKey(ctx context.Context, keyID string) ([]byte, error)
-	GenerateDataKey(ctx context.Context, keyID string, keySpec string) (plaintext []byte, ciphertext []byte, err error)
-	Decrypt(ctx context.Context, keyID string, ciphertext []byte) ([]byte, error)
-}
-
 type EncryptedClaims struct {
 	EncryptedData string `json:"enc"`
-	EncryptedKey  string `json:"key"`
 	Nonce         string `json:"nonce"`
 }
 
@@ -60,25 +38,41 @@ type SessionClaims struct {
 type IDGenerator func() string
 
 type JWTService struct {
-	signer      KMSSigner
-	encryptor   KMSEncryptor
-	idGenerator IDGenerator
-	issuer      string
-	tokenExpiry time.Duration
+	signingKey    *ecdsa.PrivateKey
+	encryptionKey []byte
+	gcm           cipher.AEAD
+	idGenerator   IDGenerator
+	issuer        string
+	tokenExpiry   time.Duration
 }
 
-func NewJWTService(signer KMSSigner, encryptor KMSEncryptor, idGenerator IDGenerator, issuer string, tokenExpiry time.Duration) *JWTService {
-	return &JWTService{
-		signer:      signer,
-		encryptor:   encryptor,
-		idGenerator: idGenerator,
-		issuer:      issuer,
-		tokenExpiry: tokenExpiry,
+func NewJWTService(signingKey *ecdsa.PrivateKey, encryptionKey []byte, idGenerator IDGenerator, issuer string, tokenExpiry time.Duration) (*JWTService, error) {
+	if len(encryptionKey) != 32 {
+		return nil, fmt.Errorf("encryption key must be 32 bytes, got %d", len(encryptionKey))
 	}
+
+	block, err := aes.NewCipher(encryptionKey)
+	if err != nil {
+		return nil, fmt.Errorf("creating AES cipher: %w", err)
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("creating GCM: %w", err)
+	}
+
+	return &JWTService{
+		signingKey:    signingKey,
+		encryptionKey: encryptionKey,
+		gcm:           gcm,
+		idGenerator:   idGenerator,
+		issuer:        issuer,
+		tokenExpiry:   tokenExpiry,
+	}, nil
 }
 
-func (s *JWTService) CreateToken(ctx context.Context, userID int64, userName string, accessToken, refreshToken string, tokenExpiry time.Time) (string, error) {
-	encryptedClaims, err := s.encryptSensitiveClaims(ctx, &SensitiveClaims{
+func (s *JWTService) CreateToken(_ context.Context, userID int64, userName string, accessToken, refreshToken string, tokenExpiry time.Time) (string, error) {
+	encryptedClaims, err := s.encryptSensitiveClaims(&SensitiveClaims{
 		IRacingAccessToken:  accessToken,
 		IRacingRefreshToken: refreshToken,
 		IRacingTokenExpiry:  tokenExpiry.Unix(),
@@ -102,9 +96,9 @@ func (s *JWTService) CreateToken(ctx context.Context, userID int64, userName str
 		Encrypted:       *encryptedClaims,
 	}
 
-	token := jwt.NewWithClaims(&kmsSigningMethod{signer: s.signer, ctx: ctx}, claims)
+	token := jwt.NewWithClaims(jwt.SigningMethodES256, claims)
 
-	signedString, err := token.SignedString(nil)
+	signedString, err := token.SignedString(s.signingKey)
 	if err != nil {
 		return "", fmt.Errorf("signing token: %w", err)
 	}
@@ -112,18 +106,13 @@ func (s *JWTService) CreateToken(ctx context.Context, userID int64, userName str
 	return signedString, nil
 }
 
-func (s *JWTService) ValidateToken(ctx context.Context, tokenString string) (*SessionClaims, *SensitiveClaims, error) {
-	pubKey, err := s.signer.GetPublicKey(ctx)
-	if err != nil {
-		return nil, nil, fmt.Errorf("getting public key: %w", err)
-	}
-
+func (s *JWTService) ValidateToken(_ context.Context, tokenString string) (*SessionClaims, *SensitiveClaims, error) {
 	claims := &SessionClaims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodECDSA); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return pubKey, nil
+		return &s.signingKey.PublicKey, nil
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("parsing token: %w", err)
@@ -133,7 +122,7 @@ func (s *JWTService) ValidateToken(ctx context.Context, tokenString string) (*Se
 		return nil, nil, errors.New("invalid token")
 	}
 
-	sensitiveClaims, err := s.decryptSensitiveClaims(ctx, &claims.Encrypted)
+	sensitiveClaims, err := s.decryptSensitiveClaims(&claims.Encrypted)
 	if err != nil {
 		return nil, nil, fmt.Errorf("decrypting sensitive claims: %w", err)
 	}
@@ -141,50 +130,29 @@ func (s *JWTService) ValidateToken(ctx context.Context, tokenString string) (*Se
 	return claims, sensitiveClaims, nil
 }
 
-func (s *JWTService) encryptSensitiveClaims(ctx context.Context, claims *SensitiveClaims) (*EncryptedClaims, error) {
+func (s *JWTService) encryptSensitiveClaims(claims *SensitiveClaims) (*EncryptedClaims, error) {
 	plaintext, err := json.Marshal(claims)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling claims: %w", err)
 	}
 
-	dataKey, encryptedDataKey, err := s.encryptor.GenerateDataKey(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("generating data key: %w", err)
-	}
-
-	block, err := aes.NewCipher(dataKey)
-	if err != nil {
-		return nil, fmt.Errorf("creating cipher: %w", err)
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("creating GCM: %w", err)
-	}
-
-	nonce := make([]byte, gcm.NonceSize())
+	nonce := make([]byte, s.gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return nil, fmt.Errorf("generating nonce: %w", err)
 	}
 
-	ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
+	ciphertext := s.gcm.Seal(nil, nonce, plaintext, nil)
 
 	return &EncryptedClaims{
 		EncryptedData: base64.RawURLEncoding.EncodeToString(ciphertext),
-		EncryptedKey:  base64.RawURLEncoding.EncodeToString(encryptedDataKey),
 		Nonce:         base64.RawURLEncoding.EncodeToString(nonce),
 	}, nil
 }
 
-func (s *JWTService) decryptSensitiveClaims(ctx context.Context, encrypted *EncryptedClaims) (*SensitiveClaims, error) {
+func (s *JWTService) decryptSensitiveClaims(encrypted *EncryptedClaims) (*SensitiveClaims, error) {
 	ciphertext, err := base64.RawURLEncoding.DecodeString(encrypted.EncryptedData)
 	if err != nil {
 		return nil, fmt.Errorf("decoding ciphertext: %w", err)
-	}
-
-	encryptedKey, err := base64.RawURLEncoding.DecodeString(encrypted.EncryptedKey)
-	if err != nil {
-		return nil, fmt.Errorf("decoding encrypted key: %w", err)
 	}
 
 	nonce, err := base64.RawURLEncoding.DecodeString(encrypted.Nonce)
@@ -192,22 +160,7 @@ func (s *JWTService) decryptSensitiveClaims(ctx context.Context, encrypted *Encr
 		return nil, fmt.Errorf("decoding nonce: %w", err)
 	}
 
-	dataKey, err := s.encryptor.DecryptDataKey(ctx, encryptedKey)
-	if err != nil {
-		return nil, fmt.Errorf("decrypting data key: %w", err)
-	}
-
-	block, err := aes.NewCipher(dataKey)
-	if err != nil {
-		return nil, fmt.Errorf("creating cipher: %w", err)
-	}
-
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, fmt.Errorf("creating GCM: %w", err)
-	}
-
-	plaintextBytes, err := gcm.Open(nil, nonce, ciphertext, nil)
+	plaintextBytes, err := s.gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
 		return nil, fmt.Errorf("decrypting: %w", err)
 	}
@@ -218,144 +171,4 @@ func (s *JWTService) decryptSensitiveClaims(ctx context.Context, encrypted *Encr
 	}
 
 	return &result, nil
-}
-
-// kmsSigningMethod implements jwt.SigningMethod to enable JWT signing via AWS KMS.
-//
-// The golang-jwt library expects a SigningMethod that can sign arbitrary data.
-// Since KMS keeps private keys secure and never exposes them, we can't use the
-// library's built-in ES256 signer. Instead, this adapter sends the JWT's signing
-// string to KMS for signing and handles the signature format conversion.
-//
-// Verification uses the standard library path since we can retrieve the public key.
-type kmsSigningMethod struct {
-	signer KMSSigner
-	ctx    context.Context
-}
-
-func (m *kmsSigningMethod) Alg() string {
-	return "ES256"
-}
-
-// Verify is not implemented because we use the standard jwt.SigningMethodES256
-// verification path with the public key retrieved from KMS.
-func (m *kmsSigningMethod) Verify(signingString string, sig []byte, key interface{}) error {
-	return jwt.ErrSignatureInvalid
-}
-
-func (m *kmsSigningMethod) Sign(signingString string, key interface{}) ([]byte, error) {
-	hasher := jwt.SigningMethodES256.Hash.New()
-	hasher.Write([]byte(signingString))
-	digest := hasher.Sum(nil)
-
-	derSignature, err := m.signer.Sign(m.ctx, digest)
-	if err != nil {
-		return nil, fmt.Errorf("KMS signing: %w", err)
-	}
-
-	// KMS returns DER-encoded signatures, but JWT expects raw R||S format
-	rawSignature, err := derToRawECDSASignature(derSignature, 32)
-	if err != nil {
-		return nil, fmt.Errorf("converting signature format: %w", err)
-	}
-
-	return rawSignature, nil
-}
-
-// derToRawECDSASignature converts a DER-encoded ECDSA signature to raw R||S format.
-//
-// AWS KMS returns ECDSA signatures in DER/ASN.1 format (SEQUENCE { INTEGER r, INTEGER s }),
-// which is variable-length due to ASN.1 integer encoding rules. However, the JWT/JWS
-// specification (RFC 7518) requires ES256 signatures in a fixed 64-byte format: the R and S
-// values concatenated as fixed-size 32-byte big-endian integers.
-//
-// keySize is the size in bytes of each component (32 for P-256/ES256).
-func derToRawECDSASignature(derSig []byte, keySize int) ([]byte, error) {
-	var sig struct {
-		R, S *big.Int
-	}
-	if _, err := asn1.Unmarshal(derSig, &sig); err != nil {
-		return nil, fmt.Errorf("unmarshaling DER signature: %w", err)
-	}
-
-	rBytes := sig.R.Bytes()
-	sBytes := sig.S.Bytes()
-
-	// Pad R and S to keySize bytes
-	rawSig := make([]byte, keySize*2)
-	copy(rawSig[keySize-len(rBytes):keySize], rBytes)
-	copy(rawSig[keySize*2-len(sBytes):], sBytes)
-
-	return rawSig, nil
-}
-
-// KMSSignerAdapter binds a specific signing key to a KMSClient, so callers
-// don't need to pass the key ID on every signing operation. It caches the
-// public key after first retrieval.
-type KMSSignerAdapter struct {
-	client    KMSClient
-	keyID     string
-	mu        sync.Mutex
-	publicKey *ecdsa.PublicKey
-}
-
-func NewKMSSignerAdapter(client KMSClient, keyID string) *KMSSignerAdapter {
-	return &KMSSignerAdapter{
-		client: client,
-		keyID:  keyID,
-	}
-}
-
-func (s *KMSSignerAdapter) Sign(ctx context.Context, digest []byte) ([]byte, error) {
-	return s.client.Sign(ctx, s.keyID, digest)
-}
-
-func (s *KMSSignerAdapter) GetPublicKey(ctx context.Context) (*ecdsa.PublicKey, error) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if s.publicKey != nil {
-		return s.publicKey, nil
-	}
-
-	pubKeyBytes, err := s.client.GetPublicKey(ctx, s.keyID)
-	if err != nil {
-		return nil, err
-	}
-
-	pubKey, err := x509.ParsePKIXPublicKey(pubKeyBytes)
-	if err != nil {
-		return nil, fmt.Errorf("parsing public key: %w", err)
-	}
-
-	ecdsaKey, ok := pubKey.(*ecdsa.PublicKey)
-	if !ok {
-		return nil, errors.New("public key is not ECDSA")
-	}
-
-	s.publicKey = ecdsaKey
-	return ecdsaKey, nil
-}
-
-// KMSEncryptorAdapter binds a specific encryption key to a KMSClient for envelope
-// encryption. It uses KMS to generate and decrypt data keys, while the actual
-// data encryption/decryption happens locally with AES-GCM for performance.
-type KMSEncryptorAdapter struct {
-	client KMSClient
-	keyID  string
-}
-
-func NewKMSEncryptorAdapter(client KMSClient, keyID string) *KMSEncryptorAdapter {
-	return &KMSEncryptorAdapter{
-		client: client,
-		keyID:  keyID,
-	}
-}
-
-func (e *KMSEncryptorAdapter) GenerateDataKey(ctx context.Context) (plaintext []byte, ciphertext []byte, err error) {
-	return e.client.GenerateDataKey(ctx, e.keyID, "AES_256")
-}
-
-func (e *KMSEncryptorAdapter) DecryptDataKey(ctx context.Context, ciphertext []byte) ([]byte, error) {
-	return e.client.Decrypt(ctx, e.keyID, ciphertext)
 }

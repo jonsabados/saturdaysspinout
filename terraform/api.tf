@@ -6,8 +6,8 @@ locals {
     LOG_LEVEL                  = "info"
     CORS_ALLOWED_ORIGINS       = "https://${local.frontend_domain_name},http://127.0.0.1:5173"
     IRACING_CREDENTIALS_SECRET = data.aws_secretsmanager_secret.iracing_credentials.arn
-    JWT_SIGNING_KEY_ARN        = aws_kms_key.jwt.arn
-    JWT_ENCRYPTION_KEY_ARN     = aws_kms_key.jwt_encryption.arn
+    JWT_SIGNING_KEY_SECRET     = aws_secretsmanager_secret.jwt_signing_key.arn
+    JWT_ENCRYPTION_KEY_SECRET  = aws_secretsmanager_secret.jwt_encryption_key.arn
     DYNAMODB_TABLE             = aws_dynamodb_table.application_store.name
     RACE_INGESTION_QUEUE_URL   = aws_sqs_queue.race_ingestion_requests.url
   }
@@ -70,33 +70,9 @@ data "aws_iam_policy_document" "api_lambda" {
       "secretsmanager:GetSecretValue"
     ]
     resources = [
-      data.aws_secretsmanager_secret.iracing_credentials.arn
-    ]
-  }
-
-  statement {
-    sid    = "AllowKMSJWTSigning"
-    effect = "Allow"
-    actions = [
-      "kms:Sign",
-      "kms:Verify",
-      "kms:GetPublicKey"
-    ]
-    resources = [
-      aws_kms_key.jwt.arn
-    ]
-  }
-
-  statement {
-    sid    = "AllowKMSJWTEncryption"
-    effect = "Allow"
-    actions = [
-      "kms:Encrypt",
-      "kms:Decrypt",
-      "kms:GenerateDataKey"
-    ]
-    resources = [
-      aws_kms_key.jwt_encryption.arn
+      data.aws_secretsmanager_secret.iracing_credentials.arn,
+      aws_secretsmanager_secret.jwt_signing_key.arn,
+      aws_secretsmanager_secret.jwt_encryption_key.arn,
     ]
   }
 

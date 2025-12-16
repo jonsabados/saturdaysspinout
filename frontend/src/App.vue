@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
+import SessionExpiredModal from '@/components/SessionExpiredModal.vue'
 </script>
 
 <template>
@@ -9,6 +10,7 @@ import NavBar from '@/components/NavBar.vue'
     <main class="main-content">
       <RouterView />
     </main>
+    <SessionExpiredModal />
   </div>
 </template>
 

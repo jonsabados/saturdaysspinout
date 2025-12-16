@@ -6,55 +6,27 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/x509"
-	"encoding/asn1"
-	"math/big"
+	"encoding/pem"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-type ecdsaSignature struct {
-	R, S *big.Int
-}
 
 func TestJWTService_CreateToken(t *testing.T) {
 	ctx := context.Background()
 
-	// Generate a real ECDSA key for signing (we'll use it to create valid signatures)
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	// 32-byte key for AES-256
-	dataKey := make([]byte, 32)
-	_, err = rand.Read(dataKey)
+	encryptionKey := make([]byte, 32)
+	_, err = rand.Read(encryptionKey)
 	require.NoError(t, err)
 
-	encryptedDataKey := []byte("encrypted-data-key")
-
-	mockSigner := NewMockKMSSigner(t)
-	mockEncryptor := NewMockKMSEncryptor(t)
-
-	// Set up encryptor expectations
-	mockEncryptor.EXPECT().
-		GenerateDataKey(mock.Anything).
-		Return(dataKey, encryptedDataKey, nil)
-
-	// Set up signer to use the real private key for signing (returns DER-encoded like KMS)
-	mockSigner.EXPECT().
-		Sign(mock.Anything, mock.Anything).
-		RunAndReturn(func(ctx context.Context, digest []byte) ([]byte, error) {
-			r, s, err := ecdsa.Sign(rand.Reader, privateKey, digest)
-			if err != nil {
-				return nil, err
-			}
-			return asn1.Marshal(ecdsaSignature{R: r, S: s})
-		})
-
 	idGenerator := func() string { return "test-session-id" }
-	service := NewJWTService(mockSigner, mockEncryptor, idGenerator, "test-issuer", time.Hour)
+	service, err := NewJWTService(privateKey, encryptionKey, idGenerator, "test-issuer", time.Hour)
+	require.NoError(t, err)
 
 	tokenExpiry := time.Now().Add(time.Hour)
 	token, err := service.CreateToken(ctx, 12345, "TestDriver", "access-token-123", "refresh-token-456", tokenExpiry)
@@ -68,48 +40,16 @@ func TestJWTService_CreateToken(t *testing.T) {
 func TestJWTService_CreateAndValidateToken(t *testing.T) {
 	ctx := context.Background()
 
-	// Generate a real ECDSA key pair
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	// 32-byte key for AES-256
-	dataKey := make([]byte, 32)
-	_, err = rand.Read(dataKey)
+	encryptionKey := make([]byte, 32)
+	_, err = rand.Read(encryptionKey)
 	require.NoError(t, err)
 
-	encryptedDataKey := []byte("encrypted-data-key")
-
-	mockSigner := NewMockKMSSigner(t)
-	mockEncryptor := NewMockKMSEncryptor(t)
-
-	// Set up encryptor for token creation
-	mockEncryptor.EXPECT().
-		GenerateDataKey(mock.Anything).
-		Return(dataKey, encryptedDataKey, nil)
-
-	// Set up signer for token creation (returns DER-encoded like KMS)
-	mockSigner.EXPECT().
-		Sign(mock.Anything, mock.Anything).
-		RunAndReturn(func(ctx context.Context, digest []byte) ([]byte, error) {
-			r, s, err := ecdsa.Sign(rand.Reader, privateKey, digest)
-			if err != nil {
-				return nil, err
-			}
-			return asn1.Marshal(ecdsaSignature{R: r, S: s})
-		})
-
-	// Set up signer for token validation (returns public key)
-	mockSigner.EXPECT().
-		GetPublicKey(mock.Anything).
-		Return(&privateKey.PublicKey, nil)
-
-	// Set up encryptor for token validation (decrypt the data key)
-	mockEncryptor.EXPECT().
-		DecryptDataKey(mock.Anything, encryptedDataKey).
-		Return(dataKey, nil)
-
 	idGenerator := func() string { return "test-session-id" }
-	service := NewJWTService(mockSigner, mockEncryptor, idGenerator, "test-issuer", time.Hour)
+	service, err := NewJWTService(privateKey, encryptionKey, idGenerator, "test-issuer", time.Hour)
+	require.NoError(t, err)
 
 	// Create token
 	tokenExpiry := time.Now().Add(time.Hour)
@@ -142,42 +82,24 @@ func TestJWTService_ValidateToken_InvalidSignature(t *testing.T) {
 	privateKey2, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	dataKey := make([]byte, 32)
-	_, err = rand.Read(dataKey)
+	encryptionKey := make([]byte, 32)
+	_, err = rand.Read(encryptionKey)
 	require.NoError(t, err)
-
-	encryptedDataKey := []byte("encrypted-data-key")
-
-	mockSigner := NewMockKMSSigner(t)
-	mockEncryptor := NewMockKMSEncryptor(t)
-
-	// Create token signed with key1
-	mockEncryptor.EXPECT().
-		GenerateDataKey(mock.Anything).
-		Return(dataKey, encryptedDataKey, nil)
-
-	mockSigner.EXPECT().
-		Sign(mock.Anything, mock.Anything).
-		RunAndReturn(func(ctx context.Context, digest []byte) ([]byte, error) {
-			r, s, err := ecdsa.Sign(rand.Reader, privateKey1, digest)
-			if err != nil {
-				return nil, err
-			}
-			return asn1.Marshal(ecdsaSignature{R: r, S: s})
-		})
-
-	// Validate with key2's public key (should fail)
-	mockSigner.EXPECT().
-		GetPublicKey(mock.Anything).
-		Return(&privateKey2.PublicKey, nil)
 
 	idGenerator := func() string { return "test-session-id" }
-	service := NewJWTService(mockSigner, mockEncryptor, idGenerator, "test-issuer", time.Hour)
 
-	token, err := service.CreateToken(ctx, 12345, "TestDriver", "access-token", "refresh-token", time.Now().Add(time.Hour))
+	// Create token with key1
+	service1, err := NewJWTService(privateKey1, encryptionKey, idGenerator, "test-issuer", time.Hour)
 	require.NoError(t, err)
 
-	_, _, err = service.ValidateToken(ctx, token)
+	token, err := service1.CreateToken(ctx, 12345, "TestDriver", "access-token", "refresh-token", time.Now().Add(time.Hour))
+	require.NoError(t, err)
+
+	// Try to validate with key2 (should fail)
+	service2, err := NewJWTService(privateKey2, encryptionKey, idGenerator, "test-issuer", time.Hour)
+	require.NoError(t, err)
+
+	_, _, err = service2.ValidateToken(ctx, token)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "parsing token")
 }
@@ -188,36 +110,14 @@ func TestJWTService_ValidateToken_Expired(t *testing.T) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	dataKey := make([]byte, 32)
-	_, err = rand.Read(dataKey)
+	encryptionKey := make([]byte, 32)
+	_, err = rand.Read(encryptionKey)
 	require.NoError(t, err)
 
-	encryptedDataKey := []byte("encrypted-data-key")
-
-	mockSigner := NewMockKMSSigner(t)
-	mockEncryptor := NewMockKMSEncryptor(t)
-
-	mockEncryptor.EXPECT().
-		GenerateDataKey(mock.Anything).
-		Return(dataKey, encryptedDataKey, nil)
-
-	mockSigner.EXPECT().
-		Sign(mock.Anything, mock.Anything).
-		RunAndReturn(func(ctx context.Context, digest []byte) ([]byte, error) {
-			r, s, err := ecdsa.Sign(rand.Reader, privateKey, digest)
-			if err != nil {
-				return nil, err
-			}
-			return asn1.Marshal(ecdsaSignature{R: r, S: s})
-		})
-
-	mockSigner.EXPECT().
-		GetPublicKey(mock.Anything).
-		Return(&privateKey.PublicKey, nil)
-
-	// Create service with very short token expiry
+	// Create service with very short token expiry (negative = already expired)
 	idGenerator := func() string { return "test-session-id" }
-	service := NewJWTService(mockSigner, mockEncryptor, idGenerator, "test-issuer", -time.Hour)
+	service, err := NewJWTService(privateKey, encryptionKey, idGenerator, "test-issuer", -time.Hour)
+	require.NoError(t, err)
 
 	token, err := service.CreateToken(ctx, 12345, "TestDriver", "access-token", "refresh-token", time.Now().Add(time.Hour))
 	require.NoError(t, err)
@@ -227,79 +127,66 @@ func TestJWTService_ValidateToken_Expired(t *testing.T) {
 	assert.Contains(t, err.Error(), "token is expired")
 }
 
-func TestKMSSignerAdapter(t *testing.T) {
-	ctx := context.Background()
-
+func TestJWTService_InvalidEncryptionKeyLength(t *testing.T) {
 	privateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
 
-	mockClient := NewMockKMSClient(t)
-
-	testDigest := []byte("test-digest")
-	testSignature := []byte("test-signature")
-	testKeyID := "test-key-id"
-
-	mockClient.EXPECT().
-		Sign(ctx, testKeyID, testDigest).
-		Return(testSignature, nil)
-
-	adapter := NewKMSSignerAdapter(mockClient, testKeyID)
-	sig, err := adapter.Sign(ctx, testDigest)
-
-	require.NoError(t, err)
-	assert.Equal(t, testSignature, sig)
-
-	// Test GetPublicKey
-	// Marshal the public key to DER format
-	pubKeyBytes, err := ecdsaPublicKeyToDER(&privateKey.PublicKey)
+	// 16 bytes is too short for AES-256
+	shortKey := make([]byte, 16)
+	_, err = rand.Read(shortKey)
 	require.NoError(t, err)
 
-	mockClient.EXPECT().
-		GetPublicKey(ctx, testKeyID).
-		Return(pubKeyBytes, nil)
-
-	pubKey, err := adapter.GetPublicKey(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, privateKey.PublicKey.X, pubKey.X)
-	assert.Equal(t, privateKey.PublicKey.Y, pubKey.Y)
-
-	// Test caching - GetPublicKey should not call client again
-	pubKey2, err := adapter.GetPublicKey(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, pubKey, pubKey2)
+	idGenerator := func() string { return "test-session-id" }
+	_, err = NewJWTService(privateKey, shortKey, idGenerator, "test-issuer", time.Hour)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "encryption key must be 32 bytes")
 }
 
-func TestKMSEncryptorAdapter(t *testing.T) {
-	ctx := context.Background()
-
-	mockClient := NewMockKMSClient(t)
-	testKeyID := "test-key-id"
-
-	plaintext := []byte("plaintext-key")
-	ciphertext := []byte("ciphertext-key")
-
-	mockClient.EXPECT().
-		GenerateDataKey(ctx, testKeyID, "AES_256").
-		Return(plaintext, ciphertext, nil)
-
-	adapter := NewKMSEncryptorAdapter(mockClient, testKeyID)
-	gotPlaintext, gotCiphertext, err := adapter.GenerateDataKey(ctx)
-
+func TestParseSigningKeyPEM(t *testing.T) {
+	// Generate a key and convert to PEM (same as Terraform's tls_private_key does)
+	originalKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	require.NoError(t, err)
-	assert.Equal(t, plaintext, gotPlaintext)
-	assert.Equal(t, ciphertext, gotCiphertext)
 
-	// Test DecryptDataKey
-	mockClient.EXPECT().
-		Decrypt(ctx, testKeyID, ciphertext).
-		Return(plaintext, nil)
-
-	decrypted, err := adapter.DecryptDataKey(ctx, ciphertext)
+	derBytes, err := x509.MarshalECPrivateKey(originalKey)
 	require.NoError(t, err)
-	assert.Equal(t, plaintext, decrypted)
+
+	pemBlock := &pem.Block{
+		Type:  "EC PRIVATE KEY",
+		Bytes: derBytes,
+	}
+	pemData := pem.EncodeToMemory(pemBlock)
+
+	// Test successful parsing
+	parsedKey, err := ParseSigningKeyPEM(pemData)
+	require.NoError(t, err)
+	assert.Equal(t, originalKey.D, parsedKey.D)
+	assert.Equal(t, originalKey.PublicKey.X, parsedKey.PublicKey.X)
+	assert.Equal(t, originalKey.PublicKey.Y, parsedKey.PublicKey.Y)
+
+	// Test with invalid PEM
+	_, err = ParseSigningKeyPEM([]byte("not valid pem"))
+	assert.Error(t, err)
+
+	// Test with empty input
+	_, err = ParseSigningKeyPEM([]byte{})
+	assert.Error(t, err)
 }
 
-// Helper to convert ECDSA public key to DER format
-func ecdsaPublicKeyToDER(pub *ecdsa.PublicKey) ([]byte, error) {
-	return x509.MarshalPKIXPublicKey(pub)
+func TestParseEncryptionKeyBase64(t *testing.T) {
+	// Valid 32-byte key in base64
+	validKey := "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=" // "01234567890123456789012345678901"
+
+	key, err := ParseEncryptionKeyBase64(validKey)
+	require.NoError(t, err)
+	assert.Len(t, key, 32)
+
+	// Invalid base64
+	_, err = ParseEncryptionKeyBase64("not valid base64!!!")
+	assert.Error(t, err)
+
+	// Valid base64 but wrong length (16 bytes)
+	shortKey := "MDEyMzQ1Njc4OTAxMjM0NQ==" // "0123456789012345"
+	_, err = ParseEncryptionKeyBase64(shortKey)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "must be 32 bytes")
 }

@@ -11,6 +11,7 @@ interface AuthState {
   userId: number | null
   userName: string | null
   refreshInProgress: boolean
+  sessionExpired: boolean
 }
 
 interface RefreshResponse {
@@ -30,6 +31,7 @@ export const useAuthStore = defineStore('auth', {
     userId: null,
     userName: null,
     refreshInProgress: false,
+    sessionExpired: false,
   }),
 
   getters: {
@@ -53,6 +55,7 @@ export const useAuthStore = defineStore('auth', {
       this.expiresAt = expiresAt
       this.userId = userId ?? null
       this.userName = userName ?? null
+      this.sessionExpired = false
     },
 
     logout() {
@@ -60,6 +63,10 @@ export const useAuthStore = defineStore('auth', {
       this.expiresAt = null
       this.userId = null
       this.userName = null
+    },
+
+    clearSessionExpired() {
+      this.sessionExpired = false
     },
 
     async refreshToken(): Promise<boolean> {
@@ -78,6 +85,7 @@ export const useAuthStore = defineStore('auth', {
 
         if (!response.ok) {
           // Token refresh failed - user needs to log in again
+          this.sessionExpired = true
           this.logout()
           return false
         }
@@ -87,6 +95,7 @@ export const useAuthStore = defineStore('auth', {
         this.setSession(token, expires_at, user_id, user_name)
         return true
       } catch {
+        this.sessionExpired = true
         this.logout()
         return false
       } finally {
@@ -95,5 +104,10 @@ export const useAuthStore = defineStore('auth', {
     },
   },
 
-  persist: true,
+  // Only persist auth credentials, not transient state.
+  // Excluded: refreshInProgress (would appear stuck if page closed mid-refresh),
+  //           sessionExpired (should reset on page reload)
+  persist: {
+    paths: ['token', 'expiresAt', 'userId', 'userName'],
+  },
 })
