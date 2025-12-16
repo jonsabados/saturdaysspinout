@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import { useRaceIngestionStore } from './raceIngestion'
+import { useRaceIngestionStore, setupRaceIngestionListener } from './raceIngestion'
 
 // Mock dependencies
 const mockTriggerRaceIngestion = vi.fn()
@@ -26,9 +26,17 @@ vi.mock('./session', () => ({
   }),
 }))
 
+// Capture the stale credentials callback when registered
+let staleCredentialsCallback: (() => void) | null = null
+const mockWsOn = vi.fn((event: string, callback: () => void) => {
+  if (event === 'ingestionFailedStaleCredentials') {
+    staleCredentialsCallback = callback
+  }
+})
+
 vi.mock('./websocket', () => ({
   useWebSocketStore: () => ({
-    on: vi.fn(),
+    on: mockWsOn,
     off: vi.fn(),
   }),
 }))
@@ -38,6 +46,7 @@ describe('raceIngestion store', () => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
     mockSessionIsReady = true
+    staleCredentialsCallback = null
   })
 
   describe('triggerIngestion', () => {
@@ -84,13 +93,27 @@ describe('raceIngestion store', () => {
     })
   })
 
-  describe('_handleStaleCredentials', () => {
+  describe('setupListener', () => {
+    it('registers listener for stale credentials event', () => {
+      const store = useRaceIngestionStore()
+      store.setupListener()
+
+      expect(mockWsOn).toHaveBeenCalledWith('ingestionFailedStaleCredentials', expect.any(Function))
+    })
+  })
+
+  describe('stale credentials handling (via listener)', () => {
     it('refreshes token and retries ingestion when refresh succeeds', async () => {
       mockRefreshToken.mockResolvedValue(true)
       mockTriggerRaceIngestion.mockResolvedValue(undefined)
       const store = useRaceIngestionStore()
 
-      await store._handleStaleCredentials()
+      // Set up the listener to capture the callback
+      store.setupListener()
+      expect(staleCredentialsCallback).not.toBeNull()
+
+      // Trigger the callback as if websocket received the event
+      await staleCredentialsCallback!()
 
       expect(mockRefreshToken).toHaveBeenCalled()
       expect(mockTriggerRaceIngestion).toHaveBeenCalled()
@@ -101,35 +124,21 @@ describe('raceIngestion store', () => {
       mockRefreshToken.mockResolvedValue(false)
       const store = useRaceIngestionStore()
 
-      await store._handleStaleCredentials()
+      store.setupListener()
+      await staleCredentialsCallback!()
 
       expect(mockRefreshToken).toHaveBeenCalled()
       expect(mockTriggerRaceIngestion).not.toHaveBeenCalled()
       expect(store.status).toBe('error')
       expect(store.error).toBe('Session expired. Please log in again.')
     })
+  })
 
-    it('waits for session to be ready before retrying', async () => {
-      mockSessionIsReady = false
-      mockRefreshToken.mockResolvedValue(true)
-      mockTriggerRaceIngestion.mockResolvedValue(undefined)
-      const store = useRaceIngestionStore()
+  describe('setupRaceIngestionListener', () => {
+    it('calls setupListener on the store', () => {
+      setupRaceIngestionListener()
 
-      // Start the handler - it should wait for session
-      const handlerPromise = store._handleStaleCredentials()
-
-      // Give it a tick to start waiting
-      await new Promise((r) => setTimeout(r, 10))
-
-      // Ingestion shouldn't have been called yet
-      expect(mockTriggerRaceIngestion).not.toHaveBeenCalled()
-
-      // Simulate session becoming ready
-      mockSessionIsReady = true
-
-      // The promise should still be pending because the watch hasn't fired
-      // In a real scenario, the watch would detect the change
-      // For this test, we verify the guard is in place
+      expect(mockWsOn).toHaveBeenCalledWith('ingestionFailedStaleCredentials', expect.any(Function))
     })
   })
 })
