@@ -17,8 +17,8 @@ type Response struct {
 }
 
 type Pusher interface {
-	Push(ctx context.Context, driverID int64, connectionID string, actionType string, payload any) error
-	Disconnect(ctx context.Context, driverID int64, connectionID string)
+	Push(ctx context.Context, connectionID string, actionType string, payload any) (bool, error)
+	Disconnect(ctx context.Context, connectionID string)
 }
 
 type ConnectionStore interface {
@@ -33,7 +33,7 @@ func NewHandler(pusher Pusher, connectionStore ConnectionStore) ws.RouteHandler 
 		var msg ws.AuthenticatedMessage
 		if err := json.Unmarshal([]byte(request.Body), &msg); err != nil {
 			logger.Warn().Err(err).Msg("failed to parse ping request")
-			if err := pusher.Push(ctx, 0, connectionID, "pong", Response{Success: false, Message: "invalid payload"}); err != nil {
+			if _, err := pusher.Push(ctx, connectionID, "pong", Response{Success: false, Message: "invalid payload"}); err != nil {
 				logger.Error().Err(err).Msg("error pushing message")
 			}
 			return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest}, nil
@@ -41,7 +41,7 @@ func NewHandler(pusher Pusher, connectionStore ConnectionStore) ws.RouteHandler 
 
 		if msg.DriverID == 0 {
 			logger.Warn().Msg("missing driverId in ping request")
-			if err := pusher.Push(ctx, 0, connectionID, "pong", Response{Success: false, Message: "missing driverId"}); err != nil {
+			if _, err := pusher.Push(ctx, connectionID, "pong", Response{Success: false, Message: "missing driverId"}); err != nil {
 				logger.Error().Err(err).Msg("error pushing message")
 			}
 			return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest}, nil
@@ -55,14 +55,14 @@ func NewHandler(pusher Pusher, connectionStore ConnectionStore) ws.RouteHandler 
 		}
 		if conn == nil {
 			logger.Warn().Int64("driverId", msg.DriverID).Msg("connection not found for driver, disconnecting")
-			if err := pusher.Push(ctx, 0, connectionID, "pong", Response{Success: false, Message: "not authenticated"}); err != nil {
+			if _, err := pusher.Push(ctx, connectionID, "pong", Response{Success: false, Message: "not authenticated"}); err != nil {
 				logger.Error().Err(err).Msg("error pushing message")
 			}
-			pusher.Disconnect(ctx, msg.DriverID, connectionID)
+			pusher.Disconnect(ctx, connectionID)
 			return events.APIGatewayProxyResponse{StatusCode: http.StatusForbidden}, nil
 		}
 
-		if err := pusher.Push(ctx, msg.DriverID, connectionID, "pong", Response{Success: true, Message: "pong"}); err != nil {
+		if _, err := pusher.Push(ctx, connectionID, "pong", Response{Success: true, Message: "pong"}); err != nil {
 			logger.Error().Err(err).Msg("error pushing message")
 			return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, err
 		}

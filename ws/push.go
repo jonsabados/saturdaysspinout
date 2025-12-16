@@ -16,27 +16,24 @@ type Message struct {
 	Payload any    `json:"payload,omitempty"`
 }
 
-type ConnectionDeleter interface {
-	DeleteConnection(ctx context.Context, driverID int64, connectionID string) error
+type APIGatewayManagementClient interface {
+	PostToConnection(ctx context.Context, params *apigatewaymanagementapi.PostToConnectionInput, optFns ...func(*apigatewaymanagementapi.Options)) (*apigatewaymanagementapi.PostToConnectionOutput, error)
+	DeleteConnection(ctx context.Context, params *apigatewaymanagementapi.DeleteConnectionInput, optFns ...func(*apigatewaymanagementapi.Options)) (*apigatewaymanagementapi.DeleteConnectionOutput, error)
 }
 
 type Pusher struct {
-	client    *apigatewaymanagementapi.Client
-	connStore ConnectionDeleter
+	client APIGatewayManagementClient
 }
 
-func NewPusher(client *apigatewaymanagementapi.Client, connStore ConnectionDeleter) *Pusher {
+func NewPusher(client APIGatewayManagementClient) *Pusher {
 	return &Pusher{
-		client:    client,
-		connStore: connStore,
+		client: client,
 	}
 }
 
-// Push dispatches messages in a consistent format. driverID is used to clean up dynamo records during GoneExceptions,
-// if the driverID is unknown 0 may be passed & cleanup steps on GoneErrors will be skipped.
-func (p *Pusher) Push(ctx context.Context, driverID int64, connectionID string, actionType string, payload any) error {
-	logger := zerolog.Ctx(ctx)
-
+// Push dispatches messages in a consistent format. When the connection is valid true, nil will be returned, but if the
+// message could not be delivered due to the connection being disconnected false, nil will be returned.
+func (p *Pusher) Push(ctx context.Context, connectionID string, actionType string, payload any) (bool, error) {
 	fullPayload := Message{
 		Action:  actionType,
 		Payload: payload,
@@ -44,7 +41,7 @@ func (p *Pusher) Push(ctx context.Context, driverID int64, connectionID string, 
 
 	data, err := json.Marshal(fullPayload)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	_, err = p.client.PostToConnection(ctx, &apigatewaymanagementapi.PostToConnectionInput{
@@ -53,21 +50,16 @@ func (p *Pusher) Push(ctx context.Context, driverID int64, connectionID string, 
 	})
 	if err != nil {
 		var goneErr *types.GoneException
-		// let's clean up closed connections when we know the driver and the key in dynamo
-		if errors.As(err, &goneErr) && driverID != 0 {
-			logger.Info().Str("connectionID", connectionID).Msg("connection gone, cleaning up")
-			if err := p.connStore.DeleteConnection(ctx, driverID, connectionID); err != nil {
-				logger.Error().Err(err).Str("connectionID", connectionID).Msg("failed to delete stale connection")
-			}
+		if errors.As(err, &goneErr) {
+			return false, nil
 		}
-		return err
+		return false, err
 	}
-	return nil
+	return true, nil
 }
 
-// Disconnect closes a connection, and attempts to clean up records of the connection in dynamo.
-// Providing a 0 driverID will result in skipping dynamo cleanup.
-func (p *Pusher) Disconnect(ctx context.Context, driverID int64, connectionID string) {
+// Disconnect closes a WebSocket connection.
+func (p *Pusher) Disconnect(ctx context.Context, connectionID string) {
 	logger := zerolog.Ctx(ctx)
 
 	_, err := p.client.DeleteConnection(ctx, &apigatewaymanagementapi.DeleteConnectionInput{
@@ -75,10 +67,5 @@ func (p *Pusher) Disconnect(ctx context.Context, driverID int64, connectionID st
 	})
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to disconnect client")
-	}
-	if driverID != 0 {
-		if err := p.connStore.DeleteConnection(ctx, driverID, connectionID); err != nil {
-			logger.Error().Err(err).Str("connectionID", connectionID).Msg("failed to delete stale connection")
-		}
 	}
 }

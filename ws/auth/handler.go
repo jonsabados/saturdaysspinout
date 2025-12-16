@@ -29,8 +29,8 @@ type ConnectionStore interface {
 }
 
 type Pusher interface {
-	Push(ctx context.Context, driverID int64, connectionID string, actionType string, payload any) error
-	Disconnect(ctx context.Context, driverID int64, connectionID string)
+	Push(ctx context.Context, connectionID string, actionType string, payload any) (bool, error)
+	Disconnect(ctx context.Context, connectionID string)
 }
 
 type JWTValidator interface {
@@ -45,7 +45,7 @@ func NewHandler(validator JWTValidator, pusher Pusher, connStore ConnectionStore
 		var authMsg Request
 		if err := json.Unmarshal([]byte(request.Body), &authMsg); err != nil {
 			logger.Warn().Err(err).Msg("failed to parse auth message")
-			err := pusher.Push(ctx, 0, connectionID, "authResponse", Response{Success: false, Error: "invalid payload"})
+			_, err := pusher.Push(ctx, connectionID, "authResponse", Response{Success: false, Error: "invalid payload"})
 			if err != nil {
 				zerolog.Ctx(ctx).Err(err).Msg("error replying")
 				return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, nil
@@ -55,7 +55,7 @@ func NewHandler(validator JWTValidator, pusher Pusher, connStore ConnectionStore
 
 		if authMsg.Token == "" {
 			logger.Warn().Msg("empty token")
-			err := pusher.Push(ctx, 0, connectionID, "authResponse", Response{Success: false, Error: "missing token"})
+			_, err := pusher.Push(ctx, connectionID, "authResponse", Response{Success: false, Error: "missing token"})
 			if err != nil {
 				zerolog.Ctx(ctx).Err(err).Msg("error replying")
 				return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, nil
@@ -66,12 +66,13 @@ func NewHandler(validator JWTValidator, pusher Pusher, connStore ConnectionStore
 		sessionClaims, _, err := validator.ValidateToken(ctx, authMsg.Token)
 		if err != nil {
 			logger.Warn().Err(err).Msg("invalid token")
-			err := pusher.Push(ctx, 0, connectionID, "authResponse", Response{Success: false, Error: "invalid token"})
+			_, err := pusher.Push(ctx, connectionID, "authResponse", Response{Success: false, Error: "invalid token"})
 			if err != nil {
 				zerolog.Ctx(ctx).Err(err).Msg("error replying")
 				return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, nil
 			}
-			pusher.Disconnect(ctx, 0, connectionID)
+			// since auth failed lets kill the websocket connection, make em go away and come back
+			pusher.Disconnect(ctx, connectionID)
 			return events.APIGatewayProxyResponse{StatusCode: http.StatusBadRequest}, nil
 		}
 
@@ -83,16 +84,17 @@ func NewHandler(validator JWTValidator, pusher Pusher, connStore ConnectionStore
 		})
 		if err != nil {
 			logger.Error().Err(err).Msg("failed to save connection")
-			err := pusher.Push(ctx, 0, connectionID, "authResponse", Response{Success: false, Error: "internal error"})
+			_, err := pusher.Push(ctx, connectionID, "authResponse", Response{Success: false, Error: "internal error"})
 			if err != nil {
 				zerolog.Ctx(ctx).Err(err).Msg("error replying")
 				return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, nil
 			}
-			pusher.Disconnect(ctx, sessionClaims.IRacingUserID, connectionID)
+			// connections in a funky state now, so lets nuke it
+			pusher.Disconnect(ctx, connectionID)
 			return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, err
 		}
 
-		err = pusher.Push(ctx, 0, connectionID, "authResponse", Response{Success: true, UserID: sessionClaims.IRacingUserID, ConnectionID: connectionID})
+		_, err = pusher.Push(ctx, connectionID, "authResponse", Response{Success: true, UserID: sessionClaims.IRacingUserID, ConnectionID: connectionID})
 		if err != nil {
 			zerolog.Ctx(ctx).Err(err).Msg("error replying")
 			return events.APIGatewayProxyResponse{StatusCode: http.StatusInternalServerError}, nil

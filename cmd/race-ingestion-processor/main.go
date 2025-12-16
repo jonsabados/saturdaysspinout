@@ -10,20 +10,23 @@ import (
 	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/jonsabados/saturdaysspinout/ingestion"
 	"github.com/jonsabados/saturdaysspinout/iracing"
 	"github.com/jonsabados/saturdaysspinout/store"
+	"github.com/jonsabados/saturdaysspinout/ws"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
 )
 
 type appCfg struct {
-	LogLevel           string `envconfig:"LOG_LEVEL" required:"true"`
-	DynamoDBTable      string `envconfig:"DYNAMODB_TABLE" required:"true"`
-	SearchWindowInDays int    `envconfig:"SEARCH_WINDOW_IN_DAYS" default:"10"`
+	LogLevel             string `envconfig:"LOG_LEVEL" required:"true"`
+	DynamoDBTable        string `envconfig:"DYNAMODB_TABLE" required:"true"`
+	SearchWindowInDays   int    `envconfig:"SEARCH_WINDOW_IN_DAYS" default:"10"`
+	WSManagementEndpoint string `envconfig:"WS_MANAGEMENT_ENDPOINT" required:"true"`
 }
 
 func main() {
@@ -64,9 +67,14 @@ func main() {
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	driverStore := store.NewDynamoStore(dynamoClient, cfg.DynamoDBTable)
 
+	apiGWClient := apigatewaymanagementapi.NewFromConfig(awsCfg, func(o *apigatewaymanagementapi.Options) {
+		o.BaseEndpoint = &cfg.WSManagementEndpoint
+	})
+	pusher := ws.NewPusher(apiGWClient)
+
 	iracingClient := iracing.NewClient(httpClient)
 
-	processor := ingestion.NewRaceProcessor(driverStore, iracingClient, ingestion.WithSearchWindowInDays(cfg.SearchWindowInDays))
+	processor := ingestion.NewRaceProcessor(driverStore, iracingClient, pusher, ingestion.WithSearchWindowInDays(cfg.SearchWindowInDays))
 
 	lambda.Start(func(ctx context.Context, event events.SQSEvent) error {
 		ctx = logger.WithContext(ctx)
