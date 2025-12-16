@@ -82,6 +82,17 @@ data "aws_iam_policy_document" "race_ingestion_lambda" {
       aws_dynamodb_table.application_store.arn
     ]
   }
+
+  statement {
+    sid    = "AllowAPIGatewayManagement"
+    effect = "Allow"
+    actions = [
+      "execute-api:ManageConnections"
+    ]
+    resources = [
+      "arn:aws:execute-api:us-east-1:${data.aws_caller_identity.current.account_id}:${aws_apigatewayv2_api.websockets.id}/*"
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "race_ingestion_lambda" {
@@ -106,8 +117,9 @@ resource "aws_lambda_function" "race_ingestion_lambda" {
 
   environment {
     variables = {
-      LOG_LEVEL      = "info"
-      DYNAMODB_TABLE = aws_dynamodb_table.application_store.name
+      LOG_LEVEL              = "info"
+      DYNAMODB_TABLE         = aws_dynamodb_table.application_store.name
+      WS_MANAGEMENT_ENDPOINT = "https://${aws_apigatewayv2_api.websockets.id}.execute-api.us-east-1.amazonaws.com/${aws_apigatewayv2_stage.ws.name}"
     }
   }
 }

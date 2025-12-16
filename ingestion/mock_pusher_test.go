@@ -2,7 +2,7 @@
 // github.com/vektra/mockery
 // template: testify
 
-package ping
+package ingestion
 
 import (
 	"context"
@@ -35,52 +35,6 @@ type MockPusher_Expecter struct {
 
 func (_m *MockPusher) EXPECT() *MockPusher_Expecter {
 	return &MockPusher_Expecter{mock: &_m.Mock}
-}
-
-// Disconnect provides a mock function for the type MockPusher
-func (_mock *MockPusher) Disconnect(ctx context.Context, connectionID string) {
-	_mock.Called(ctx, connectionID)
-	return
-}
-
-// MockPusher_Disconnect_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Disconnect'
-type MockPusher_Disconnect_Call struct {
-	*mock.Call
-}
-
-// Disconnect is a helper method to define mock.On call
-//   - ctx context.Context
-//   - connectionID string
-func (_e *MockPusher_Expecter) Disconnect(ctx interface{}, connectionID interface{}) *MockPusher_Disconnect_Call {
-	return &MockPusher_Disconnect_Call{Call: _e.mock.On("Disconnect", ctx, connectionID)}
-}
-
-func (_c *MockPusher_Disconnect_Call) Run(run func(ctx context.Context, connectionID string)) *MockPusher_Disconnect_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 string
-		if args[1] != nil {
-			arg1 = args[1].(string)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockPusher_Disconnect_Call) Return() *MockPusher_Disconnect_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *MockPusher_Disconnect_Call) RunAndReturn(run func(ctx context.Context, connectionID string)) *MockPusher_Disconnect_Call {
-	_c.Run(run)
-	return _c
 }
 
 // Push provides a mock function for the type MockPusher

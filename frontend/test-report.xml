@@ -1,21 +1,61 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<testsuites name="vitest tests" tests="8" failures="0" errors="0" time="0.0052232">
-    <testsuite name="src/auth/pkce.test.ts" timestamp="2025-12-11T17:52:06.930Z" hostname="beast" tests="8" failures="0" errors="0" skipped="0" time="0.0052232">
-        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates a code verifier of 64 characters" time="0.0019788">
+<testsuites name="vitest tests" tests="15" failures="0" errors="0" time="0.0328478">
+    <testsuite name="src/stores/raceIngestion.test.ts" timestamp="2025-12-16T03:12:24.691Z" hostname="beast" tests="7" failures="0" errors="0" skipped="0" time="0.0276661">
+        <testcase classname="src/stores/raceIngestion.test.ts" name="raceIngestion store &gt; triggerIngestion &gt; skips ingestion when session is not ready" time="0.0020532">
+            <system-out>
+[RaceIngestion] Session not ready, skipping ingestion
+
+            </system-out>
         </testcase>
-        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates a code verifier using only valid characters" time="0.0002552">
+        <testcase classname="src/stores/raceIngestion.test.ts" name="raceIngestion store &gt; triggerIngestion &gt; sets status to loading then success on successful API call" time="0.00034">
         </testcase>
-        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates a base64url encoded code challenge" time="0.000187">
+        <testcase classname="src/stores/raceIngestion.test.ts" name="raceIngestion store &gt; triggerIngestion &gt; sets status to error on API failure" time="0.0002184">
         </testcase>
-        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates different values on each call" time="0.0006061">
+        <testcase classname="src/stores/raceIngestion.test.ts" name="raceIngestion store &gt; triggerIngestion &gt; handles non-Error rejection" time="0.0001631">
         </testcase>
-        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates a code challenge that is the SHA256 hash of the verifier" time="0.0001993">
+        <testcase classname="src/stores/raceIngestion.test.ts" name="raceIngestion store &gt; _handleStaleCredentials &gt; refreshes token and retries ingestion when refresh succeeds" time="0.0003851">
+            <system-out>
+[RaceIngestion] Received stale credentials signal, refreshing token...
+
+[RaceIngestion] Session ready, retrying ingestion
+
+            </system-out>
         </testcase>
-        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; sessionStorage helpers &gt; stores and retrieves a code verifier" time="0.0009994">
+        <testcase classname="src/stores/raceIngestion.test.ts" name="raceIngestion store &gt; _handleStaleCredentials &gt; sets error state when refresh fails" time="0.0003312">
+            <system-out>
+[RaceIngestion] Received stale credentials signal, refreshing token...
+
+            </system-out>
+            <system-err>
+[RaceIngestion] Token refresh failed, cannot retry ingestion
+
+            </system-err>
         </testcase>
-        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; sessionStorage helpers &gt; returns null when no code verifier is stored" time="0.0001234">
+        <testcase classname="src/stores/raceIngestion.test.ts" name="raceIngestion store &gt; _handleStaleCredentials &gt; waits for session to be ready before retrying" time="0.0234088">
+            <system-out>
+[RaceIngestion] Received stale credentials signal, refreshing token...
+
+[RaceIngestion] Waiting for session to be ready...
+
+            </system-out>
         </testcase>
-        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; sessionStorage helpers &gt; clears the stored code verifier" time="0.0001243">
+    </testsuite>
+    <testsuite name="src/auth/pkce.test.ts" timestamp="2025-12-16T03:12:24.693Z" hostname="beast" tests="8" failures="0" errors="0" skipped="0" time="0.0051817">
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates a code verifier of 64 characters" time="0.0019235">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates a code verifier using only valid characters" time="0.0002474">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates a base64url encoded code challenge" time="0.0001425">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates different values on each call" time="0.0005993">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; generatePKCE &gt; generates a code challenge that is the SHA256 hash of the verifier" time="0.0002467">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; sessionStorage helpers &gt; stores and retrieves a code verifier" time="0.0010391">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; sessionStorage helpers &gt; returns null when no code verifier is stored" time="0.0001222">
+        </testcase>
+        <testcase classname="src/auth/pkce.test.ts" name="PKCE &gt; sessionStorage helpers &gt; clears the stored code verifier" time="0.0001106">
         </testcase>
     </testsuite>
 </testsuites>

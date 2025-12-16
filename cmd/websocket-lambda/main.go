@@ -84,7 +84,7 @@ func main() {
 		o.BaseEndpoint = &cfg.WSManagementEndpoint
 	})
 
-	pusher := ws.NewPusher(apiClient, connStore)
+	pusher := ws.NewPusher(apiClient)
 	disconnectHandler := disconnect.NewHandler(connStore)
 	authHandler := wsauth.NewHandler(jwtService, pusher, connStore)
 	pingHandler := ping.NewHandler(pusher, connStore)

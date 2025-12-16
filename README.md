@@ -260,6 +260,8 @@ Test results are published as GitHub check annotations and coverage is uploaded 
 
 ## Development
 
+See [CODING_STANDARDS.md](CODING_STANDARDS.md) for coding conventions and patterns.
+
 ### Prerequisites
 
 - Make (included on Linux/macOS; Windows users can use [GnuWin32](http://gnuwin32.sourceforge.net/packages/make.htm) or WSL)

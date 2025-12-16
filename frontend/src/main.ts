@@ -5,6 +5,7 @@ import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
 import App from './App.vue'
 import router from './router'
 import { setupWebSocketAutoConnect } from './stores/websocket'
+import { setupRaceIngestionListener } from './stores/raceIngestion'
 import './assets/variables.css'
 
 const pinia = createPinia()
@@ -18,3 +19,4 @@ app.use(router)
 app.mount('#app')
 
 setupWebSocketAutoConnect()
+setupRaceIngestionListener()
