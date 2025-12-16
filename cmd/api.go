@@ -11,7 +11,6 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
-	"github.com/aws/aws-sdk-go-v2/service/kms"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
@@ -36,8 +35,8 @@ type appCfg struct {
 	LogLevel                 string   `envconfig:"LOG_LEVEL" required:"true"`
 	CORSAllowedOrigins       []string `envconfig:"CORS_ALLOWED_ORIGINS" required:"true"`
 	IRacingCredentialsSecret string   `envconfig:"IRACING_CREDENTIALS_SECRET" required:"true"`
-	JWTSigningKeyARN         string   `envconfig:"JWT_SIGNING_KEY_ARN" required:"true"`
-	JWTEncryptionKeyARN      string   `envconfig:"JWT_ENCRYPTION_KEY_ARN" required:"true"`
+	JWTSigningKeySecret      string   `envconfig:"JWT_SIGNING_KEY_SECRET" required:"true"`
+	JWTEncryptionKeySecret   string   `envconfig:"JWT_ENCRYPTION_KEY_SECRET" required:"true"`
 	DynamoDBTable            string   `envconfig:"DYNAMODB_TABLE" required:"true"`
 	RaceIngestionQueueURL    string   `envconfig:"RACE_INGESTION_QUEUE_URL" required:"true"`
 }
@@ -102,12 +101,36 @@ func CreateAPI() http.Handler {
 	secretHash := sha256.Sum256([]byte(iRacingCreds.OauthClientSecret))
 	logger.Info().Str("oauth_client_id", iRacingCreds.OauthClientID).Str("oauth_client_secret_sha256", hex.EncodeToString(secretHash[:])).Msg("loaded iRacing OAuth credentials")
 
-	kmsClient := kms.NewFromConfig(awsCfg)
-	awsKMSClient := auth.NewAWSKMSClient(kmsClient)
-	jwtSigner := auth.NewKMSSignerAdapter(awsKMSClient, cfg.JWTSigningKeyARN)
-	jwtEncryptor := auth.NewKMSEncryptorAdapter(awsKMSClient, cfg.JWTEncryptionKeyARN)
+	signingKeyResult, err := secretsClient.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
+		SecretId: &cfg.JWTSigningKeySecret,
+	})
+	if err != nil {
+		logger.Fatal().Err(err).Msg("error fetching JWT signing key from secrets manager")
+	}
 
-	jwtService := auth.NewJWTService(jwtSigner, jwtEncryptor, uuid.NewString, "saturdaysspinout", 24*time.Hour)
+	signingKey, err := auth.ParseSigningKeyPEM([]byte(*signingKeyResult.SecretString))
+	if err != nil {
+		logger.Fatal().Err(err).Msg("error parsing JWT signing key")
+	}
+	logger.Info().Msg("loaded JWT signing key")
+
+	encryptionKeyResult, err := secretsClient.GetSecretValue(ctx, &secretsmanager.GetSecretValueInput{
+		SecretId: &cfg.JWTEncryptionKeySecret,
+	})
+	if err != nil {
+		logger.Fatal().Err(err).Msg("error fetching JWT encryption key from secrets manager")
+	}
+
+	encryptionKey, err := auth.ParseEncryptionKeyBase64(*encryptionKeyResult.SecretString)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("error parsing JWT encryption key")
+	}
+	logger.Info().Msg("loaded JWT encryption key")
+
+	jwtService, err := auth.NewJWTService(signingKey, encryptionKey, uuid.NewString, "saturdaysspinout", 24*time.Hour)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("error creating JWT service")
+	}
 
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	driverStore := store.NewDynamoStore(dynamoClient, cfg.DynamoDBTable)
