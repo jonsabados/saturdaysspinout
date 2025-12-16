@@ -120,3 +120,7 @@ type SessionDataInsertion struct {
 	SessionDriverLapEntries []SessionDriverLap
 	DriverSessionEntries    []DriverSession
 }
+
+func (s SessionDataInsertion) HasData() bool {
+	return len(s.SessionEntries) > 0 || len(s.SessionDriverEntries) > 0 || len(s.SessionDriverLapEntries) > 0 || len(s.DriverSessionEntries) > 0
+}

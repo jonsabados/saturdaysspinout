@@ -45,7 +45,7 @@ func NewGetRaceEndpoint(raceStore GetRaceStore) http.Handler {
 			return
 		}
 
-		session, err := raceStore.GetDriverSession(ctx, driverID, time.Unix(driverRaceID, 0))
+		session, err := raceStore.GetDriverSession(ctx, driverID, store.TimeFromDriverRaceID(driverRaceID))
 		if err != nil {
 			logger.Error().Err(err).Int64("driverId", driverID).Int64("driverRaceId", driverRaceID).Msg("failed to fetch driver session")
 			api.DoErrorResponse(ctx, w)

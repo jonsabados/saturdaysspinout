@@ -45,6 +45,18 @@ export const useWebSocketStore = defineStore('websocket', {
     _socket: null as WebSocket | null,
     _reconnectTimeout: null as ReturnType<typeof setTimeout> | null,
     _heartbeatInterval: null as ReturnType<typeof setInterval> | null,
+    _listeners: new Map<string, Set<(payload: unknown) => void>>(),
+
+    on(actionType: string, callback: (payload: unknown) => void) {
+      if (!this._listeners.has(actionType)) {
+        this._listeners.set(actionType, new Set())
+      }
+      this._listeners.get(actionType)!.add(callback)
+    },
+
+    off(actionType: string, callback: (payload: unknown) => void) {
+      this._listeners.get(actionType)?.delete(callback)
+    },
 
     connect() {
       const authStore = useAuthStore()
@@ -183,6 +195,8 @@ export const useWebSocketStore = defineStore('websocket', {
 
     _handleMessage(msg: Message) {
       console.log('[WS] Received:', msg.action)
+
+      // Handle core protocol messages
       switch (msg.action) {
         case 'authResponse':
           this._handleAuthResponse(msg.payload as AuthResponse)
@@ -194,8 +208,12 @@ export const useWebSocketStore = defineStore('websocket', {
         case 'error':
           console.error('[WS] Server error:', msg.payload)
           break
-        default:
-          console.log('[WS] Unknown action:', msg.action)
+      }
+
+      // Dispatch to registered listeners
+      const listeners = this._listeners.get(msg.action)
+      if (listeners) {
+        listeners.forEach((cb) => cb(msg.payload))
       }
     },
 

@@ -38,8 +38,8 @@ func (_m *MockPusher) EXPECT() *MockPusher_Expecter {
 }
 
 // Disconnect provides a mock function for the type MockPusher
-func (_mock *MockPusher) Disconnect(ctx context.Context, driverID int64, connectionID string) {
-	_mock.Called(ctx, driverID, connectionID)
+func (_mock *MockPusher) Disconnect(ctx context.Context, connectionID string) {
+	_mock.Called(ctx, connectionID)
 	return
 }
 
@@ -50,30 +50,24 @@ type MockPusher_Disconnect_Call struct {
 
 // Disconnect is a helper method to define mock.On call
 //   - ctx context.Context
-//   - driverID int64
 //   - connectionID string
-func (_e *MockPusher_Expecter) Disconnect(ctx interface{}, driverID interface{}, connectionID interface{}) *MockPusher_Disconnect_Call {
-	return &MockPusher_Disconnect_Call{Call: _e.mock.On("Disconnect", ctx, driverID, connectionID)}
+func (_e *MockPusher_Expecter) Disconnect(ctx interface{}, connectionID interface{}) *MockPusher_Disconnect_Call {
+	return &MockPusher_Disconnect_Call{Call: _e.mock.On("Disconnect", ctx, connectionID)}
 }
 
-func (_c *MockPusher_Disconnect_Call) Run(run func(ctx context.Context, driverID int64, connectionID string)) *MockPusher_Disconnect_Call {
+func (_c *MockPusher_Disconnect_Call) Run(run func(ctx context.Context, connectionID string)) *MockPusher_Disconnect_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 int64
+		var arg1 string
 		if args[1] != nil {
-			arg1 = args[1].(int64)
-		}
-		var arg2 string
-		if args[2] != nil {
-			arg2 = args[2].(string)
+			arg1 = args[1].(string)
 		}
 		run(
 			arg0,
 			arg1,
-			arg2,
 		)
 	})
 	return _c
@@ -84,26 +78,35 @@ func (_c *MockPusher_Disconnect_Call) Return() *MockPusher_Disconnect_Call {
 	return _c
 }
 
-func (_c *MockPusher_Disconnect_Call) RunAndReturn(run func(ctx context.Context, driverID int64, connectionID string)) *MockPusher_Disconnect_Call {
+func (_c *MockPusher_Disconnect_Call) RunAndReturn(run func(ctx context.Context, connectionID string)) *MockPusher_Disconnect_Call {
 	_c.Run(run)
 	return _c
 }
 
 // Push provides a mock function for the type MockPusher
-func (_mock *MockPusher) Push(ctx context.Context, driverID int64, connectionID string, actionType string, payload any) error {
-	ret := _mock.Called(ctx, driverID, connectionID, actionType, payload)
+func (_mock *MockPusher) Push(ctx context.Context, connectionID string, actionType string, payload any) (bool, error) {
+	ret := _mock.Called(ctx, connectionID, actionType, payload)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Push")
 	}
 
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, string, any) error); ok {
-		r0 = returnFunc(ctx, driverID, connectionID, actionType, payload)
-	} else {
-		r0 = ret.Error(0)
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, any) (bool, error)); ok {
+		return returnFunc(ctx, connectionID, actionType, payload)
 	}
-	return r0
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, any) bool); ok {
+		r0 = returnFunc(ctx, connectionID, actionType, payload)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, any) error); ok {
+		r1 = returnFunc(ctx, connectionID, actionType, payload)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
 }
 
 // MockPusher_Push_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Push'
@@ -113,53 +116,47 @@ type MockPusher_Push_Call struct {
 
 // Push is a helper method to define mock.On call
 //   - ctx context.Context
-//   - driverID int64
 //   - connectionID string
 //   - actionType string
 //   - payload any
-func (_e *MockPusher_Expecter) Push(ctx interface{}, driverID interface{}, connectionID interface{}, actionType interface{}, payload interface{}) *MockPusher_Push_Call {
-	return &MockPusher_Push_Call{Call: _e.mock.On("Push", ctx, driverID, connectionID, actionType, payload)}
+func (_e *MockPusher_Expecter) Push(ctx interface{}, connectionID interface{}, actionType interface{}, payload interface{}) *MockPusher_Push_Call {
+	return &MockPusher_Push_Call{Call: _e.mock.On("Push", ctx, connectionID, actionType, payload)}
 }
 
-func (_c *MockPusher_Push_Call) Run(run func(ctx context.Context, driverID int64, connectionID string, actionType string, payload any)) *MockPusher_Push_Call {
+func (_c *MockPusher_Push_Call) Run(run func(ctx context.Context, connectionID string, actionType string, payload any)) *MockPusher_Push_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 int64
+		var arg1 string
 		if args[1] != nil {
-			arg1 = args[1].(int64)
+			arg1 = args[1].(string)
 		}
 		var arg2 string
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
-		var arg3 string
+		var arg3 any
 		if args[3] != nil {
-			arg3 = args[3].(string)
-		}
-		var arg4 any
-		if args[4] != nil {
-			arg4 = args[4].(any)
+			arg3 = args[3].(any)
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
 			arg3,
-			arg4,
 		)
 	})
 	return _c
 }
 
-func (_c *MockPusher_Push_Call) Return(err error) *MockPusher_Push_Call {
-	_c.Call.Return(err)
+func (_c *MockPusher_Push_Call) Return(b bool, err error) *MockPusher_Push_Call {
+	_c.Call.Return(b, err)
 	return _c
 }
 
-func (_c *MockPusher_Push_Call) RunAndReturn(run func(ctx context.Context, driverID int64, connectionID string, actionType string, payload any) error) *MockPusher_Push_Call {
+func (_c *MockPusher_Push_Call) RunAndReturn(run func(ctx context.Context, connectionID string, actionType string, payload any) (bool, error)) *MockPusher_Push_Call {
 	_c.Call.Return(run)
 	return _c
 }

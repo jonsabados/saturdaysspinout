@@ -1,102 +1,111 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
-import { useApiClient } from '@/api/client'
+import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { useApiClient, type Race } from '@/api/client'
 import { useSessionStore } from '@/stores/session'
 import { useAuthStore } from '@/stores/auth'
+import { useWebSocketStore } from '@/stores/websocket'
+import { useRaceIngestionStore } from '@/stores/raceIngestion'
 
 const apiClient = useApiClient()
 const session = useSessionStore()
 const auth = useAuthStore()
-const status = ref<'idle' | 'loading' | 'success' | 'error'>('idle')
-const errorMessage = ref('')
+const wsStore = useWebSocketStore()
+const ingestionStore = useRaceIngestionStore()
 
-async function triggerIngestion() {
-  if (!session.isReady) {
+const races = ref<Race[]>([])
+
+interface RaceIngestedPayload {
+  raceId: number
+}
+
+async function handleRaceIngested(payload: unknown) {
+  const { raceId } = payload as RaceIngestedPayload
+  if (!auth.userId) {
+    console.warn('[RaceHistory] Received race ingested event but no userId')
     return
   }
 
-  status.value = 'loading'
-  errorMessage.value = ''
-
+  console.log('[RaceHistory] Race ingested, fetching:', raceId)
   try {
-    await apiClient.triggerRaceIngestion()
-    status.value = 'success'
+    const response = await apiClient.getRace(auth.userId, raceId)
+    // Prepend to show newest first, avoid duplicates
+    if (!races.value.some((r) => r.id === response.response.id)) {
+      races.value.unshift(response.response)
+    }
   } catch (err) {
-    status.value = 'error'
-    errorMessage.value = err instanceof Error ? err.message : 'Failed to trigger ingestion'
+    console.error('[RaceHistory] Failed to fetch ingested race:', err)
   }
 }
 
-async function fetchRaces() {
-  if (!auth.userId) {
-    console.log('No userId available, skipping race fetch')
-    return
-  }
+function formatDate(isoString: string): string {
+  return new Date(isoString).toLocaleDateString()
+}
 
-  const endTime = new Date()
-  endTime.setFullYear(endTime.getFullYear() - 1)
-  endTime.setDate(endTime.getDate() - 2)
-  const startTime = new Date()
-  startTime.setFullYear(startTime.getFullYear() - 2)
-
-  try {
-    console.log('Fetching races for driver', auth.userId, 'from', startTime.toISOString(), 'to', endTime.toISOString())
-    const racesResponse = await apiClient.getRaces(auth.userId, startTime, endTime)
-    console.log('Races response:', racesResponse)
-
-    if (racesResponse.items.length > 0) {
-      const firstRace = racesResponse.items[0]
-      console.log('Fetching single race with id:', firstRace.id)
-      const raceResponse = await apiClient.getRace(auth.userId, firstRace.id)
-      console.log('Single race response:', raceResponse)
-    } else {
-      console.log('No races found in the past year')
-    }
-  } catch (err) {
-    console.error('Error fetching races:', err)
-  }
+function formatIRatingChange(oldRating: number, newRating: number): string {
+  const diff = newRating - oldRating
+  const sign = diff >= 0 ? '+' : ''
+  return `${newRating} (${sign}${diff})`
 }
 
 onMounted(() => {
+  wsStore.on('raceIngested', handleRaceIngested)
+
   if (session.isReady) {
-    triggerIngestion()
+    ingestionStore.triggerIngestion()
   }
-  fetchRaces()
 })
 
-watch(() => session.isReady, (ready) => {
-  if (ready && status.value === 'idle') {
-    triggerIngestion()
-  }
+onUnmounted(() => {
+  wsStore.off('raceIngested', handleRaceIngested)
 })
+
+watch(
+  () => session.isReady,
+  (ready) => {
+    if (ready && ingestionStore.status === 'idle') {
+      ingestionStore.triggerIngestion()
+    }
+  },
+)
 </script>
 
 <template>
   <div class="race-history">
     <h1>Race History</h1>
 
-    <div v-if="!session.isReady && status === 'idle'" class="status-message">
-      Connecting...
+    <div v-if="races.length === 0" class="empty-state">
+      No races yet. Races will appear here as they are ingested.
     </div>
 
-    <div v-else-if="status === 'loading'" class="status-message">
-      Requesting race history ingestion...
-    </div>
-
-    <div v-else-if="status === 'success'" class="status-message success">
-      Race history ingestion queued. Results will appear here once processing completes.
-    </div>
-
-    <div v-else-if="status === 'error'" class="status-message error">
-      {{ errorMessage }}
-    </div>
+    <table v-else class="races-table">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Track</th>
+          <th>Start</th>
+          <th>Finish</th>
+          <th>Incidents</th>
+          <th>iRating</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="race in races" :key="race.id">
+          <td>{{ formatDate(race.startTime) }}</td>
+          <td>{{ race.trackId }}</td>
+          <td>{{ race.startPosition }}</td>
+          <td>{{ race.finishPosition }}</td>
+          <td>{{ race.incidents }}</td>
+          <td>{{ formatIRatingChange(race.oldIrating, race.newIrating) }}</td>
+        </tr>
+      </tbody>
+    </table>
   </div>
 </template>
 
 <style scoped>
 .race-history {
   padding: 2rem;
-  max-width: 800px;
+  max-width: 1000px;
   margin: 0 auto;
 }
 
@@ -105,20 +114,41 @@ h1 {
   color: var(--color-text-primary);
 }
 
-.status-message {
-  padding: 1rem;
-  border-radius: 4px;
+.empty-state {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-secondary);
   background: var(--color-bg-surface);
   border: 1px solid var(--color-border);
+  border-radius: 4px;
 }
 
-.status-message.success {
-  border-color: var(--color-success, #22c55e);
-  background: var(--color-success-subtle, rgba(34, 197, 94, 0.1));
+.races-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
 }
 
-.status-message.error {
-  border-color: var(--color-error, #ef4444);
-  background: var(--color-error-subtle, rgba(239, 68, 68, 0.1));
+.races-table th,
+.races-table td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.races-table th {
+  background: var(--color-bg-elevated);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.races-table tbody tr:hover {
+  background: var(--color-bg-elevated);
+}
+
+.races-table tbody tr:last-child td {
+  border-bottom: none;
 }
 </style>
