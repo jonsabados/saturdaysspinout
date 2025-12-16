@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { watch } from 'vue'
+import { ref, watch } from 'vue'
 import { useApiClient } from '@/api/client'
 import { useAuthStore } from './auth'
 import { useSessionStore } from './session'
@@ -7,74 +7,80 @@ import { useWebSocketStore } from './websocket'
 
 type IngestionStatus = 'idle' | 'loading' | 'success' | 'error'
 
-interface RaceIngestionState {
-  status: IngestionStatus
-  error: string | null
-}
+export const useRaceIngestionStore = defineStore('raceIngestion', () => {
+  // Public state
+  const status = ref<IngestionStatus>('idle')
+  const error = ref<string | null>(null)
 
-export const useRaceIngestionStore = defineStore('raceIngestion', {
-  state: (): RaceIngestionState => ({
-    status: 'idle',
-    error: null,
-  }),
+  // Private method
+  async function handleStaleCredentials() {
+    console.log('[RaceIngestion] Received stale credentials signal, refreshing token...')
+    const authStore = useAuthStore()
+    const sessionStore = useSessionStore()
 
-  actions: {
-    async triggerIngestion() {
-      const sessionStore = useSessionStore()
+    const refreshed = await authStore.refreshToken()
+    if (refreshed) {
+      // Token refresh triggers websocket reconnect - wait for session to be ready
       if (!sessionStore.isReady) {
-        console.log('[RaceIngestion] Session not ready, skipping ingestion')
-        return
+        console.log('[RaceIngestion] Waiting for session to be ready...')
+        await new Promise<void>((resolve) => {
+          const unwatch = watch(
+            () => sessionStore.isReady,
+            (ready) => {
+              if (ready) {
+                unwatch()
+                resolve()
+              }
+            },
+          )
+        })
       }
+      console.log('[RaceIngestion] Session ready, retrying ingestion')
+      await triggerIngestion()
+    } else {
+      console.error('[RaceIngestion] Token refresh failed, cannot retry ingestion')
+      status.value = 'error'
+      error.value = 'Session expired. Please log in again.'
+    }
+  }
 
-      this.status = 'loading'
-      this.error = null
+  // Public methods
+  async function triggerIngestion() {
+    const sessionStore = useSessionStore()
+    if (!sessionStore.isReady) {
+      console.log('[RaceIngestion] Session not ready, skipping ingestion')
+      return
+    }
 
-      try {
-        const apiClient = useApiClient()
-        await apiClient.triggerRaceIngestion()
-        this.status = 'success'
-      } catch (err) {
-        this.status = 'error'
-        this.error = err instanceof Error ? err.message : 'Failed to trigger ingestion'
-      }
-    },
+    status.value = 'loading'
+    error.value = null
 
-    async _handleStaleCredentials() {
-      console.log('[RaceIngestion] Received stale credentials signal, refreshing token...')
-      const authStore = useAuthStore()
-      const sessionStore = useSessionStore()
+    try {
+      const apiClient = useApiClient()
+      await apiClient.triggerRaceIngestion()
+      status.value = 'success'
+    } catch (err) {
+      status.value = 'error'
+      error.value = err instanceof Error ? err.message : 'Failed to trigger ingestion'
+    }
+  }
 
-      const refreshed = await authStore.refreshToken()
-      if (refreshed) {
-        // Token refresh triggers websocket reconnect - wait for session to be ready
-        if (!sessionStore.isReady) {
-          console.log('[RaceIngestion] Waiting for session to be ready...')
-          await new Promise<void>((resolve) => {
-            const unwatch = watch(
-              () => sessionStore.isReady,
-              (ready) => {
-                if (ready) {
-                  unwatch()
-                  resolve()
-                }
-              },
-            )
-          })
-        }
-        console.log('[RaceIngestion] Session ready, retrying ingestion')
-        await this.triggerIngestion()
-      } else {
-        console.error('[RaceIngestion] Token refresh failed, cannot retry ingestion')
-        this.status = 'error'
-        this.error = 'Session expired. Please log in again.'
-      }
-    },
-  },
+  function setupListener() {
+    const wsStore = useWebSocketStore()
+    wsStore.on('ingestionFailedStaleCredentials', () => handleStaleCredentials())
+  }
+
+  return {
+    // State
+    status,
+    error,
+    // Actions
+    triggerIngestion,
+    setupListener,
+  }
 })
 
 export function setupRaceIngestionListener() {
-  const wsStore = useWebSocketStore()
   const ingestionStore = useRaceIngestionStore()
-
-  wsStore.on('ingestionFailedStaleCredentials', () => ingestionStore._handleStaleCredentials())
+  ingestionStore.setupListener()
 }
