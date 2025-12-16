@@ -89,7 +89,11 @@ func main() {
 
 			log.Info().Int64("driverId", msg.DriverID).Str("messageId", record.MessageId).Msg("processing race ingestion")
 
-			if err := processor.IngestRaces(ctx, msg); err != nil {
+			err := xray.Capture(ctx, "IngestRaces", func(captureCtx context.Context) error {
+				_ = xray.AddAnnotation(captureCtx, "driverID", msg.DriverID)
+				return processor.IngestRaces(captureCtx, msg)
+			})
+			if err != nil {
 				log.Error().Err(err).Int64("driverId", msg.DriverID).Msg("failed to ingest races")
 				return err
 			}
