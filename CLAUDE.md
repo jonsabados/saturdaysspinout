@@ -10,6 +10,9 @@
 
 See [CODING_STANDARDS.md](CODING_STANDARDS.md) for coding conventions and patterns.
 
+### Go-Specific
+- **No labels**: Avoid labeled breaks/continues - they're essentially GOTOs. Use boolean flags, helper functions, or restructure the logic instead.
+
 ## IDE Integration
 - IntelliJ is configured to auto-optimize imports on save
 - When adding new imports, ensure they are used in the same edit - unused imports will be removed automatically

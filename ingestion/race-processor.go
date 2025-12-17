@@ -4,12 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
+	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/jonsabados/saturdaysspinout/iracing"
 	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 )
+
+const DefaultRaceConsumptionConcurrency = 2
 
 const mainEventSessionNumber = 0
 const actionIngestionFailedStaleCredentials = "ingestionFailedStaleCredentials"
@@ -60,21 +65,29 @@ func WithSearchWindowInDays(days int) RaceProcessorOption {
 	}
 }
 
+func WithRaceConsumptionConcurrency(n int) RaceProcessorOption {
+	return func(r *RaceProcessor) {
+		r.raceConsumptionConcurrency = n
+	}
+}
+
 type RaceProcessor struct {
-	store                Store
-	iracingClient        IRacingClient
-	searchWindowDuration time.Duration
-	pusher               Pusher
-	now                  func() time.Time
+	store                      Store
+	iracingClient              IRacingClient
+	searchWindowDuration       time.Duration
+	pusher                     Pusher
+	raceConsumptionConcurrency int
+	now                        func() time.Time
 }
 
 func NewRaceProcessor(store Store, iracingClient IRacingClient, pusher Pusher, opts ...RaceProcessorOption) *RaceProcessor {
 	r := &RaceProcessor{
-		store:                store,
-		iracingClient:        iracingClient,
-		pusher:               pusher,
-		searchWindowDuration: time.Hour * 24 * 10,
-		now:                  time.Now,
+		store:                      store,
+		iracingClient:              iracingClient,
+		pusher:                     pusher,
+		searchWindowDuration:       time.Hour * 24 * 10,
+		raceConsumptionConcurrency: DefaultRaceConsumptionConcurrency,
+		now:                        time.Now,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -83,6 +96,9 @@ func NewRaceProcessor(store Store, iracingClient IRacingClient, pusher Pusher, o
 }
 
 func (r *RaceProcessor) IngestRaces(ctx context.Context, request RaceIngestionRequest) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	logger := zerolog.Ctx(ctx)
 
 	driver, err := r.store.GetDriver(ctx, request.DriverID)
@@ -124,38 +140,75 @@ func (r *RaceProcessor) IngestRaces(ctx context.Context, request RaceIngestionRe
 
 	raceCount := 0
 	newRaceCount := 0
+	var errs []error
 
+	collectionChan := make(chan collectionResult)
+	collectorDone := sync.WaitGroup{}
+
+	collectorDone.Add(1)
+	go func() {
+		defer collectorDone.Done()
+		for {
+			select {
+			case result, ok := <-collectionChan:
+				if !ok {
+					// channels closed, were done
+					return
+				}
+				raceCount += result.race
+				newRaceCount += result.newRace
+				if result.err != nil {
+					log.Err(result.err).Msg("error during ingestion, bailing out")
+					errs = append(errs, result.err)
+					// any errors == bail out
+					cancel()
+				}
+			}
+		}
+	}()
+
+	racesChan := make(chan iracing.SeriesResult)
+	racesDone := sync.WaitGroup{}
+
+	for i := 0; i < r.raceConsumptionConcurrency; i++ {
+		racesDone.Add(1)
+		go func() {
+			defer racesDone.Done()
+
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case race, ok := <-racesChan:
+					if !ok {
+						return
+					}
+					r.ingestRace(ctx, driver, request, race, collectionChan)
+				}
+			}
+		}()
+	}
+
+	running := true
 	for _, race := range results {
-		raceCount++
-		logger.Trace().Interface("race", race).Msg("processing race")
+		if !running {
+			break
+		}
+		select {
+		case racesChan <- race:
+		case <-ctx.Done():
+			running = false
+		}
+	}
 
-		existingSession, err := r.store.GetSession(ctx, race.SubsessionID)
-		if err != nil {
-			return fmt.Errorf("checking session record: %w", err)
-		}
+	close(racesChan)
+	racesDone.Wait()
 
-		if existingSession != nil {
-			logger.Info().Int64("sessionID", race.SubsessionID).Msg("session already ingested")
-			result, err := r.processExistingSession(ctx, existingSession, driver.DriverID, request.NotifyConnectionID)
-			if err != nil {
-				return err
-			}
-			if result == raceDisconnected {
-				logger.Warn().Int64("driverID", driver.DriverID).Msg("user disconnected during ingestion, discontinuing")
-				return nil
-			}
-			continue
-		}
+	close(collectionChan)
+	collectorDone.Wait()
 
-		newRaceCount++
-		result, err := r.processNewSession(ctx, race.SubsessionID, driver.DriverID, request.IRacingAccessToken, request.NotifyConnectionID)
-		if err != nil {
-			return err
-		}
-		if result == raceDisconnected {
-			logger.Warn().Int64("driverID", driver.DriverID).Msg("user disconnected during ingestion, discontinuing")
-			return nil
-		}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
 	}
 
 	err = r.store.UpdateDriverRacesIngestedTo(ctx, driver.DriverID, rangeEnd)
@@ -165,6 +218,57 @@ func (r *RaceProcessor) IngestRaces(ctx context.Context, request RaceIngestionRe
 	// todo - trigger another round ingestion if our range is in the past
 	logger.Info().Int("raceCount", raceCount).Int("newRaceCount", newRaceCount).Msg("ingested races")
 	return nil
+}
+
+func (r *RaceProcessor) ingestRace(ctx context.Context, driver *store.Driver, request RaceIngestionRequest, race iracing.SeriesResult, collectorChan chan collectionResult) {
+	ctx, segment := xray.BeginSubsegment(ctx, "IngestRace")
+	var segmentErr error
+	defer func() { segment.Close(segmentErr) }()
+	_ = xray.AddAnnotation(ctx, "subsessionID", race.SubsessionID)
+
+	logger := zerolog.Ctx(ctx)
+	logger.Trace().Interface("race", race).Msg("processing race")
+
+	collectorChan <- collectionResult{race: 1}
+
+	existingSession, err := r.store.GetSession(ctx, race.SubsessionID)
+	if err != nil {
+		segmentErr = err
+		collectorChan <- collectionResult{
+			err: fmt.Errorf("checking session record: %w", err),
+		}
+		return
+	}
+
+	if existingSession != nil {
+		logger.Info().Int64("sessionID", race.SubsessionID).Msg("session already ingested")
+		result, err := r.processExistingSession(ctx, existingSession, driver.DriverID, request.NotifyConnectionID)
+		if err != nil {
+			segmentErr = err
+			collectorChan <- collectionResult{err: err}
+			return
+		}
+		if result == raceDisconnected {
+			logger.Warn().Int64("driverID", driver.DriverID).Msg("user disconnected during ingestion, discontinuing")
+			segmentErr = fmt.Errorf("driver %d disconnected during ingestion", driver.DriverID)
+			collectorChan <- collectionResult{err: segmentErr}
+			return
+		}
+		return
+	}
+
+	collectorChan <- collectionResult{newRace: 1}
+	result, err := r.processNewSession(ctx, race.SubsessionID, driver.DriverID, request.IRacingAccessToken, request.NotifyConnectionID)
+	if err != nil {
+		segmentErr = err
+		collectorChan <- collectionResult{err: err}
+		return
+	}
+	if result == raceDisconnected {
+		logger.Warn().Int64("driverID", driver.DriverID).Msg("user disconnected during ingestion, discontinuing")
+		segmentErr = fmt.Errorf("driver %d disconnected during ingestion", driver.DriverID)
+		collectorChan <- collectionResult{err: segmentErr}
+	}
 }
 
 func (r *RaceProcessor) notifyStaleCredentials(ctx context.Context, connectionID string) {
@@ -201,7 +305,10 @@ func (r *RaceProcessor) persistAndNotify(ctx context.Context, insertions store.S
 	return persistOK, nil
 }
 
-func (r *RaceProcessor) processExistingSession(ctx context.Context, existingSession *store.Session, driverID int64, connectionID string) (raceResult, error) {
+func (r *RaceProcessor) processExistingSession(ctx context.Context, existingSession *store.Session, driverID int64, connectionID string) (res raceResult, err error) {
+	ctx, segment := xray.BeginSubsegment(ctx, "ProcessExistingSession")
+	defer func() { segment.Close(err) }()
+
 	logger := zerolog.Ctx(ctx)
 
 	existingDriverSession, err := r.store.GetDriverSession(ctx, driverID, existingSession.StartTime)
@@ -327,7 +434,13 @@ func (r *RaceProcessor) processNewSession(ctx context.Context, subsessionID int6
 			}
 
 			// note, team events are going to throw a wrinkle at things since you have to look up laps by team for those, but I only race solo so it is what it is for now
-			laps, err := r.iracingClient.GetLapData(ctx, accessToken, subsessionID, simSession.SimsessionNumber, iracing.WithCustomerIDLap(driverResult.CustID))
+			var laps *iracing.LapDataResponse
+			err = xray.Capture(ctx, "FetchDriverLaps", func(lapCtx context.Context) error {
+				_ = xray.AddAnnotation(lapCtx, "driverID", driverResult.CustID)
+				var lapErr error
+				laps, lapErr = r.iracingClient.GetLapData(lapCtx, accessToken, subsessionID, simSession.SimsessionNumber, iracing.WithCustomerIDLap(driverResult.CustID))
+				return lapErr
+			})
 			if err != nil {
 				if errors.Is(err, iracing.ErrUpstreamUnauthorized) {
 					r.notifyStaleCredentials(ctx, connectionID)
@@ -381,4 +494,10 @@ func mapCarClasses(subsessionID int64, classes []iracing.CarClass) []store.Sessi
 		}
 	}
 	return result
+}
+
+type collectionResult struct {
+	newRace int
+	race    int
+	err     error
 }
