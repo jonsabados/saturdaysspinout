@@ -3,7 +3,7 @@ import { ref, watch } from 'vue'
 import { useAuthStore } from './auth'
 
 const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || 'ws://localhost:8081'
-const HEARTBEAT_INTERVAL_MS = 30000
+const HEARTBEAT_INTERVAL_MS = 120000
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'authenticating' | 'connected' | 'error'
 

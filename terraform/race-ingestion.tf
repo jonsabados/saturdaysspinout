@@ -101,15 +101,18 @@ resource "aws_iam_role_policy" "race_ingestion_lambda" {
 }
 
 resource "aws_lambda_function" "race_ingestion_lambda" {
-  filename                       = "../dist/raceIngestionProcessorLambda.zip"
-  source_code_hash               = filebase64sha256("../dist/raceIngestionProcessorLambda.zip")
-  timeout                        = 300
+  filename         = "../dist/raceIngestionProcessorLambda.zip"
+  source_code_hash = filebase64sha256("../dist/raceIngestionProcessorLambda.zip")
+  timeout          = 300
+
   reserved_concurrent_executions = var.race_ingestion_processor_concurrency
-  runtime                        = "provided.al2"
-  handler                        = "bootstrap"
-  architectures                  = ["arm64"]
-  function_name                  = "${local.workspace_prefix}SaturdaysSpinoutRaceIngestion"
-  role                           = aws_iam_role.race_ingestion_lambda.arn
+  memory_size                    = 1024 // memory is less an issue, but we want the greater CPU allocation and bigger pipes
+
+  runtime       = "provided.al2"
+  handler       = "bootstrap"
+  architectures = ["arm64"]
+  function_name = "${local.workspace_prefix}SaturdaysSpinoutRaceIngestion"
+  role          = aws_iam_role.race_ingestion_lambda.arn
 
   tracing_config {
     mode = "Active"
@@ -117,9 +120,10 @@ resource "aws_lambda_function" "race_ingestion_lambda" {
 
   environment {
     variables = {
-      LOG_LEVEL              = "info"
-      DYNAMODB_TABLE         = aws_dynamodb_table.application_store.name
-      WS_MANAGEMENT_ENDPOINT = "https://${aws_apigatewayv2_api.websockets.id}.execute-api.us-east-1.amazonaws.com/${aws_apigatewayv2_stage.ws.name}"
+      LOG_LEVEL                    = "info"
+      DYNAMODB_TABLE               = aws_dynamodb_table.application_store.name
+      WS_MANAGEMENT_ENDPOINT       = "https://${aws_apigatewayv2_api.websockets.id}.execute-api.us-east-1.amazonaws.com/${aws_apigatewayv2_stage.ws.name}"
+      RACE_CONSUMPTION_CONCURRENCY = "3"
     }
   }
 }

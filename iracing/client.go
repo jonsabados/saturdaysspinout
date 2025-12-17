@@ -51,6 +51,48 @@ func NewClient(httpClient HTTPClient, opts ...ClientOption) *Client {
 	return c
 }
 
+// logRateLimitHeaders logs the rate limit headers from an iRacing API response.
+// Logs at Trace level normally, but warns when remaining drops below 20% of limit.
+func (c *Client) logRateLimitHeaders(logger *zerolog.Logger, resp *http.Response) {
+	limitStr := resp.Header.Get("x-ratelimit-limit")
+	remainingStr := resp.Header.Get("x-ratelimit-remaining")
+	resetStr := resp.Header.Get("x-ratelimit-reset")
+
+	if limitStr == "" && remainingStr == "" && resetStr == "" {
+		return
+	}
+
+	limit, _ := strconv.Atoi(limitStr)
+	remaining, _ := strconv.Atoi(remainingStr)
+
+	// Warn if remaining is below 20% of limit
+	isLow := limit > 0 && remaining < limit/5
+
+	var event *zerolog.Event
+	if isLow {
+		event = logger.Warn()
+	} else {
+		event = logger.Trace()
+	}
+
+	event.
+		Str("ratelimit_limit", limitStr).
+		Str("ratelimit_remaining", remainingStr).
+		Str("ratelimit_reset", resetStr)
+
+	if resetEpoch, err := strconv.ParseInt(resetStr, 10, 64); err == nil {
+		resetTime := time.Unix(resetEpoch, 0)
+		event.Time("ratelimit_reset_time", resetTime).
+			Dur("ratelimit_reset_in", time.Until(resetTime))
+	}
+
+	if isLow {
+		event.Msg("iRacing API rate limit running low")
+	} else {
+		event.Msg("iRacing API rate limit status")
+	}
+}
+
 // linkResponse represents the initial response from iRacing API endpoints that return a signed S3 URL to fetch the actual data
 type linkResponse struct {
 	Link string `json:"link"`
@@ -77,6 +119,8 @@ func (c *Client) doAPIRequest(ctx context.Context, accessToken, endpoint string)
 	if err != nil {
 		return nil, fmt.Errorf("reading response body: %w", err)
 	}
+
+	c.logRateLimitHeaders(logger, resp)
 
 	logger.Trace().RawJSON("response", body).Int("status", resp.StatusCode).Str("endpoint", endpoint).Msg("received API response")
 
