@@ -11,7 +11,6 @@ import (
 	"github.com/jonsabados/saturdaysspinout/iracing"
 	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 )
 
 const DefaultRaceConsumptionConcurrency = 2
@@ -158,7 +157,7 @@ func (r *RaceProcessor) IngestRaces(ctx context.Context, request RaceIngestionRe
 				raceCount += result.race
 				newRaceCount += result.newRace
 				if result.err != nil {
-					log.Err(result.err).Msg("error during ingestion, bailing out")
+					logger.Err(result.err).Msg("error during ingestion, bailing out")
 					errs = append(errs, result.err)
 					// any errors == bail out
 					cancel()
