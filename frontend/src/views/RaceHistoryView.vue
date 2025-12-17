@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useApiClient, type Race } from '@/api/client'
 import { useSessionStore } from '@/stores/session'
 import { useAuthStore } from '@/stores/auth'
@@ -13,6 +13,10 @@ const wsStore = useWebSocketStore()
 const ingestionStore = useRaceIngestionStore()
 
 const races = ref<Race[]>([])
+
+const sortedRaces = computed(() =>
+  [...races.value].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()),
+)
 
 interface RaceIngestedPayload {
   raceId: number
@@ -28,9 +32,8 @@ async function handleRaceIngested(payload: unknown) {
   console.log('[RaceHistory] Race ingested, fetching:', raceId)
   try {
     const response = await apiClient.getRace(auth.userId, raceId)
-    // Prepend to show newest first, avoid duplicates
     if (!races.value.some((r) => r.id === response.response.id)) {
-      races.value.unshift(response.response)
+      races.value.push(response.response)
     }
   } catch (err) {
     console.error('[RaceHistory] Failed to fetch ingested race:', err)
@@ -73,7 +76,7 @@ watch(
   <div class="race-history">
     <h1>Race History</h1>
 
-    <div v-if="races.length === 0" class="empty-state">
+    <div v-if="sortedRaces.length === 0" class="empty-state">
       No races yet. Races will appear here as they are ingested.
     </div>
 
@@ -89,7 +92,7 @@ watch(
         </tr>
       </thead>
       <tbody>
-        <tr v-for="race in races" :key="race.id">
+        <tr v-for="race in sortedRaces" :key="race.id">
           <td>{{ formatDate(race.startTime) }}</td>
           <td>{{ race.trackId }}</td>
           <td>{{ race.startPosition }}</td>
