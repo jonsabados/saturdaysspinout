@@ -9,6 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi/types"
+	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -86,12 +87,13 @@ func TestPusher_Push(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockClient := NewMockAPIGatewayManagementClient(t)
 
-			mockClient.On("PostToConnection", mock.Anything, &apigatewaymanagementapi.PostToConnectionInput{
+			mockClient.EXPECT().PostToConnection(mock.Anything, &apigatewaymanagementapi.PostToConnectionInput{
 				ConnectionId: aws.String(tc.postToConnectionCall.connectionID),
 				Data:         tc.postToConnectionCall.data,
 			}).Return(&apigatewaymanagementapi.PostToConnectionOutput{}, tc.postToConnectionCall.err)
 
-			pusher := NewPusher(mockClient)
+			mockConnLookup := NewMockConnectionLookup(t)
+			pusher := NewPusher(mockClient, mockConnLookup)
 			ok, err := pusher.Push(context.Background(), tc.connectionID, tc.actionType, tc.payload)
 
 			assert.Equal(t, tc.expectedOK, ok)
@@ -107,7 +109,8 @@ func TestPusher_Push(t *testing.T) {
 
 func TestPusher_Push_MarshalError(t *testing.T) {
 	mockClient := NewMockAPIGatewayManagementClient(t)
-	pusher := NewPusher(mockClient)
+	mockConnLookup := NewMockConnectionLookup(t)
+	pusher := NewPusher(mockClient, mockConnLookup)
 
 	// channels cannot be marshaled to JSON
 	unmarshalable := make(chan int)
@@ -147,16 +150,132 @@ func TestPusher_Disconnect(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockClient := NewMockAPIGatewayManagementClient(t)
 
-			mockClient.On("DeleteConnection", mock.Anything, &apigatewaymanagementapi.DeleteConnectionInput{
+			mockClient.EXPECT().DeleteConnection(mock.Anything, &apigatewaymanagementapi.DeleteConnectionInput{
 				ConnectionId: aws.String(tc.deleteConnectionCall.connectionID),
 			}).Return(&apigatewaymanagementapi.DeleteConnectionOutput{}, tc.deleteConnectionCall.err)
 
-			pusher := NewPusher(mockClient)
+			mockConnLookup := NewMockConnectionLookup(t)
+			pusher := NewPusher(mockClient, mockConnLookup)
 
 			logger := zerolog.Nop()
 			ctx := logger.WithContext(context.Background())
 
 			pusher.Disconnect(ctx, tc.connectionID)
+		})
+	}
+}
+
+func TestPusher_Broadcast(t *testing.T) {
+	driverID := int64(12345)
+
+	type getConnectionsByDriverCall struct {
+		driverID int64
+		result   []store.WebSocketConnection
+		err      error
+	}
+
+	type postToConnectionCall struct {
+		connectionID string
+		data         []byte
+		err          error
+	}
+
+	testCases := []struct {
+		name       string
+		driverID   int64
+		actionType string
+		payload    any
+
+		getConnectionsByDriverCall getConnectionsByDriverCall
+		postToConnectionCalls      []postToConnectionCall
+
+		expectedErrMsg string
+	}{
+		{
+			name:       "error fetching connections from store",
+			driverID:   driverID,
+			actionType: "test-action",
+			payload:    "payload",
+			getConnectionsByDriverCall: getConnectionsByDriverCall{
+				driverID: driverID,
+				err:      errors.New("dynamo error"),
+			},
+			expectedErrMsg: "dynamo error",
+		},
+		{
+			name:       "no connections found succeeds with no pushes",
+			driverID:   driverID,
+			actionType: "test-action",
+			payload:    "payload",
+			getConnectionsByDriverCall: getConnectionsByDriverCall{
+				driverID: driverID,
+				result:   []store.WebSocketConnection{},
+			},
+		},
+		{
+			name:       "multiple connections all receive message",
+			driverID:   driverID,
+			actionType: "test-action",
+			payload:    "payload",
+			getConnectionsByDriverCall: getConnectionsByDriverCall{
+				driverID: driverID,
+				result: []store.WebSocketConnection{
+					{DriverID: driverID, ConnectionID: "conn-1"},
+					{DriverID: driverID, ConnectionID: "conn-2"},
+					{DriverID: driverID, ConnectionID: "conn-3"},
+				},
+			},
+			postToConnectionCalls: []postToConnectionCall{
+				{connectionID: "conn-1"},
+				{connectionID: "conn-2"},
+				{connectionID: "conn-3"},
+			},
+		},
+		{
+			name:       "error on first push fails fast",
+			driverID:   driverID,
+			actionType: "test-action",
+			payload:    "payload",
+			getConnectionsByDriverCall: getConnectionsByDriverCall{
+				driverID: driverID,
+				result: []store.WebSocketConnection{
+					{DriverID: driverID, ConnectionID: "conn-1"},
+					{DriverID: driverID, ConnectionID: "conn-2"},
+					{DriverID: driverID, ConnectionID: "conn-3"},
+				},
+			},
+			postToConnectionCalls: []postToConnectionCall{
+				{connectionID: "conn-1", err: errors.New("network failure")},
+			},
+			expectedErrMsg: "network failure",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockClient := NewMockAPIGatewayManagementClient(t)
+			mockConnLookup := NewMockConnectionLookup(t)
+
+			mockConnLookup.EXPECT().GetConnectionsByDriver(mock.Anything, tc.getConnectionsByDriverCall.driverID).
+				Return(tc.getConnectionsByDriverCall.result, tc.getConnectionsByDriverCall.err)
+
+			expectedData := mustMarshal(t, Message{Action: tc.actionType, Payload: tc.payload})
+			for _, call := range tc.postToConnectionCalls {
+				mockClient.EXPECT().PostToConnection(mock.Anything, &apigatewaymanagementapi.PostToConnectionInput{
+					ConnectionId: aws.String(call.connectionID),
+					Data:         expectedData,
+				}).Return(&apigatewaymanagementapi.PostToConnectionOutput{}, call.err)
+			}
+
+			pusher := NewPusher(mockClient, mockConnLookup)
+			err := pusher.Broadcast(context.Background(), tc.driverID, tc.actionType, tc.payload)
+
+			if tc.expectedErrMsg != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.expectedErrMsg)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }

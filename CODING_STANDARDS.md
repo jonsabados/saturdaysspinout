@@ -32,6 +32,7 @@ Use table-driven tests with fixtures in a `fixtures/` directory for expected res
 
 #### Mock Expectations
 
+- Use the strongly-typed `.EXPECT()` syntax instead of `.On("methodName", ...)` - this provides compile-time safety and better IDE support
 - Avoid `mock.Anything` except for `context.Context` parameters - be explicit about expected values
 - Define a struct type for each mock call with its expected inputs and outputs:
 
@@ -65,7 +66,7 @@ testCases := []struct {
 for _, tc := range testCases {
     t.Run(tc.name, func(t *testing.T) {
         mockFoo := NewMockFooService(t)
-        mockFoo.On("DoThing", mock.Anything, tc.fooServiceCall.arg1, tc.fooServiceCall.arg2).
+        mockFoo.EXPECT().DoThing(mock.Anything, tc.fooServiceCall.arg1, tc.fooServiceCall.arg2).
             Return(tc.fooServiceCall.result, tc.fooServiceCall.err)
         // ...
     })

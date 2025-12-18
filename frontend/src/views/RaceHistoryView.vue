@@ -1,22 +1,33 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useApiClient, type Race } from '@/api/client'
-import { useSessionStore } from '@/stores/session'
 import { useAuthStore } from '@/stores/auth'
 import { useWebSocketStore } from '@/stores/websocket'
-import { useRaceIngestionStore } from '@/stores/raceIngestion'
+import GridPosition from '@/components/GridPosition.vue'
 
 const apiClient = useApiClient()
-const session = useSessionStore()
 const auth = useAuthStore()
 const wsStore = useWebSocketStore()
-const ingestionStore = useRaceIngestionStore()
 
 const races = ref<Race[]>([])
+const displayCount = ref(15)
+const pageSize = 15
+const sentinelRef = ref<HTMLElement | null>(null)
+const scrollContainerRef = ref<HTMLElement | null>(null)
+const observer = ref<IntersectionObserver | null>(null)
+const userHasScrolled = ref(false)
 
 const sortedRaces = computed(() =>
   [...races.value].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()),
 )
+
+const visibleRaces = computed(() => sortedRaces.value.slice(0, displayCount.value))
+
+const hasMore = computed(() => displayCount.value < sortedRaces.value.length)
+
+function loadMore() {
+  displayCount.value += pageSize
+}
 
 interface RaceIngestedPayload {
   raceId: number
@@ -44,32 +55,83 @@ function formatDate(isoString: string): string {
   return new Date(isoString).toLocaleDateString()
 }
 
-function formatIRatingChange(oldRating: number, newRating: number): string {
+function formatIRatingDiff(oldRating: number, newRating: number): string {
   const diff = newRating - oldRating
-  const sign = diff >= 0 ? '+' : ''
-  return `${newRating} (${sign}${diff})`
+  const sign = diff > 0 ? '+' : ''
+  return `(${sign}${diff})`
 }
+
+function getIRatingDiffClass(oldRating: number, newRating: number): string {
+  const diff = newRating - oldRating
+  if (diff > 0) return 'stat-gain'
+  if (diff < 0) return 'stat-loss'
+  return ''
+}
+
+function formatCpiDiff(oldCpi: number, newCpi: number): string {
+  const diff = newCpi - oldCpi
+  const sign = diff > 0 ? '+' : ''
+  return `(${sign}${diff.toFixed(2)})`
+}
+
+function getCpiDiffClass(oldCpi: number, newCpi: number): string {
+  const diff = newCpi - oldCpi
+  if (diff > 0) return 'stat-gain'
+  if (diff < 0) return 'stat-loss'
+  return ''
+}
+
+function handleScroll() {
+  userHasScrolled.value = true
+  scrollContainerRef.value?.removeEventListener('scroll', handleScroll)
+}
+
+function setupObserver() {
+  if (observer.value) {
+    observer.value.disconnect()
+  }
+  observer.value = new IntersectionObserver(
+    (entries) => {
+      if (entries[0].isIntersecting && hasMore.value && userHasScrolled.value) {
+        loadMore()
+      }
+    },
+    { root: scrollContainerRef.value, rootMargin: '100px' },
+  )
+  if (sentinelRef.value) {
+    observer.value.observe(sentinelRef.value)
+  }
+}
+
+watch(sentinelRef, (el) => {
+  if (el && observer.value) {
+    observer.value.observe(el)
+  }
+})
+
+watch(scrollContainerRef, (el, oldEl) => {
+  if (oldEl) {
+    oldEl.removeEventListener('scroll', handleScroll)
+  }
+  if (el) {
+    userHasScrolled.value = false
+    el.addEventListener('scroll', handleScroll)
+    setupObserver()
+  }
+})
 
 onMounted(() => {
   wsStore.on('raceIngested', handleRaceIngested)
-
-  if (session.isReady) {
-    ingestionStore.triggerIngestion()
-  }
 })
 
 onUnmounted(() => {
   wsStore.off('raceIngested', handleRaceIngested)
+  scrollContainerRef.value?.removeEventListener('scroll', handleScroll)
+  if (observer.value) {
+    observer.value.disconnect()
+    observer.value = null
+  }
 })
-
-watch(
-  () => session.isReady,
-  (ready) => {
-    if (ready && ingestionStore.status === 'idle') {
-      ingestionStore.triggerIngestion()
-    }
-  },
-)
 </script>
 
 <template>
@@ -80,28 +142,36 @@ watch(
       No races yet. Races will appear here as they are ingested.
     </div>
 
-    <table v-else class="races-table">
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th>Track</th>
-          <th>Start</th>
-          <th>Finish</th>
-          <th>Incidents</th>
-          <th>iRating</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="race in sortedRaces" :key="race.id">
-          <td>{{ formatDate(race.startTime) }}</td>
-          <td>{{ race.trackId }}</td>
-          <td>{{ race.startPosition }}</td>
-          <td>{{ race.finishPosition }}</td>
-          <td>{{ race.incidents }}</td>
-          <td>{{ formatIRatingChange(race.oldIrating, race.newIrating) }}</td>
-        </tr>
-      </tbody>
-    </table>
+    <div v-else ref="scrollContainerRef" class="table-container">
+      <table class="races-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Car</th>
+            <th>Track</th>
+            <th>Start</th>
+            <th>Finish</th>
+            <th>Incidents</th>
+            <th title="Corners Per Incident">CPI</th>
+            <th>iRating</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="race in visibleRaces" :key="race.id">
+            <td>{{ formatDate(race.startTime) }}</td>
+            <td>{{ race.carId }}</td>
+            <td>{{ race.trackId }}</td>
+            <td><GridPosition :position="race.startPosition" :position-in-class="race.startPositionInClass" /></td>
+            <td><GridPosition :position="race.finishPosition" :position-in-class="race.finishPositionInClass" /></td>
+            <td>{{ race.incidents }}</td>
+            <td>{{ race.newCpi.toFixed(2) }} <span :class="getCpiDiffClass(race.oldCpi, race.newCpi)">{{ formatCpiDiff(race.oldCpi, race.newCpi) }}</span></td>
+            <td>{{ race.newIrating }} <span :class="getIRatingDiffClass(race.oldIrating, race.newIrating)">{{ formatIRatingDiff(race.oldIrating, race.newIrating) }}</span></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div v-if="hasMore" ref="sentinelRef" class="scroll-sentinel"></div>
+    </div>
   </div>
 </template>
 
@@ -126,12 +196,17 @@ h1 {
   border-radius: 4px;
 }
 
+.table-container {
+  max-height: 550px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+}
+
 .races-table {
   width: 100%;
   border-collapse: collapse;
   background: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
 }
 
 .races-table th,
@@ -147,11 +222,61 @@ h1 {
   color: var(--color-text-primary);
 }
 
-.races-table tbody tr:hover {
+.races-table tbody tr:nth-child(even) {
   background: var(--color-bg-elevated);
+}
+
+.races-table tbody tr:hover {
+  background: var(--color-accent-subtle);
 }
 
 .races-table tbody tr:last-child td {
   border-bottom: none;
+}
+
+.scroll-sentinel {
+  height: 1px;
+}
+
+.stat-gain {
+  color: #22c55e;
+}
+
+.stat-loss {
+  color: #ef4444;
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+  .race-history {
+    padding: 1rem;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .table-container {
+    max-height: 350px;
+  }
+
+  .races-table th,
+  .races-table td {
+    padding: 0.5rem 0.625rem;
+    font-size: 0.875rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .race-history {
+    padding: 0.75rem;
+  }
+
+  .races-table th,
+  .races-table td {
+    padding: 0.5rem;
+    font-size: 0.8125rem;
+  }
 }
 </style>
