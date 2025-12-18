@@ -137,6 +137,7 @@ func (c *Client) doAPIRequest(ctx context.Context, accessToken, endpoint string)
 	logger.Trace().RawJSON("response", body).Int("status", resp.StatusCode).Str("endpoint", endpoint).Msg("received API response")
 
 	if resp.StatusCode == http.StatusUnauthorized {
+		zerolog.Ctx(ctx).Warn().Str("body", string(body)).Msg("401 received from iRacing API")
 		return nil, ErrUpstreamUnauthorized
 	}
 	if resp.StatusCode != http.StatusOK {

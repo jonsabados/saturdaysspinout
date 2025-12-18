@@ -74,7 +74,7 @@ func main() {
 	apiGWClient := apigatewaymanagementapi.NewFromConfig(awsCfg, func(o *apigatewaymanagementapi.Options) {
 		o.BaseEndpoint = &cfg.WSManagementEndpoint
 	})
-	pusher := ws.NewPusher(apiGWClient)
+	pusher := ws.NewPusher(apiGWClient, driverStore)
 
 	cwClient := cloudwatch.NewFromConfig(awsCfg)
 	metricsClient := metrics.NewCloudWatchEmitter(cwClient, "SaturdaysSpinout")

@@ -37,6 +37,75 @@ func (_m *MockPusher) EXPECT() *MockPusher_Expecter {
 	return &MockPusher_Expecter{mock: &_m.Mock}
 }
 
+// Broadcast provides a mock function for the type MockPusher
+func (_mock *MockPusher) Broadcast(ctx context.Context, driverID int64, actionType string, payload any) error {
+	ret := _mock.Called(ctx, driverID, actionType, payload)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Broadcast")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, any) error); ok {
+		r0 = returnFunc(ctx, driverID, actionType, payload)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockPusher_Broadcast_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Broadcast'
+type MockPusher_Broadcast_Call struct {
+	*mock.Call
+}
+
+// Broadcast is a helper method to define mock.On call
+//   - ctx context.Context
+//   - driverID int64
+//   - actionType string
+//   - payload any
+func (_e *MockPusher_Expecter) Broadcast(ctx interface{}, driverID interface{}, actionType interface{}, payload interface{}) *MockPusher_Broadcast_Call {
+	return &MockPusher_Broadcast_Call{Call: _e.mock.On("Broadcast", ctx, driverID, actionType, payload)}
+}
+
+func (_c *MockPusher_Broadcast_Call) Run(run func(ctx context.Context, driverID int64, actionType string, payload any)) *MockPusher_Broadcast_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 any
+		if args[3] != nil {
+			arg3 = args[3].(any)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPusher_Broadcast_Call) Return(err error) *MockPusher_Broadcast_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockPusher_Broadcast_Call) RunAndReturn(run func(ctx context.Context, driverID int64, actionType string, payload any) error) *MockPusher_Broadcast_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Push provides a mock function for the type MockPusher
 func (_mock *MockPusher) Push(ctx context.Context, connectionID string, actionType string, payload any) (bool, error) {
 	ret := _mock.Called(ctx, connectionID, actionType, payload)
