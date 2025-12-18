@@ -28,6 +28,7 @@ type appCfg struct {
 	SearchWindowInDays         int    `envconfig:"SEARCH_WINDOW_IN_DAYS" default:"10"`
 	WSManagementEndpoint       string `envconfig:"WS_MANAGEMENT_ENDPOINT" required:"true"`
 	RaceConsumptionConcurrency int    `envconfig:"RACE_CONSUMPTION_CONCURRENCY" required:"true"`
+	LapConsumptionConcurrency  int    `envconfig:"LAP_CONSUMPTION_CONCURRENCY" required:"true"`
 }
 
 func main() {
@@ -78,6 +79,7 @@ func main() {
 	processor := ingestion.NewRaceProcessor(driverStore, iracingClient, pusher,
 		ingestion.WithSearchWindowInDays(cfg.SearchWindowInDays),
 		ingestion.WithRaceConsumptionConcurrency(cfg.RaceConsumptionConcurrency),
+		ingestion.WithLapConsumptionConcurrency(cfg.LapConsumptionConcurrency),
 	)
 
 	lambda.Start(func(ctx context.Context, event events.SQSEvent) error {
