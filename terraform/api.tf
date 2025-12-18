@@ -86,6 +86,15 @@ data "aws_iam_policy_document" "api_lambda" {
       aws_sqs_queue.race_ingestion_requests.arn
     ]
   }
+
+  statement {
+    sid    = "AllowCloudWatchMetrics"
+    effect = "Allow"
+    actions = [
+      "cloudwatch:PutMetricData"
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "api_lambda" {
