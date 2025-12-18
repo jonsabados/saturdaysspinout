@@ -1,0 +1,33 @@
+resource "aws_cloudwatch_dashboard" "system_health" {
+  dashboard_name = "${local.workspace_prefix}SaturdaysSpinoutSystemHealth"
+
+  dashboard_body = jsonencode({
+    widgets = [
+      {
+        type   = "metric"
+        x      = 0
+        y      = 0
+        width  = 12
+        height = 6
+        properties = {
+          title  = "iRacing API Rate Limit Remaining"
+          region = "us-east-1"
+          metrics = [
+            ["SaturdaysSpinout", "iracing_ratelimit_remaining", { stat = "Minimum", period = 60 }]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          yAxis = {
+            left = {
+              min = 0
+            }
+          }
+        }
+      }
+    ]
+  })
+}
+
+output "system_health_dashboard_url" {
+  value = "https://us-east-1.console.aws.amazon.com/cloudwatch/home?region=us-east-1#dashboards:name=${aws_cloudwatch_dashboard.system_health.dashboard_name}"
+}

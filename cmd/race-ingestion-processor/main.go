@@ -11,11 +11,13 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/jonsabados/saturdaysspinout/ingestion"
 	"github.com/jonsabados/saturdaysspinout/iracing"
+	"github.com/jonsabados/saturdaysspinout/metrics"
 	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/jonsabados/saturdaysspinout/ws"
 	"github.com/kelseyhightower/envconfig"
@@ -74,7 +76,10 @@ func main() {
 	})
 	pusher := ws.NewPusher(apiGWClient)
 
-	iracingClient := iracing.NewClient(httpClient)
+	cwClient := cloudwatch.NewFromConfig(awsCfg)
+	metricsClient := metrics.NewCloudWatchEmitter(cwClient, "SaturdaysSpinout")
+
+	iracingClient := iracing.NewClient(httpClient, metricsClient)
 
 	processor := ingestion.NewRaceProcessor(driverStore, iracingClient, pusher,
 		ingestion.WithSearchWindowInDays(cfg.SearchWindowInDays),

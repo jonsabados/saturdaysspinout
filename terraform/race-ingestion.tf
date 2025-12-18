@@ -93,6 +93,15 @@ data "aws_iam_policy_document" "race_ingestion_lambda" {
       "arn:aws:execute-api:us-east-1:${data.aws_caller_identity.current.account_id}:${aws_apigatewayv2_api.websockets.id}/*"
     ]
   }
+
+  statement {
+    sid    = "AllowCloudWatchMetrics"
+    effect = "Allow"
+    actions = [
+      "cloudwatch:PutMetricData"
+    ]
+    resources = ["*"]
+  }
 }
 
 resource "aws_iam_role_policy" "race_ingestion_lambda" {
