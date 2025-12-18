@@ -50,6 +50,7 @@ func TestClient_GetUserInfo(t *testing.T) {
 			memberResponse := loadFixture(t, tc.memberResponseFile)
 
 			httpClient := NewMockHTTPClient(t)
+			metricsClient := NewMockMetricsClient(t)
 
 			// First call: get the link
 			httpClient.EXPECT().Do(mock.MatchedBy(func(req *http.Request) bool {
@@ -67,7 +68,7 @@ func TestClient_GetUserInfo(t *testing.T) {
 				Body:       io.NopCloser(strings.NewReader(memberResponse)),
 			}, nil)
 
-			client := NewClient(httpClient, WithBaseURL("https://test.iracing.com"))
+			client := NewClient(httpClient, metricsClient, WithBaseURL("https://test.iracing.com"))
 
 			userInfo, err := client.GetUserInfo(context.Background(), "test-access-token")
 

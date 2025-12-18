@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
@@ -28,6 +29,7 @@ import (
 	"github.com/jonsabados/saturdaysspinout/api"
 	"github.com/jonsabados/saturdaysspinout/auth"
 	"github.com/jonsabados/saturdaysspinout/iracing"
+	"github.com/jonsabados/saturdaysspinout/metrics"
 	"github.com/jonsabados/saturdaysspinout/store"
 )
 
@@ -135,8 +137,11 @@ func CreateAPI() http.Handler {
 	dynamoClient := dynamodb.NewFromConfig(awsCfg)
 	driverStore := store.NewDynamoStore(dynamoClient, cfg.DynamoDBTable)
 
+	cwClient := cloudwatch.NewFromConfig(awsCfg)
+	metricsClient := metrics.NewCloudWatchEmitter(cwClient, "SaturdaysSpinout")
+
 	iRacingOAuthClient := iracing.NewOAuthClient(httpClient, iRacingCreds.OauthClientID, iRacingCreds.OauthClientSecret)
-	iRacingClient := iracing.NewClient(httpClient)
+	iRacingClient := iracing.NewClient(httpClient, metricsClient)
 
 	sqsClient := sqs.NewFromConfig(awsCfg)
 	raceIngestionDispatcher := event.NewSQSEventDispatcher(sqsClient, cfg.RaceIngestionQueueURL)

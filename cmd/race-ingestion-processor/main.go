@@ -11,11 +11,13 @@ import (
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
+	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/jonsabados/saturdaysspinout/ingestion"
 	"github.com/jonsabados/saturdaysspinout/iracing"
+	"github.com/jonsabados/saturdaysspinout/metrics"
 	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/jonsabados/saturdaysspinout/ws"
 	"github.com/kelseyhightower/envconfig"
@@ -28,6 +30,7 @@ type appCfg struct {
 	SearchWindowInDays         int    `envconfig:"SEARCH_WINDOW_IN_DAYS" default:"10"`
 	WSManagementEndpoint       string `envconfig:"WS_MANAGEMENT_ENDPOINT" required:"true"`
 	RaceConsumptionConcurrency int    `envconfig:"RACE_CONSUMPTION_CONCURRENCY" required:"true"`
+	LapConsumptionConcurrency  int    `envconfig:"LAP_CONSUMPTION_CONCURRENCY" required:"true"`
 }
 
 func main() {
@@ -73,11 +76,15 @@ func main() {
 	})
 	pusher := ws.NewPusher(apiGWClient)
 
-	iracingClient := iracing.NewClient(httpClient)
+	cwClient := cloudwatch.NewFromConfig(awsCfg)
+	metricsClient := metrics.NewCloudWatchEmitter(cwClient, "SaturdaysSpinout")
+
+	iracingClient := iracing.NewClient(httpClient, metricsClient)
 
 	processor := ingestion.NewRaceProcessor(driverStore, iracingClient, pusher,
 		ingestion.WithSearchWindowInDays(cfg.SearchWindowInDays),
 		ingestion.WithRaceConsumptionConcurrency(cfg.RaceConsumptionConcurrency),
+		ingestion.WithLapConsumptionConcurrency(cfg.LapConsumptionConcurrency),
 	)
 
 	lambda.Start(func(ctx context.Context, event events.SQSEvent) error {

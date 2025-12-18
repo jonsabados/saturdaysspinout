@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jonsabados/saturdaysspinout/metrics"
 	"github.com/rs/zerolog"
 )
 
@@ -20,6 +21,10 @@ const DataAPIBaseURL = "https://members-ng.iracing.com"
 // iRacingTimeFormat is ISO-8601 with minute precision used by iRacing API
 const iRacingTimeFormat = "2006-01-02T15:04Z"
 
+type MetricsClient interface {
+	EmitGauge(ctx context.Context, name string, value float64) error
+}
+
 // UserInfo contains basic info about an iRacing user
 type UserInfo struct {
 	UserID      int64
@@ -28,8 +33,9 @@ type UserInfo struct {
 }
 
 type Client struct {
-	httpClient HTTPClient
-	baseURL    string
+	httpClient    HTTPClient
+	metricsClient MetricsClient
+	baseURL       string
 }
 
 type ClientOption func(*Client)
@@ -40,10 +46,11 @@ func WithBaseURL(url string) ClientOption {
 	}
 }
 
-func NewClient(httpClient HTTPClient, opts ...ClientOption) *Client {
+func NewClient(httpClient HTTPClient, metricsClient MetricsClient, opts ...ClientOption) *Client {
 	c := &Client{
-		httpClient: httpClient,
-		baseURL:    DataAPIBaseURL,
+		httpClient:    httpClient,
+		metricsClient: metricsClient,
+		baseURL:       DataAPIBaseURL,
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -53,7 +60,8 @@ func NewClient(httpClient HTTPClient, opts ...ClientOption) *Client {
 
 // logRateLimitHeaders logs the rate limit headers from an iRacing API response.
 // Logs at Trace level normally, but warns when remaining drops below 20% of limit.
-func (c *Client) logRateLimitHeaders(logger *zerolog.Logger, resp *http.Response) {
+// Also emits a metric for the remaining rate limit.
+func (c *Client) logRateLimitHeaders(ctx context.Context, logger *zerolog.Logger, resp *http.Response) {
 	limitStr := resp.Header.Get("x-ratelimit-limit")
 	remainingStr := resp.Header.Get("x-ratelimit-remaining")
 	resetStr := resp.Header.Get("x-ratelimit-reset")
@@ -64,6 +72,10 @@ func (c *Client) logRateLimitHeaders(logger *zerolog.Logger, resp *http.Response
 
 	limit, _ := strconv.Atoi(limitStr)
 	remaining, _ := strconv.Atoi(remainingStr)
+
+	if err := c.metricsClient.EmitGauge(ctx, metrics.IRacingRateLimitRemaining, float64(remaining)); err != nil {
+		logger.Warn().Err(err).Msg("failed to emit rate limit metric")
+	}
 
 	// Warn if remaining is below 20% of limit
 	isLow := limit > 0 && remaining < limit/5
@@ -120,7 +132,7 @@ func (c *Client) doAPIRequest(ctx context.Context, accessToken, endpoint string)
 		return nil, fmt.Errorf("reading response body: %w", err)
 	}
 
-	c.logRateLimitHeaders(logger, resp)
+	c.logRateLimitHeaders(ctx, logger, resp)
 
 	logger.Trace().RawJSON("response", body).Int("status", resp.StatusCode).Str("endpoint", endpoint).Msg("received API response")
 
