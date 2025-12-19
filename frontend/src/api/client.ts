@@ -54,12 +54,6 @@ export class ApiClient {
   }
 
   async fetch<T>(path: string, options: RequestInit = {}): Promise<T> {
-    // Proactively refresh token if it's close to expiry
-    if (this.authStore.needsRefresh) {
-      await this.authStore.refreshToken()
-    }
-
-    // Check if we're still logged in after potential refresh
     if (!this.authStore.isLoggedIn) {
       throw new Error('Not authenticated')
     }

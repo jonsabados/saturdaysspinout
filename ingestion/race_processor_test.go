@@ -70,6 +70,13 @@ type pushCall struct {
 	err          error
 }
 
+type broadcastCall struct {
+	driverID   int64
+	actionType string
+	payload    any
+	err        error
+}
+
 type updateDriverRacesIngestedToCall struct {
 	driverID        int64
 	racesIngestedTo time.Time
@@ -98,6 +105,7 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 		getLapDataCalls                 []getLapDataCall
 		persistSessionDataCalls         []persistSessionDataCall
 		pushCalls                       []pushCall
+		broadcastCalls                  []broadcastCall
 		updateDriverRacesIngestedToCall *updateDriverRacesIngestedToCall
 
 		expectedErr string
@@ -192,12 +200,12 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					},
 				},
 			},
-			// Should notify browser
-			pushCalls: []pushCall{
+			// Should broadcast to all driver's connections
+			broadcastCalls: []broadcastCall{
 				{
-					connectionID: "conn-123",
-					actionType:   "raceIngested",
-					result:       true,
+					driverID:   driverID,
+					actionType: "raceIngested",
+					payload:    RaceReadyMsg{RaceID: sessionStartTime.Unix()},
 				},
 			},
 			updateDriverRacesIngestedToCall: &updateDriverRacesIngestedToCall{
@@ -363,11 +371,11 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					},
 				},
 			},
-			pushCalls: []pushCall{
+			broadcastCalls: []broadcastCall{
 				{
-					connectionID: "conn-123",
-					actionType:   "raceIngested",
-					result:       true,
+					driverID:   driverID,
+					actionType: "raceIngested",
+					payload:    RaceReadyMsg{RaceID: sessionStartTime.Unix()},
 				},
 			},
 			updateDriverRacesIngestedToCall: &updateDriverRacesIngestedToCall{
@@ -495,6 +503,12 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 			for _, call := range tc.pushCalls {
 				mockPusher.EXPECT().Push(mock.Anything, call.connectionID, call.actionType, mock.Anything).
 					Return(call.result, call.err)
+			}
+
+			// Setup Broadcast calls
+			for _, call := range tc.broadcastCalls {
+				mockPusher.EXPECT().Broadcast(mock.Anything, call.driverID, call.actionType, call.payload).
+					Return(call.err)
 			}
 
 			// Setup UpdateDriverRacesIngestedTo

@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi/types"
+	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/rs/zerolog"
 )
 
@@ -21,13 +22,19 @@ type APIGatewayManagementClient interface {
 	DeleteConnection(ctx context.Context, params *apigatewaymanagementapi.DeleteConnectionInput, optFns ...func(*apigatewaymanagementapi.Options)) (*apigatewaymanagementapi.DeleteConnectionOutput, error)
 }
 
-type Pusher struct {
-	client APIGatewayManagementClient
+type ConnectionLookup interface {
+	GetConnectionsByDriver(ctx context.Context, driverID int64) ([]store.WebSocketConnection, error)
 }
 
-func NewPusher(client APIGatewayManagementClient) *Pusher {
+type Pusher struct {
+	client           APIGatewayManagementClient
+	connectionLookup ConnectionLookup
+}
+
+func NewPusher(client APIGatewayManagementClient, connectionLookup ConnectionLookup) *Pusher {
 	return &Pusher{
-		client: client,
+		client:           client,
+		connectionLookup: connectionLookup,
 	}
 }
 
@@ -68,4 +75,20 @@ func (p *Pusher) Disconnect(ctx context.Context, connectionID string) {
 	if err != nil {
 		logger.Error().Err(err).Msg("failed to disconnect client")
 	}
+}
+
+// Broadcast sends a message to all active connections for a given driver.
+func (p *Pusher) Broadcast(ctx context.Context, driverID int64, actionType string, payload any) error {
+	connections, err := p.connectionLookup.GetConnectionsByDriver(ctx, driverID)
+	if err != nil {
+		return err
+	}
+
+	for _, conn := range connections {
+		if _, err := p.Push(ctx, conn.ConnectionID, actionType, payload); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
