@@ -1,3 +1,8 @@
+variable "state_bucket" {
+  type = string
+  description = "The name of the state bucket, used in github-actions.tf to grant github actions access to things"
+}
+
 variable "route53_domain" {
   type        = string
   description = "The name of the domain, registered in route53, that will be used to deploy the application"
