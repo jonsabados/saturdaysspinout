@@ -22,9 +22,30 @@ This document captures the coding conventions and patterns used in this project.
 
 ### Testing
 
+#### Test Packages
+
+Tests should be in the same package as the code they're testing (e.g., `package store`, not `package store_test`). This allows access to unexported fields when needed for test setup, like injecting mock time functions.
+
 #### Assertions
 
 Use testify's `assert` and `require` packages for assertions instead of manual `t.Errorf`/`t.Fatalf` calls.
+
+Prefer direct struct comparisons over extracting individual fields into maps/slices when verifying results. This makes expected values clearer and produces better diff output on failures:
+
+```go
+// Good - clear expected values, better failure messages
+assert.Equal(t, []DriverSession{
+    {DriverID: 1001, SubsessionID: 3, TrackID: 100, StartTime: time.Unix(3000, 0)},
+    {DriverID: 1001, SubsessionID: 2, TrackID: 100, StartTime: time.Unix(2000, 0)},
+}, sessions)
+
+// Avoid - obscures expected values, worse failure messages
+ids := make([]int64, len(sessions))
+for i, s := range sessions {
+    ids[i] = s.SubsessionID
+}
+assert.Equal(t, []int64{3, 2}, ids)
+```
 
 #### Table-Driven Tests
 

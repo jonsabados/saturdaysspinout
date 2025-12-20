@@ -1,4 +1,4 @@
-package store_test
+package store
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb/types"
-	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,7 +21,7 @@ func TestInsertTrack_Success(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	track := store.Track{
+	track := Track{
 		ID:   1,
 		Name: "Daytona International Speedway",
 	}
@@ -40,7 +39,7 @@ func TestInsertTrack_DuplicateReturnsError(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	track := store.Track{
+	track := Track{
 		ID:   1,
 		Name: "Daytona International Speedway",
 	}
@@ -50,7 +49,7 @@ func TestInsertTrack_DuplicateReturnsError(t *testing.T) {
 
 	// Try to insert again with same ID
 	err = s.InsertTrack(ctx, track)
-	assert.ErrorIs(t, err, store.ErrEntityAlreadyExists)
+	assert.ErrorIs(t, err, ErrEntityAlreadyExists)
 }
 
 func TestGetTrack_NotFound(t *testing.T) {
@@ -68,7 +67,7 @@ func TestGetGlobalCounters_Empty(t *testing.T) {
 
 	counters, err := s.GetGlobalCounters(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, &store.GlobalCounters{}, counters)
+	assert.Equal(t, &GlobalCounters{}, counters)
 }
 
 func TestGetGlobalCounters_AfterInserts(t *testing.T) {
@@ -76,8 +75,8 @@ func TestGetGlobalCounters_AfterInserts(t *testing.T) {
 	ctx := context.Background()
 
 	// Insert a couple tracks
-	require.NoError(t, s.InsertTrack(ctx, store.Track{ID: 1, Name: "Track 1"}))
-	require.NoError(t, s.InsertTrack(ctx, store.Track{ID: 2, Name: "Track 2"}))
+	require.NoError(t, s.InsertTrack(ctx, Track{ID: 1, Name: "Track 1"}))
+	require.NoError(t, s.InsertTrack(ctx, Track{ID: 2, Name: "Track 2"}))
 
 	counters, err := s.GetGlobalCounters(ctx)
 	require.NoError(t, err)
@@ -88,7 +87,7 @@ func TestAddDriverNote_Success(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	note := store.DriverNote{
+	note := DriverNote{
 		DriverID:  1,
 		Timestamp: time.Unix(1000, 0),
 		SessionID: 100,
@@ -112,7 +111,7 @@ func TestAddDriverNote_DuplicateReturnsError(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	note := store.DriverNote{
+	note := DriverNote{
 		DriverID:  1,
 		Timestamp: time.Unix(1000, 0),
 		SessionID: 100,
@@ -127,7 +126,7 @@ func TestAddDriverNote_DuplicateReturnsError(t *testing.T) {
 
 	// Try to insert again with same driver + timestamp
 	err = s.AddDriverNote(ctx, note)
-	assert.ErrorIs(t, err, store.ErrEntityAlreadyExists)
+	assert.ErrorIs(t, err, ErrEntityAlreadyExists)
 }
 
 func TestGetDriverNotes_TimeRangeFiltering(t *testing.T) {
@@ -135,7 +134,7 @@ func TestGetDriverNotes_TimeRangeFiltering(t *testing.T) {
 	ctx := context.Background()
 
 	// Insert notes at different times
-	notes := []store.DriverNote{
+	notes := []DriverNote{
 		{DriverID: 1, Timestamp: time.Unix(1000, 0), SessionID: 1, LapNumber: 1, Category: "a", Notes: "note 1"},
 		{DriverID: 1, Timestamp: time.Unix(2000, 0), SessionID: 1, LapNumber: 2, Category: "b", Notes: "note 2"},
 		{DriverID: 1, Timestamp: time.Unix(3000, 0), SessionID: 1, LapNumber: 3, Category: "c", Notes: "note 3"},
@@ -148,9 +147,7 @@ func TestGetDriverNotes_TimeRangeFiltering(t *testing.T) {
 	// Query with inclusive start, exclusive end
 	got, err := s.GetDriverNotes(ctx, 1, time.Unix(2000, 0), time.Unix(4000, 0))
 	require.NoError(t, err)
-	require.Len(t, got, 2)
-	assert.Equal(t, notes[1], got[0])
-	assert.Equal(t, notes[2], got[1])
+	assert.Equal(t, []DriverNote{notes[1], notes[2]}, got)
 }
 
 func TestGetDriverNotes_EmptyResult(t *testing.T) {
@@ -166,8 +163,8 @@ func TestGetDriverNotes_DifferentDriversIsolated(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	note1 := store.DriverNote{DriverID: 1, Timestamp: time.Unix(1000, 0), SessionID: 1, LapNumber: 1, Category: "a", Notes: "driver 1 note"}
-	note2 := store.DriverNote{DriverID: 2, Timestamp: time.Unix(1000, 0), SessionID: 1, LapNumber: 1, Category: "b", Notes: "driver 2 note"}
+	note1 := DriverNote{DriverID: 1, Timestamp: time.Unix(1000, 0), SessionID: 1, LapNumber: 1, Category: "a", Notes: "driver 1 note"}
+	note2 := DriverNote{DriverID: 2, Timestamp: time.Unix(1000, 0), SessionID: 1, LapNumber: 1, Category: "b", Notes: "driver 2 note"}
 
 	require.NoError(t, s.AddDriverNote(ctx, note1))
 	require.NoError(t, s.AddDriverNote(ctx, note2))
@@ -183,8 +180,8 @@ func TestGetGlobalCounters_IncludesNotes(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	require.NoError(t, s.InsertTrack(ctx, store.Track{ID: 1, Name: "Track 1"}))
-	require.NoError(t, s.AddDriverNote(ctx, store.DriverNote{
+	require.NoError(t, s.InsertTrack(ctx, Track{ID: 1, Name: "Track 1"}))
+	require.NoError(t, s.AddDriverNote(ctx, DriverNote{
 		DriverID:  1,
 		Timestamp: time.Unix(1000, 0),
 		SessionID: 1,
@@ -192,7 +189,7 @@ func TestGetGlobalCounters_IncludesNotes(t *testing.T) {
 		Category:  "test",
 		Notes:     "test note",
 	}))
-	require.NoError(t, s.AddDriverNote(ctx, store.DriverNote{
+	require.NoError(t, s.AddDriverNote(ctx, DriverNote{
 		DriverID:  1,
 		Timestamp: time.Unix(2000, 0),
 		SessionID: 1,
@@ -220,7 +217,7 @@ func TestInsertDriver_Success(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	driver := store.Driver{
+	driver := Driver{
 		DriverID:    12345,
 		DriverName:  "Jon Sabados",
 		MemberSince: time.Unix(500, 0),
@@ -241,7 +238,7 @@ func TestInsertDriver_DuplicateReturnsError(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	driver := store.Driver{
+	driver := Driver{
 		DriverID:    12345,
 		DriverName:  "Jon Sabados",
 		MemberSince: time.Unix(500, 0),
@@ -254,14 +251,14 @@ func TestInsertDriver_DuplicateReturnsError(t *testing.T) {
 	require.NoError(t, err)
 
 	err = s.InsertDriver(ctx, driver)
-	assert.ErrorIs(t, err, store.ErrEntityAlreadyExists)
+	assert.ErrorIs(t, err, ErrEntityAlreadyExists)
 }
 
 func TestInsertDriver_IncrementsGlobalCounter(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	require.NoError(t, s.InsertDriver(ctx, store.Driver{
+	require.NoError(t, s.InsertDriver(ctx, Driver{
 		DriverID:    1,
 		DriverName:  "Driver 1",
 		MemberSince: time.Unix(500, 0),
@@ -269,7 +266,7 @@ func TestInsertDriver_IncrementsGlobalCounter(t *testing.T) {
 		LastLogin:   time.Unix(1000, 0),
 		LoginCount:  1,
 	}))
-	require.NoError(t, s.InsertDriver(ctx, store.Driver{
+	require.NoError(t, s.InsertDriver(ctx, Driver{
 		DriverID:    2,
 		DriverName:  "Driver 2",
 		MemberSince: time.Unix(1500, 0),
@@ -287,7 +284,7 @@ func TestRecordLogin_Success(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	driver := store.Driver{
+	driver := Driver{
 		DriverID:    12345,
 		DriverName:  "Jon Sabados",
 		MemberSince: time.Unix(500, 0),
@@ -311,7 +308,7 @@ func TestRecordLogin_MultipleLogins(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	driver := store.Driver{
+	driver := Driver{
 		DriverID:    12345,
 		DriverName:  "Jon Sabados",
 		MemberSince: time.Unix(500, 0),
@@ -344,7 +341,7 @@ func TestSaveConnection_Success(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	conn := store.WebSocketConnection{
+	conn := WebSocketConnection{
 		DriverID:     12345,
 		ConnectionID: "abc123",
 	}
@@ -365,7 +362,7 @@ func TestSaveConnection_OverwritesExisting(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	conn := store.WebSocketConnection{
+	conn := WebSocketConnection{
 		DriverID:     12345,
 		ConnectionID: "abc123",
 	}
@@ -396,7 +393,7 @@ func TestGetConnection_WrongDriver(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	conn := store.WebSocketConnection{
+	conn := WebSocketConnection{
 		DriverID:     12345,
 		ConnectionID: "abc123",
 	}
@@ -412,7 +409,7 @@ func TestDeleteConnection_Success(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	conn := store.WebSocketConnection{
+	conn := WebSocketConnection{
 		DriverID:     12345,
 		ConnectionID: "abc123",
 	}
@@ -440,30 +437,30 @@ func TestGetConnectionsByDriver_Success(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
+	fixedTime := time.Unix(1000, 0)
+	s.now = func() time.Time { return fixedTime }
+
 	// Create multiple connections for same driver
-	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+	require.NoError(t, s.SaveConnection(ctx, WebSocketConnection{
 		DriverID:     12345,
 		ConnectionID: "conn1",
 	}))
-	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+	require.NoError(t, s.SaveConnection(ctx, WebSocketConnection{
 		DriverID:     12345,
 		ConnectionID: "conn2",
 	}))
-	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+	require.NoError(t, s.SaveConnection(ctx, WebSocketConnection{
 		DriverID:     12345,
 		ConnectionID: "conn3",
 	}))
 
 	connections, err := s.GetConnectionsByDriver(ctx, 12345)
 	require.NoError(t, err)
-	assert.Len(t, connections, 3)
-
-	// Verify all connection IDs are present
-	connIDs := make([]string, len(connections))
-	for i, c := range connections {
-		connIDs[i] = c.ConnectionID
-	}
-	assert.ElementsMatch(t, []string{"conn1", "conn2", "conn3"}, connIDs)
+	assert.ElementsMatch(t, []WebSocketConnection{
+		{DriverID: 12345, ConnectionID: "conn1", ConnectedAt: fixedTime},
+		{DriverID: 12345, ConnectionID: "conn2", ConnectedAt: fixedTime},
+		{DriverID: 12345, ConnectionID: "conn3", ConnectedAt: fixedTime},
+	}, connections)
 }
 
 func TestGetConnectionsByDriver_Empty(t *testing.T) {
@@ -480,11 +477,11 @@ func TestGetConnectionsByDriver_IsolatedByDriver(t *testing.T) {
 	ctx := context.Background()
 
 	// Create connections for different drivers
-	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+	require.NoError(t, s.SaveConnection(ctx, WebSocketConnection{
 		DriverID:     111,
 		ConnectionID: "conn-driver1",
 	}))
-	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+	require.NoError(t, s.SaveConnection(ctx, WebSocketConnection{
 		DriverID:     222,
 		ConnectionID: "conn-driver2",
 	}))
@@ -501,11 +498,11 @@ func TestGetDriverIDByConnection_RecordExists(t *testing.T) {
 	ctx := context.Background()
 
 	// Create connections for different drivers
-	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+	require.NoError(t, s.SaveConnection(ctx, WebSocketConnection{
 		DriverID:     111,
 		ConnectionID: "conn-driver1",
 	}))
-	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+	require.NoError(t, s.SaveConnection(ctx, WebSocketConnection{
 		DriverID:     222,
 		ConnectionID: "conn-driver2",
 	}))
@@ -520,11 +517,11 @@ func TestGetDriverIDByConnection_RecordNotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// Create connections for different drivers
-	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+	require.NoError(t, s.SaveConnection(ctx, WebSocketConnection{
 		DriverID:     111,
 		ConnectionID: "conn-driver1",
 	}))
-	require.NoError(t, s.SaveConnection(ctx, store.WebSocketConnection{
+	require.NoError(t, s.SaveConnection(ctx, WebSocketConnection{
 		DriverID:     222,
 		ConnectionID: "conn-driver2",
 	}))
@@ -538,7 +535,7 @@ func TestUpdateDriverRacesIngestedTo_Success(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	driver := store.Driver{
+	driver := Driver{
 		DriverID:    12345,
 		DriverName:  "Jon Sabados",
 		MemberSince: time.Unix(500, 0),
@@ -575,7 +572,7 @@ func TestUpdateDriverRacesIngestedTo_UpdatesExistingValue(t *testing.T) {
 	ctx := context.Background()
 
 	ingestedTo := time.Unix(3000, 0)
-	driver := store.Driver{
+	driver := Driver{
 		DriverID:        12345,
 		DriverName:      "Jon Sabados",
 		MemberSince:     time.Unix(500, 0),
@@ -601,7 +598,7 @@ func TestInsertDriver_WithIngestionBlockedUntil(t *testing.T) {
 	ctx := context.Background()
 
 	blockedUntil := time.Unix(9000, 0)
-	driver := store.Driver{
+	driver := Driver{
 		DriverID:              12345,
 		DriverName:            "Jon Sabados",
 		MemberSince:           time.Unix(500, 0),
@@ -624,7 +621,7 @@ func TestUpdateDriverIngestionBlockedUntil_Success(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	driver := store.Driver{
+	driver := Driver{
 		DriverID:    12345,
 		DriverName:  "Jon Sabados",
 		MemberSince: time.Unix(500, 0),
@@ -661,7 +658,7 @@ func TestUpdateDriverIngestionBlockedUntil_UpdatesExistingValue(t *testing.T) {
 	ctx := context.Background()
 
 	blockedUntil := time.Unix(3000, 0)
-	driver := store.Driver{
+	driver := Driver{
 		DriverID:              12345,
 		DriverName:            "Jon Sabados",
 		MemberSince:           time.Unix(500, 0),
@@ -688,19 +685,19 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 
 	sessionStartTime := time.Unix(1700000000, 0)
 
-	data := store.SessionDataInsertion{
-		SessionEntries: []store.Session{
+	data := SessionDataInsertion{
+		SessionEntries: []Session{
 			{
 				SubsessionID: 12345,
 				TrackID:      100,
 				StartTime:    sessionStartTime,
-				CarClasses: []store.SessionCarClass{
+				CarClasses: []SessionCarClass{
 					{
 						SubsessionID:    12345,
 						CarClassID:      1,
 						StrengthOfField: 2500,
 						NumberOfEntries: 20,
-						Cars: []store.SessionCarClassCar{
+						Cars: []SessionCarClassCar{
 							{SubsessionID: 12345, CarClassID: 1, CarID: 101},
 							{SubsessionID: 12345, CarClassID: 1, CarID: 102},
 						},
@@ -710,14 +707,14 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 						CarClassID:      2,
 						StrengthOfField: 1800,
 						NumberOfEntries: 10,
-						Cars: []store.SessionCarClassCar{
+						Cars: []SessionCarClassCar{
 							{SubsessionID: 12345, CarClassID: 2, CarID: 201},
 						},
 					},
 				},
 			},
 		},
-		SessionDriverEntries: []store.SessionDriver{
+		SessionDriverEntries: []SessionDriver{
 			{
 				SubsessionID:          12345,
 				DriverID:              1001,
@@ -751,14 +748,14 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 				AI:                    false,
 			},
 		},
-		SessionDriverLapEntries: []store.SessionDriverLap{
+		SessionDriverLapEntries: []SessionDriverLap{
 			{SubsessionID: 12345, DriverID: 1001, LapNumber: 1, LapTime: 90 * time.Second, Flags: 0, Incident: false, LapEvents: nil},
 			{SubsessionID: 12345, DriverID: 1001, LapNumber: 2, LapTime: 88 * time.Second, Flags: 0, Incident: true, LapEvents: []string{"off track"}},
 			{SubsessionID: 12345, DriverID: 1001, LapNumber: 3, LapTime: 87 * time.Second, Flags: 0, Incident: false, LapEvents: nil},
 			{SubsessionID: 12345, DriverID: 1002, LapNumber: 1, LapTime: 89 * time.Second, Flags: 0, Incident: false, LapEvents: nil},
 			{SubsessionID: 12345, DriverID: 1002, LapNumber: 2, LapTime: 86 * time.Second, Flags: 0, Incident: false, LapEvents: nil},
 		},
-		DriverSessionEntries: []store.DriverSession{
+		DriverSessionEntries: []DriverSession{
 			{
 				DriverID:              1001,
 				SubsessionID:          12345,
@@ -809,7 +806,7 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 	assert.Len(t, session.CarClasses, 2)
 
 	// Find car classes by ID for deterministic assertions
-	carClassByID := make(map[int64]store.SessionCarClass)
+	carClassByID := make(map[int64]SessionCarClass)
 	for _, cc := range session.CarClasses {
 		carClassByID[cc.CarClassID] = cc
 	}
@@ -824,7 +821,7 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, drivers, 2)
 
-	driverByID := make(map[int64]store.SessionDriver)
+	driverByID := make(map[int64]SessionDriver)
 	for _, d := range drivers {
 		driverByID[d.DriverID] = d
 	}
@@ -839,7 +836,7 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, laps1001, 3)
 
-	lapByNumber := make(map[int]store.SessionDriverLap)
+	lapByNumber := make(map[int]SessionDriverLap)
 	for _, l := range laps1001 {
 		lapByNumber[l.LapNumber] = l
 	}
@@ -857,11 +854,25 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 	// Verify GetDriverSessions
 	driverSessions, err := s.GetDriverSessions(ctx, 1001, sessionStartTime.Add(-time.Hour), sessionStartTime.Add(time.Hour))
 	require.NoError(t, err)
-	require.Len(t, driverSessions, 1)
-	assert.Equal(t, int64(12345), driverSessions[0].SubsessionID)
-	assert.Equal(t, int64(1001), driverSessions[0].DriverID)
-	assert.Equal(t, 2, driverSessions[0].FinishPosition)
-	assert.Equal(t, 2, driverSessions[0].FinishPositionInClass)
+	assert.Equal(t, []DriverSession{
+		{
+			DriverID:              1001,
+			SubsessionID:          12345,
+			TrackID:               100,
+			CarID:                 101,
+			StartTime:             sessionStartTime,
+			StartPosition:         1,
+			StartPositionInClass:  1,
+			FinishPosition:        2,
+			FinishPositionInClass: 2,
+			Incidents:             3,
+			OldCPI:                0.5,
+			NewCPI:                0.6,
+			OldIRating:            2000,
+			NewIRating:            2050,
+			ReasonOut:             "Running",
+		},
+	}, driverSessions)
 
 	// Verify global counters
 	counters, err := s.GetGlobalCounters(ctx)
@@ -874,8 +885,8 @@ func TestPersistSessionData_DuplicateSessionReturnsError(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	data := store.SessionDataInsertion{
-		SessionEntries: []store.Session{
+	data := SessionDataInsertion{
+		SessionEntries: []Session{
 			{
 				SubsessionID: 12345,
 				TrackID:      100,
@@ -889,7 +900,7 @@ func TestPersistSessionData_DuplicateSessionReturnsError(t *testing.T) {
 
 	// Try to insert again - should fail on session record
 	err = s.PersistSessionData(ctx, data)
-	assert.ErrorIs(t, err, store.ErrEntityAlreadyExists)
+	assert.ErrorIs(t, err, ErrEntityAlreadyExists)
 }
 
 func TestGetSession_NotFound(t *testing.T) {
@@ -926,13 +937,13 @@ func TestGetDriverSession_Found(t *testing.T) {
 	targetStartTime := time.Unix(1700000000, 0)
 
 	// Insert multiple sessions for multiple drivers as noise
-	data := store.SessionDataInsertion{
-		SessionEntries: []store.Session{
+	data := SessionDataInsertion{
+		SessionEntries: []Session{
 			{SubsessionID: 11111, TrackID: 100, StartTime: time.Unix(1699999000, 0)},
 			{SubsessionID: 12345, TrackID: 100, StartTime: targetStartTime},
 			{SubsessionID: 22222, TrackID: 100, StartTime: time.Unix(1700001000, 0)},
 		},
-		DriverSessionEntries: []store.DriverSession{
+		DriverSessionEntries: []DriverSession{
 			// Other driver, different session
 			{DriverID: 9999, SubsessionID: 11111, TrackID: 100, CarID: 101, StartTime: time.Unix(1699999000, 0), ReasonOut: "Running", FinishPosition: 5},
 			// Target driver, earlier session
@@ -961,11 +972,11 @@ func TestGetDriverSession_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// Add some data as noise
-	data := store.SessionDataInsertion{
-		SessionEntries: []store.Session{
+	data := SessionDataInsertion{
+		SessionEntries: []Session{
 			{SubsessionID: 12345, TrackID: 100, StartTime: time.Unix(1700000000, 0)},
 		},
-		DriverSessionEntries: []store.DriverSession{
+		DriverSessionEntries: []DriverSession{
 			{DriverID: 1001, SubsessionID: 12345, TrackID: 100, CarID: 101, StartTime: time.Unix(1700000000, 0), ReasonOut: "Running"},
 		},
 	}
@@ -1004,15 +1015,15 @@ func TestGetDriverSessions_DateRangeFiltering(t *testing.T) {
 	}
 
 	for i, startTime := range times {
-		data := store.SessionDataInsertion{
-			SessionEntries: []store.Session{
+		data := SessionDataInsertion{
+			SessionEntries: []Session{
 				{
 					SubsessionID: int64(i + 1),
 					TrackID:      100,
 					StartTime:    startTime,
 				},
 			},
-			DriverSessionEntries: []store.DriverSession{
+			DriverSessionEntries: []DriverSession{
 				{
 					DriverID:     1001,
 					SubsessionID: int64(i + 1),
@@ -1026,20 +1037,16 @@ func TestGetDriverSessions_DateRangeFiltering(t *testing.T) {
 		require.NoError(t, s.PersistSessionData(ctx, data))
 	}
 
-	// Query middle range
+	// Query middle range - expect newest first
 	sessions, err := s.GetDriverSessions(ctx, 1001, time.Unix(2000, 0), time.Unix(3000, 0))
 	require.NoError(t, err)
-	assert.Len(t, sessions, 2)
-
-	// Verify correct sessions returned
-	subsessionIDs := make([]int64, len(sessions))
-	for i, s := range sessions {
-		subsessionIDs[i] = s.SubsessionID
-	}
-	assert.ElementsMatch(t, []int64{2, 3}, subsessionIDs)
+	assert.Equal(t, []DriverSession{
+		{DriverID: 1001, SubsessionID: 3, TrackID: 100, CarID: 101, StartTime: time.Unix(3000, 0), ReasonOut: "Running"},
+		{DriverID: 1001, SubsessionID: 2, TrackID: 100, CarID: 101, StartTime: time.Unix(2000, 0), ReasonOut: "Running"},
+	}, sessions)
 }
 
-func setupTestStore(t *testing.T) *store.DynamoStore {
+func setupTestStore(t *testing.T) *DynamoStore {
 	t.Helper()
 	t.Parallel()
 
@@ -1075,5 +1082,5 @@ func setupTestStore(t *testing.T) *store.DynamoStore {
 		})
 	})
 
-	return store.NewDynamoStore(client, tableName)
+	return NewDynamoStore(client, tableName)
 }
