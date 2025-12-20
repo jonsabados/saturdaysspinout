@@ -1,0 +1,4 @@
+{
+  "message": "An unexpected error has been encountered. Please reference the included correlation id in any support inquires.",
+  "correlationId": "test-correlation-id"
+}

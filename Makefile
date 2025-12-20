@@ -51,7 +51,7 @@ dynamo-status: ## Check local DynamoDB container status
 
 .PHONY: generate-mocks
 generate-mocks: ## Generate test mocks with mockery
-	docker run --rm -v "$(PWD)://src" -w //src vektra/mockery:3
+	docker run --rm -e GOFLAGS="-buildvcs=false" -v "$(PWD)://src" -w //src vektra/mockery:3
 
 ##@ Building
 

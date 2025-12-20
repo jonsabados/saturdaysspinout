@@ -174,14 +174,15 @@ func driverNoteFromAttributeMap(driverID int64, item map[string]types.AttributeV
 }
 
 type driverModel struct {
-	driverID        int64
-	driverName      string
-	memberSince     int64
-	racesIngestedTo *int64
-	firstLogin      int64
-	lastLogin       int64
-	loginCount      int64
-	sessionCount    int64
+	driverID           int64
+	driverName         string
+	memberSince        int64
+	racesIngestedTo       *int64
+	ingestionBlockedUntil *int64
+	firstLogin         int64
+	lastLogin          int64
+	loginCount         int64
+	sessionCount       int64
 }
 
 func (d driverModel) toAttributeMap() map[string]types.AttributeValue {
@@ -198,6 +199,9 @@ func (d driverModel) toAttributeMap() map[string]types.AttributeValue {
 	}
 	if d.racesIngestedTo != nil {
 		m["races_ingested_to"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(*d.racesIngestedTo, 10)}
+	}
+	if d.ingestionBlockedUntil != nil {
+		m["ingestion_blocked_until"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(*d.ingestionBlockedUntil, 10)}
 	}
 	return m
 }
@@ -234,17 +238,24 @@ func driverFromAttributeMap(item map[string]types.AttributeValue) (*Driver, erro
 		racesIngestedTo = &t
 	}
 
+	var ingestionBlockedUntil *time.Time
+	if ibu, ok := getOptionalInt64Attr(item, "ingestion_blocked_until"); ok {
+		t := time.Unix(ibu, 0)
+		ingestionBlockedUntil = &t
+	}
+
 	sessionCount, _ := getOptionalInt64Attr(item, "session_count")
 
 	return &Driver{
-		DriverID:        driverID,
-		DriverName:      driverName,
-		MemberSince:     time.Unix(memberSince, 0),
-		RacesIngestedTo: racesIngestedTo,
-		FirstLogin:      time.Unix(firstLogin, 0),
-		LastLogin:       time.Unix(lastLogin, 0),
-		LoginCount:      loginCount,
-		SessionCount:    sessionCount,
+		DriverID:           driverID,
+		DriverName:         driverName,
+		MemberSince:        time.Unix(memberSince, 0),
+		RacesIngestedTo:       racesIngestedTo,
+		IngestionBlockedUntil: ingestionBlockedUntil,
+		FirstLogin:         time.Unix(firstLogin, 0),
+		LastLogin:          time.Unix(lastLogin, 0),
+		LoginCount:         loginCount,
+		SessionCount:       sessionCount,
 	}, nil
 }
 

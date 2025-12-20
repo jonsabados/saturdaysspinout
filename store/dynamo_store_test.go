@@ -596,6 +596,92 @@ func TestUpdateDriverRacesIngestedTo_UpdatesExistingValue(t *testing.T) {
 	assert.Equal(t, newIngestedTo, *got.RacesIngestedTo)
 }
 
+func TestInsertDriver_WithIngestionBlockedUntil(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	blockedUntil := time.Unix(9000, 0)
+	driver := store.Driver{
+		DriverID:              12345,
+		DriverName:            "Jon Sabados",
+		MemberSince:           time.Unix(500, 0),
+		FirstLogin:            time.Unix(1000, 0),
+		LastLogin:             time.Unix(1000, 0),
+		LoginCount:            1,
+		IngestionBlockedUntil: &blockedUntil,
+	}
+
+	err := s.InsertDriver(ctx, driver)
+	require.NoError(t, err)
+
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	require.NotNil(t, got.IngestionBlockedUntil)
+	assert.Equal(t, blockedUntil, *got.IngestionBlockedUntil)
+}
+
+func TestUpdateDriverIngestionBlockedUntil_Success(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	driver := store.Driver{
+		DriverID:    12345,
+		DriverName:  "Jon Sabados",
+		MemberSince: time.Unix(500, 0),
+		FirstLogin:  time.Unix(1000, 0),
+		LastLogin:   time.Unix(1000, 0),
+		LoginCount:  1,
+	}
+	require.NoError(t, s.InsertDriver(ctx, driver))
+
+	blockedUntil := time.Unix(8000, 0)
+	err := s.UpdateDriverIngestionBlockedUntil(ctx, 12345, blockedUntil)
+	require.NoError(t, err)
+
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	require.NotNil(t, got.IngestionBlockedUntil)
+	assert.Equal(t, blockedUntil, *got.IngestionBlockedUntil)
+	// Verify other fields unchanged
+	assert.Equal(t, driver.DriverName, got.DriverName)
+	assert.Equal(t, driver.FirstLogin, got.FirstLogin)
+	assert.Equal(t, driver.LoginCount, got.LoginCount)
+}
+
+func TestUpdateDriverIngestionBlockedUntil_DriverNotFound(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	err := s.UpdateDriverIngestionBlockedUntil(ctx, 999, time.Unix(1000, 0))
+	assert.Error(t, err)
+}
+
+func TestUpdateDriverIngestionBlockedUntil_UpdatesExistingValue(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	blockedUntil := time.Unix(3000, 0)
+	driver := store.Driver{
+		DriverID:              12345,
+		DriverName:            "Jon Sabados",
+		MemberSince:           time.Unix(500, 0),
+		FirstLogin:            time.Unix(1000, 0),
+		LastLogin:             time.Unix(1000, 0),
+		LoginCount:            1,
+		IngestionBlockedUntil: &blockedUntil,
+	}
+	require.NoError(t, s.InsertDriver(ctx, driver))
+
+	newBlockedUntil := time.Unix(9000, 0)
+	err := s.UpdateDriverIngestionBlockedUntil(ctx, 12345, newBlockedUntil)
+	require.NoError(t, err)
+
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	require.NotNil(t, got.IngestionBlockedUntil)
+	assert.Equal(t, newBlockedUntil, *got.IngestionBlockedUntil)
+}
+
 func TestPersistSessionData_HappyPath(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()

@@ -1,7 +1,6 @@
 package driver
 
 import (
-	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -17,18 +16,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 )
-
-type mockGetRaceStore struct {
-	mock.Mock
-}
-
-func (m *mockGetRaceStore) GetDriverSession(ctx context.Context, driverID int64, startTime time.Time) (*store.DriverSession, error) {
-	args := m.Called(ctx, driverID, startTime)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*store.DriverSession), args.Error(1)
-}
 
 func TestNewGetRaceEndpoint(t *testing.T) {
 	testSession := &store.DriverSession{
@@ -121,9 +108,9 @@ func TestNewGetRaceEndpoint(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockStore := &mockGetRaceStore{}
+			mockStore := NewMockGetRaceStore(t)
 			for _, call := range tc.storeCalls {
-				mockStore.On("GetDriverSession", mock.Anything, call.driverID, call.startTime).
+				mockStore.EXPECT().GetDriverSession(mock.Anything, call.driverID, call.startTime).
 					Return(call.session, call.err)
 			}
 
@@ -152,8 +139,6 @@ func TestNewGetRaceEndpoint(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.JSONEq(t, string(expectedBody), string(bodyBytes))
-
-			mockStore.AssertExpectations(t)
 		})
 	}
 }

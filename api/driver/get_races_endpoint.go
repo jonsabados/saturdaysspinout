@@ -50,11 +50,6 @@ func NewGetRacesEndpoint(raceStore GetRacesStore) http.Handler {
 			}
 		}
 
-		maxRange := 365 * 24 * time.Hour
-		if !startTime.IsZero() && !endTime.IsZero() && endTime.Sub(startTime) > maxRange {
-			errs = errs.WithError("date range cannot exceed 365 days")
-		}
-
 		page := 1
 		if pageStr := r.URL.Query().Get(api.PageQueryParam); pageStr != "" {
 			page, err = strconv.Atoi(pageStr)
