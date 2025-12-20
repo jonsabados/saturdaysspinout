@@ -46,6 +46,7 @@ flowchart TB
     SQS --> IngestionLambda["Ingestion Lambda<br/>(Go)"]
     IngestionLambda --> DynamoDB
     IngestionLambda --> iRacingAPI["iRacing Data API"]
+    IngestionLambda -->|"Push Updates"| WS_APIGW
 
     WS_APIGW["API Gateway<br/>(WebSocket)"] --> WS_Lambda["WebSocket Lambda<br/>(Go)"]
     WS_Lambda --> DynamoDB
@@ -104,7 +105,7 @@ Both entry points share the same API setup via [`cmd/api.go`](cmd/api.go), which
 | [`api/health/`](api/health/) | Health check endpoints (`GET /health/ping`) |
 | [`api/auth/`](api/auth/) | Auth endpoints (`POST /auth/ir/callback`) |
 | [`api/doc/`](api/doc/) | iRacing API doc proxy (`GET /doc/iracing-api/*`) |
-| [`api/driver/`](api/driver/) | Driver endpoints (`GET /driver/{driver_id}/races`) |
+| [`api/driver/`](api/driver/) | Driver endpoints (`GET /driver/{driver_id}`, `GET /driver/{driver_id}/races`, `GET /driver/{driver_id}/races/{driver_race_id}`) |
 
 #### API Naming Conventions
 
@@ -142,10 +143,10 @@ The persistence layer uses DynamoDB with a single-table design.
 
 #### `driver#<id>` partition
 
-| Sort Key | Description | Attributes                                                                                                                                                               |
-|----------|-------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `info` | Driver record | driver_name, member_since, races_ingested_to, first_login, last_login, login_count, session_count                                                                        |
-| `ws#<connectionId>` | WebSocket connection | connected_at, ttl                                                                                                                                                        |
+| Sort Key | Description | Attributes                                                                                                                                                                                         |
+|----------|-------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `info` | Driver record | driver_name, member_since, races_ingested_to, ingestion_blocked_until, first_login, last_login, login_count, session_count                                                                                                |
+| `ws#<connectionId>` | WebSocket connection | connected_at, ttl                                                                                                                                                                                  |
 | `session#<timestamp>` | Race participation (list view) | subsession_id, track_id, car_id, start_time, start_position, start_position_in_class, finish_position, finish_position_in_class, incidents, old_cpi, new_cpi, old_irating, new_irating, reason_out |
 
 #### `websocket#<id>` partition
@@ -249,6 +250,8 @@ All AWS infrastructure is defined in Terraform with workspace support for multip
 
 ## CI/CD
 
+### Continuous Integration
+
 GitHub Actions runs on push and PR to `main`. The workflow ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
 
 1. **Backend tests** - Runs Go tests with race detection and coverage against a DynamoDB Local service container
@@ -256,6 +259,29 @@ GitHub Actions runs on push and PR to `main`. The workflow ([`.github/workflows/
 3. **Build** - Builds the Lambda deployment package (only after tests pass)
 
 Test results are published as GitHub check annotations and coverage is uploaded to Codecov.
+
+### Deployment
+
+Deployments are triggered by publishing a GitHub release. The workflow ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)):
+
+1. **Build Lambdas** - Compiles Go Lambda functions
+2. **Terraform Apply** - Updates AWS infrastructure
+3. **Build Frontend** - Compiles Vue SPA with production API URLs
+4. **Deploy Frontend** - Syncs to S3, invalidates CloudFront cache
+5. **Deploy Website** - Syncs static site to S3
+
+#### Required GitHub Secrets
+
+| Secret | Description |
+|--------|-------------|
+| `AWS_ACCOUNT` | AWS account ID for OIDC role assumption |
+| `STATE_BUCKET` | S3 bucket name for Terraform state |
+| `IRACING_CLIENT_ID` | iRacing OAuth client ID for frontend build |
+| `CODECOV_TOKEN` | Codecov upload token (for CI coverage) |
+
+#### AWS Authentication
+
+The deploy workflow uses OIDC federation to assume an IAM role (`github-actions-deploy`) without storing long-lived credentials. The role and trust policy are managed in [`terraform/github-actions.tf`](terraform/github-actions.tf).
 
 ## Development
 
@@ -271,6 +297,33 @@ See [CODING_STANDARDS.md](CODING_STANDARDS.md) for coding conventions and patter
 - Docker (for local DynamoDB)
 
 Run `make` or `make help` to see all available targets.
+
+### Initial Setup
+
+#### Terraform
+
+The Terraform backend uses a partial configuration. You'll need to provide the S3 bucket name during init:
+
+```bash
+cd terraform
+terraform init -backend-config="bucket=your-state-bucket-name"
+```
+
+To avoid being prompted for the `state_bucket` variable on every plan/apply, create a `terraform/terraform.tfvars` file:
+
+```hcl
+state_bucket = "your-state-bucket-name"
+```
+
+#### Frontend
+
+Copy the example environment file and configure your iRacing OAuth client ID:
+
+```bash
+cp frontend/.env.local.example frontend/.env.local
+```
+
+Edit `frontend/.env.local` and set `VITE_IRACING_CLIENT_ID` to your iRacing OAuth client ID.
 
 ### Local Development
 

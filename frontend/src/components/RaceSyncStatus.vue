@@ -2,12 +2,29 @@
 import { computed } from 'vue'
 import { useRaceIngestionStore } from '@/stores/raceIngestion'
 import { useSessionStore } from '@/stores/session'
+import { useDriverStore } from '@/stores/driver'
 
 const ingestionStore = useRaceIngestionStore()
 const sessionStore = useSessionStore()
+const driverStore = useDriverStore()
 
 const isLoading = computed(() => ingestionStore.status === 'loading')
-const isDisabled = computed(() => !sessionStore.isReady || isLoading.value)
+const isBlocked = computed(() => driverStore.isIngestionBlocked)
+const isDisabled = computed(() => !sessionStore.isReady || isLoading.value || isBlocked.value)
+
+const syncStatusText = computed(() => {
+  if (driverStore.syncedToFormatted) {
+    return `Synced to ${driverStore.syncedToFormatted}`
+  }
+  return 'Not synced'
+})
+
+const buttonTitle = computed(() => {
+  if (isBlocked.value && driverStore.blockedUntilFormatted) {
+    return `Sync temporarily unavailable - try again after ${driverStore.blockedUntilFormatted}`
+  }
+  return 'Sync race history'
+})
 
 function handleClick() {
   if (!isDisabled.value) {
@@ -17,19 +34,34 @@ function handleClick() {
 </script>
 
 <template>
-  <button
-    class="sync-button"
-    :class="{ loading: isLoading, disabled: isDisabled }"
-    :disabled="isDisabled"
-    @click="handleClick"
-    title="Sync race history"
-  >
-    <span class="sync-icon" :class="{ spinning: isLoading }">&#x21bb;</span>
-    <span class="sync-label">Sync</span>
-  </button>
+  <div v-if="sessionStore.isLoggedIn" class="sync-status">
+    <span v-if="sessionStore.isReady" class="sync-text">{{ syncStatusText }}</span>
+    <button
+      class="sync-button"
+      :class="{ loading: isLoading, disabled: isDisabled, blocked: isBlocked }"
+      :disabled="isDisabled"
+      @click="handleClick"
+      :title="buttonTitle"
+    >
+      <span class="sync-icon" :class="{ spinning: isLoading }">&#x21bb;</span>
+      <span class="sync-label">Sync</span>
+    </button>
+  </div>
 </template>
 
 <style scoped>
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sync-text {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
 .sync-button {
   display: flex;
   align-items: center;
@@ -55,6 +87,11 @@ function handleClick() {
   cursor: not-allowed;
 }
 
+.sync-button.blocked {
+  opacity: 0.5;
+  cursor: help;
+}
+
 .sync-icon {
   font-size: 1rem;
   line-height: 1;
@@ -77,7 +114,7 @@ function handleClick() {
   font-weight: 500;
 }
 
-/* Hide label on smaller screens, keep icon */
+/* Hide button label on smaller screens, keep icon */
 @media (max-width: 480px) {
   .sync-label {
     display: none;

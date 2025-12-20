@@ -30,6 +30,14 @@ Use testify's `assert` and `require` packages for assertions instead of manual `
 
 Use table-driven tests with fixtures in a `fixtures/` directory for expected responses.
 
+#### Mocks
+
+**Always use mockery-generated mocks** - never write manual mock implementations. Run `make generate-mocks` to generate mocks for all interfaces.
+
+- Generated mocks live alongside the interface in `mock_<interface_name>_test.go`
+- Use `NewMock<InterfaceName>(t)` constructor - it auto-registers cleanup and expectation assertions
+- No need to call `mockStore.AssertExpectations(t)` - it's handled automatically
+
 #### Mock Expectations
 
 - Use the strongly-typed `.EXPECT()` syntax instead of `.On("methodName", ...)` - this provides compile-time safety and better IDE support

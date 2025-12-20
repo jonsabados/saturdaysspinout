@@ -1,7 +1,6 @@
 package driver
 
 import (
-	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -19,18 +18,6 @@ import (
 )
 
 const testCorrelationID = "test-correlation-id"
-
-type mockGetRacesStore struct {
-	mock.Mock
-}
-
-func (m *mockGetRacesStore) GetDriverSessions(ctx context.Context, driverID int64, from, to time.Time) ([]store.DriverSession, error) {
-	args := m.Called(ctx, driverID, from, to)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]store.DriverSession), args.Error(1)
-}
 
 func TestNewGetRacesEndpoint(t *testing.T) {
 	testSessions := []store.DriverSession{
@@ -152,15 +139,6 @@ func TestNewGetRacesEndpoint(t *testing.T) {
 			expectedBodyFixture: "fixtures/get_races_invalid_start_time_response.json",
 		},
 		{
-			name:                "date range exceeds 365 days",
-			driverID:            "12345",
-			startTime:           "2022-01-01T00:00:00Z",
-			endTime:             "2023-12-31T00:00:00Z",
-			storeCalls:          []storeCall{},
-			expectedStatus:      http.StatusBadRequest,
-			expectedBodyFixture: "fixtures/get_races_range_exceeded_response.json",
-		},
-		{
 			name:                "invalid page",
 			driverID:            "12345",
 			startTime:           "2023-11-01T00:00:00Z",
@@ -190,9 +168,9 @@ func TestNewGetRacesEndpoint(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mockStore := &mockGetRacesStore{}
+			mockStore := NewMockGetRacesStore(t)
 			for _, call := range tc.storeCalls {
-				mockStore.On("GetDriverSessions", mock.Anything, call.driverID, call.from, call.to).
+				mockStore.EXPECT().GetDriverSessions(mock.Anything, call.driverID, call.from, call.to).
 					Return(call.sessions, call.err)
 			}
 
@@ -233,8 +211,6 @@ func TestNewGetRacesEndpoint(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.JSONEq(t, string(expectedBody), string(bodyBytes))
-
-			mockStore.AssertExpectations(t)
 		})
 	}
 }

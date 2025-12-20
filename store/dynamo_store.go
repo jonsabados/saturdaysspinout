@@ -184,6 +184,10 @@ func (s *DynamoStore) InsertDriver(ctx context.Context, driver Driver) error {
 		rit := toUnixSeconds(*driver.RacesIngestedTo)
 		model.racesIngestedTo = &rit
 	}
+	if driver.IngestionBlockedUntil != nil {
+		ibu := toUnixSeconds(*driver.IngestionBlockedUntil)
+		model.ingestionBlockedUntil = &ibu
+	}
 
 	_, err := s.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
 		TransactItems: []types.TransactWriteItem{
@@ -239,6 +243,26 @@ func (s *DynamoStore) UpdateDriverRacesIngestedTo(ctx context.Context, driverID 
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
 			":val": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", toUnixSeconds(racesIngestedTo))},
+		},
+		ConditionExpression: aws.String("attribute_exists(#pk)"),
+	})
+	return err
+}
+
+func (s *DynamoStore) UpdateDriverIngestionBlockedUntil(ctx context.Context, driverID int64, ingestionBlockedUntil time.Time) error {
+	_, err := s.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
+			sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
+		},
+		UpdateExpression: aws.String("SET #ingestion_blocked_until = :val"),
+		ExpressionAttributeNames: map[string]string{
+			"#pk":                      partitionKeyName,
+			"#ingestion_blocked_until": "ingestion_blocked_until",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":val": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", toUnixSeconds(ingestionBlockedUntil))},
 		},
 		ConditionExpression: aws.String("attribute_exists(#pk)"),
 	})

@@ -1,33 +1,99 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { VueDatePicker } from '@vuepic/vue-datepicker'
+import '@vuepic/vue-datepicker/dist/main.css'
 import { useApiClient, type Race } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useWebSocketStore } from '@/stores/websocket'
+import { useDriverStore } from '@/stores/driver'
 import GridPosition from '@/components/GridPosition.vue'
 
 const apiClient = useApiClient()
 const auth = useAuthStore()
 const wsStore = useWebSocketStore()
+const driverStore = useDriverStore()
 
 const races = ref<Race[]>([])
-const displayCount = ref(15)
-const pageSize = 15
+const loading = ref(false)
+const loadingMore = ref(false)
+const currentPage = ref(1)
+const totalMatching = ref(0)
+const hasMorePages = ref(false)
+const pageSize = 50
 const sentinelRef = ref<HTMLElement | null>(null)
 const scrollContainerRef = ref<HTMLElement | null>(null)
 const observer = ref<IntersectionObserver | null>(null)
 const userHasScrolled = ref(false)
 
+// Date filters
+const fromDate = ref<Date | null>(null)
+const toDate = ref<Date | null>(null)
+const initialized = ref(false)
+
+function isRaceInDateRange(raceStartTime: string): boolean {
+  if (!fromDate.value || !toDate.value) return false
+  const raceDate = new Date(raceStartTime)
+  return raceDate >= fromDate.value && raceDate <= toDate.value
+}
+
+async function fetchRaces() {
+  if (!auth.userId || !fromDate.value || !toDate.value) return
+
+  loading.value = true
+  currentPage.value = 1
+  try {
+    const response = await apiClient.getRaces(auth.userId, fromDate.value, toDate.value, 1, pageSize)
+    races.value = response.items
+    totalMatching.value = response.pagination.totalResults
+    hasMorePages.value = response.pagination.page < response.pagination.totalPages
+  } catch (err) {
+    console.error('[RaceHistory] Failed to fetch races:', err)
+  } finally {
+    loading.value = false
+  }
+}
+
+async function fetchMoreRaces() {
+  if (!auth.userId || !fromDate.value || !toDate.value || loadingMore.value || !hasMorePages.value) return
+
+  loadingMore.value = true
+  const nextPage = currentPage.value + 1
+  try {
+    const response = await apiClient.getRaces(auth.userId, fromDate.value, toDate.value, nextPage, pageSize)
+    races.value = [...races.value, ...response.items]
+    currentPage.value = nextPage
+    hasMorePages.value = response.pagination.page < response.pagination.totalPages
+  } catch (err) {
+    console.error('[RaceHistory] Failed to fetch more races:', err)
+  } finally {
+    loadingMore.value = false
+  }
+}
+
+// Initialize date filters when driver loads (once only)
+watch(
+  () => driverStore.driver,
+  (driver) => {
+    if (driver?.memberSince && !initialized.value) {
+      fromDate.value = new Date(driver.memberSince)
+      toDate.value = new Date()
+      initialized.value = true
+      fetchRaces()
+    }
+  },
+  { immediate: true }
+)
+
+// Refetch when date filters change (user interaction only, not initialization)
+watch([fromDate, toDate], ([newFrom, newTo], [oldFrom, oldTo]) => {
+  if (initialized.value && newFrom && newTo && (oldFrom !== newFrom || oldTo !== newTo)) {
+    fetchRaces()
+  }
+})
+
 const sortedRaces = computed(() =>
   [...races.value].sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()),
 )
-
-const visibleRaces = computed(() => sortedRaces.value.slice(0, displayCount.value))
-
-const hasMore = computed(() => displayCount.value < sortedRaces.value.length)
-
-function loadMore() {
-  displayCount.value += pageSize
-}
 
 interface RaceIngestedPayload {
   raceId: number
@@ -40,11 +106,17 @@ async function handleRaceIngested(payload: unknown) {
     return
   }
 
-  console.log('[RaceHistory] Race ingested, fetching:', raceId)
   try {
     const response = await apiClient.getRace(auth.userId, raceId)
-    if (!races.value.some((r) => r.id === response.response.id)) {
-      races.value.push(response.response)
+    const race = response.response
+
+    // Always increment total count
+    driverStore.incrementSessionCount()
+
+    // Only add to table if within current filter range and not already present
+    if (isRaceInDateRange(race.startTime) && !races.value.some((r) => r.id === race.id)) {
+      races.value.push(race)
+      totalMatching.value++
     }
   } catch (err) {
     console.error('[RaceHistory] Failed to fetch ingested race:', err)
@@ -92,8 +164,8 @@ function setupObserver() {
   }
   observer.value = new IntersectionObserver(
     (entries) => {
-      if (entries[0].isIntersecting && hasMore.value && userHasScrolled.value) {
-        loadMore()
+      if (entries[0].isIntersecting && hasMorePages.value && userHasScrolled.value && !loadingMore.value) {
+        fetchMoreRaces()
       }
     },
     { root: scrollContainerRef.value, rootMargin: '100px' },
@@ -136,9 +208,43 @@ onUnmounted(() => {
 
 <template>
   <div class="race-history">
-    <h1>Race History</h1>
+    <div class="page-header">
+      <h1>Race History</h1>
+      <span v-if="driverStore.driver?.sessionCount" class="total-races">
+        {{ driverStore.driver.sessionCount }} races on file
+      </span>
+    </div>
 
-    <div v-if="sortedRaces.length === 0" class="empty-state">
+    <div class="filters">
+      <div class="filter-group">
+        <label>From</label>
+        <VueDatePicker
+          v-model="fromDate"
+          :disabled="loading"
+          dark
+          auto-apply
+          :clearable="false"
+          hide-input-icon
+        />
+      </div>
+      <div class="filter-group">
+        <label>To</label>
+        <VueDatePicker
+          v-model="toDate"
+          :disabled="loading"
+          dark
+          auto-apply
+          :clearable="false"
+          hide-input-icon
+        />
+      </div>
+    </div>
+
+    <div v-if="loading" class="loading-state">
+      Loading races...
+    </div>
+
+    <div v-else-if="sortedRaces.length === 0" class="empty-state">
       No races yet. Races will appear here as they are ingested.
     </div>
 
@@ -157,7 +263,7 @@ onUnmounted(() => {
           </tr>
         </thead>
         <tbody>
-          <tr v-for="race in visibleRaces" :key="race.id">
+          <tr v-for="race in sortedRaces" :key="race.id">
             <td>{{ formatDate(race.startTime) }}</td>
             <td>{{ race.carId }}</td>
             <td>{{ race.trackId }}</td>
@@ -170,7 +276,13 @@ onUnmounted(() => {
         </tbody>
       </table>
 
-      <div v-if="hasMore" ref="sentinelRef" class="scroll-sentinel"></div>
+      <div v-if="hasMorePages || loadingMore" ref="sentinelRef" class="scroll-sentinel">
+        <span v-if="loadingMore" class="loading-more">Loading more...</span>
+      </div>
+    </div>
+
+    <div v-if="sortedRaces.length > 0" class="table-footer">
+      Showing {{ sortedRaces.length }} of {{ totalMatching }} matching races
     </div>
   </div>
 </template>
@@ -182,9 +294,49 @@ onUnmounted(() => {
   margin: 0 auto;
 }
 
-h1 {
+.page-header {
   margin-bottom: 1.5rem;
+}
+
+.page-header h1 {
+  margin: 0;
   color: var(--color-text-primary);
+}
+
+.total-races {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+.filters {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filter-group label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+}
+
+.loading-state {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.table-footer {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  text-align: center;
 }
 
 .empty-state {
@@ -217,9 +369,12 @@ h1 {
 }
 
 .races-table th {
+  position: sticky;
+  top: 0;
   background: var(--color-bg-elevated);
   font-weight: 600;
   color: var(--color-text-primary);
+  z-index: 1;
 }
 
 .races-table tbody tr:nth-child(even) {
@@ -235,7 +390,16 @@ h1 {
 }
 
 .scroll-sentinel {
-  height: 1px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-more {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  padding: 0.5rem;
 }
 
 .stat-gain {

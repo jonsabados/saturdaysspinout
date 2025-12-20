@@ -205,6 +205,22 @@ module "doc_iracing_api_proxy_options" {
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }
 
+module "driver_get" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.driver_id.id
+  http_method       = "GET"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "driver_options" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.driver_id.id
+  http_method       = "OPTIONS"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
 module "driver_races_get" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id

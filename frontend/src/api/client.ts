@@ -44,6 +44,23 @@ export interface RaceResponse {
   correlationId: string
 }
 
+export interface Driver {
+  driverId: number
+  driverName: string
+  memberSince: string
+  racesIngestedTo: string | null
+  ingestionBlockedUntil: string | null
+  firstLogin: string
+  lastLogin: string
+  loginCount: number
+  sessionCount: number
+}
+
+export interface DriverResponse {
+  response: Driver
+  correlationId: string
+}
+
 export class ApiClient {
   private authStore: ReturnType<typeof useAuthStore>
   private sessionStore: ReturnType<typeof useSessionStore>
@@ -134,6 +151,10 @@ export class ApiClient {
 
   async getRace(driverId: number, driverRaceId: number): Promise<RaceResponse> {
     return this.fetch<RaceResponse>(`/driver/${driverId}/races/${driverRaceId}`)
+  }
+
+  async getDriver(driverId: number): Promise<DriverResponse> {
+    return this.fetch<DriverResponse>(`/driver/${driverId}`)
   }
 }
 
