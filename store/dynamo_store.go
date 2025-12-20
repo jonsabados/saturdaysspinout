@@ -18,12 +18,14 @@ const maxTransactWriteItems = 100
 type DynamoStore struct {
 	client *dynamodb.Client
 	table  string
+	now    func() time.Time
 }
 
 func NewDynamoStore(client *dynamodb.Client, table string) *DynamoStore {
 	return &DynamoStore{
 		client: client,
 		table:  table,
+		now:    time.Now,
 	}
 }
 
@@ -289,7 +291,7 @@ func (s *DynamoStore) incrementCounter(name string) types.TransactWriteItem {
 }
 
 func (s *DynamoStore) SaveConnection(ctx context.Context, conn WebSocketConnection) error {
-	now := time.Now()
+	now := s.now()
 
 	rowsToWrite := wsConnectionModel{
 		driverID:     conn.DriverID,
@@ -570,6 +572,7 @@ func (s *DynamoStore) GetDriverSessions(ctx context.Context, driverID int64, fro
 			":from": &types.AttributeValueMemberS{Value: fmt.Sprintf(driverSessionSortKeyFormat, toUnixSeconds(from))},
 			":to":   &types.AttributeValueMemberS{Value: fmt.Sprintf(driverSessionSortKeyFormat, toUnixSeconds(to))},
 		},
+		ScanIndexForward: aws.Bool(false),
 	})
 	if err != nil {
 		return nil, err
