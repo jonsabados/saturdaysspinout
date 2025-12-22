@@ -58,6 +58,7 @@ flowchart TB
 ```
 .
 ├── .github/workflows/      # CI/CD pipeline (GitHub Actions)
+├── aws_account_prep/       # One-time AWS account setup (see aws_account_prep/README.md)
 ├── api/                    # API endpoint handlers and HTTP setup
 ├── auth/                   # JWT creation with ES256 signing and AES-GCM encryption
 ├── cmd/                    # Application entry points
@@ -281,7 +282,7 @@ Deployments are triggered by publishing a GitHub release. The workflow ([`.githu
 
 #### AWS Authentication
 
-The deploy workflow uses OIDC federation to assume an IAM role (`github-actions-deploy`) without storing long-lived credentials. The role and trust policy are managed in [`terraform/github-actions.tf`](terraform/github-actions.tf).
+The deploy workflow uses OIDC federation to assume an IAM role (`github-actions-deploy`) without storing long-lived credentials. The role and trust policy are managed in [`aws_account_prep/github-actions.tf`](aws_account_prep/github-actions.tf).
 
 ## Development
 
@@ -300,6 +301,16 @@ Run `make` or `make help` to see all available targets.
 
 ### Initial Setup
 
+#### AWS Account Prep
+
+Before deploying infrastructure for the first time in a new AWS account, run the one-time account setup. This creates the GitHub Actions OIDC provider, API Gateway CloudWatch logging role, and DNS records. See [`aws_account_prep/README.md`](aws_account_prep/README.md) for details.
+
+```bash
+cd aws_account_prep
+terraform init -backend-config="bucket=your-state-bucket-name"
+terraform apply -var="state_bucket=your-state-bucket-name"
+```
+
 #### Terraform
 
 The Terraform backend uses a partial configuration. You'll need to provide the S3 bucket name during init:
@@ -307,12 +318,6 @@ The Terraform backend uses a partial configuration. You'll need to provide the S
 ```bash
 cd terraform
 terraform init -backend-config="bucket=your-state-bucket-name"
-```
-
-To avoid being prompted for the `state_bucket` variable on every plan/apply, create a `terraform/terraform.tfvars` file:
-
-```hcl
-state_bucket = "your-state-bucket-name"
 ```
 
 #### Frontend

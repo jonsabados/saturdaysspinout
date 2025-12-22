@@ -50,7 +50,7 @@ jobs:
 
       - name: Terraform Apply
         working-directory: terraform
-        run: TF_VAR_state_bucket=${{ secrets.STATE_BUCKET }} terraform apply -auto-approve
+        run: terraform apply -auto-approve
 
       - name: Build frontend
         run: make build-frontend

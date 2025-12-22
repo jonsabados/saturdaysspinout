@@ -86,7 +86,7 @@ resource "aws_lambda_function" "ws_lambda" {
   filename                       = "../dist/websocketLambda.zip"
   source_code_hash               = filebase64sha256("../dist/websocketLambda.zip")
   timeout                        = 15
-  reserved_concurrent_executions = 15
+  # reserved_concurrent_executions = 15
   runtime                        = "provided.al2"
   handler                        = "bootstrap"
   architectures                  = ["arm64"]

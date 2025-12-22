@@ -1,24 +1,19 @@
-# GitHub Actions OIDC provider and IAM role for CI/CD deployments
-# Only created in the primary (default) workspace
+# GitHub Actions OIDC Provider and IAM Role for CI/CD
 
 resource "aws_iam_openid_connect_provider" "github" {
-  count = local.is_primary_deployment ? 1 : 0
-
   url             = "https://token.actions.githubusercontent.com"
   client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = ["ffffffffffffffffffffffffffffffffffffffff"] # GitHub's OIDC doesn't require thumbprint validation
 }
 
 data "aws_iam_policy_document" "github_actions_assume_role" {
-  count = local.is_primary_deployment ? 1 : 0
-
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRoleWithWebIdentity"]
 
     principals {
       type        = "Federated"
-      identifiers = [aws_iam_openid_connect_provider.github[0].arn]
+      identifiers = [aws_iam_openid_connect_provider.github.arn]
     }
 
     condition {
@@ -36,15 +31,11 @@ data "aws_iam_policy_document" "github_actions_assume_role" {
 }
 
 resource "aws_iam_role" "github_actions" {
-  count = local.is_primary_deployment ? 1 : 0
-
   name               = "github-actions-deploy"
-  assume_role_policy = data.aws_iam_policy_document.github_actions_assume_role[0].json
+  assume_role_policy = data.aws_iam_policy_document.github_actions_assume_role.json
 }
 
 data "aws_iam_policy_document" "github_actions_permissions" {
-  count = local.is_primary_deployment ? 1 : 0
-
   # Terraform state access
   statement {
     sid    = "TerraformStateAccess"
@@ -203,14 +194,12 @@ data "aws_iam_policy_document" "github_actions_permissions" {
 }
 
 resource "aws_iam_role_policy" "github_actions" {
-  count = local.is_primary_deployment ? 1 : 0
-
   name   = "github-actions-deploy-policy"
-  role   = aws_iam_role.github_actions[0].id
-  policy = data.aws_iam_policy_document.github_actions_permissions[0].json
+  role   = aws_iam_role.github_actions.id
+  policy = data.aws_iam_policy_document.github_actions_permissions.json
 }
 
 output "github_actions_role_arn" {
-  value       = local.is_primary_deployment ? aws_iam_role.github_actions[0].arn : null
+  value       = aws_iam_role.github_actions.arn
   description = "ARN of the IAM role for GitHub Actions to assume"
 }
