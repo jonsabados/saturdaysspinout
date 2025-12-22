@@ -2,8 +2,7 @@ provider "aws" {
   region = var.aws_region
   default_tags {
     tags = {
-      Workspace = terraform.workspace
-      Project   = "SaturdaysSpinout"
+      Project = "SaturdaysSpinout"
     }
   }
 }

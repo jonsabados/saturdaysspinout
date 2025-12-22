@@ -4,4 +4,4 @@
 
 dist/
 
-terraform/terraform.tfvars
+aws_account_prep/terraform.tfvars

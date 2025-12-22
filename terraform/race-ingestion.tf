@@ -114,7 +114,7 @@ resource "aws_lambda_function" "race_ingestion_lambda" {
   source_code_hash = filebase64sha256("../dist/raceIngestionProcessorLambda.zip")
   timeout          = 300
 
-  reserved_concurrent_executions = var.race_ingestion_processor_concurrency
+  # reserved_concurrent_executions = var.race_ingestion_processor_concurrency
   memory_size                    = 1024 // memory is less an issue, but we want the greater CPU allocation and bigger pipes
 
   runtime       = "provided.al2"
