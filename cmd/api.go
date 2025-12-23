@@ -154,7 +154,7 @@ func CreateAPI() http.Handler {
 		HealthRouter:    health.NewRouter(),
 		AuthRouter:      apiAuth.NewRouter(authService, authMiddleware),
 		DocRouter:       doc.NewRouter(iracing.NewDocClient(httpClient), authMiddleware),
-		IngestionRouter: ingestion.NewRouter(raceIngestionDispatcher, authMiddleware),
+		IngestionRouter: ingestion.NewRouter(driverStore, raceIngestionDispatcher, authMiddleware),
 		DriverRouter:    driver.NewRouter(driverStore, authMiddleware),
 	}
 

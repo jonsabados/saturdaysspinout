@@ -1,16 +1,35 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
 import { useRaceIngestionStore } from '@/stores/raceIngestion'
 import { useSessionStore } from '@/stores/session'
 import { useDriverStore } from '@/stores/driver'
+
+const COOLDOWN_MINUTES = 15
+const COOLDOWN_MS = COOLDOWN_MINUTES * 60 * 1000
 
 const ingestionStore = useRaceIngestionStore()
 const sessionStore = useSessionStore()
 const driverStore = useDriverStore()
 
+const cooldownStartTime = ref<number | null>(null)
+const now = ref(Date.now())
+
+// Update 'now' every second to keep the countdown accurate
+const interval = setInterval(() => {
+  now.value = Date.now()
+}, 1000)
+onUnmounted(() => clearInterval(interval))
+
+const cooldownRemaining = computed(() => {
+  if (!cooldownStartTime.value) return 0
+  const elapsed = now.value - cooldownStartTime.value
+  return Math.max(0, COOLDOWN_MS - elapsed)
+})
+
+const isOnCooldown = computed(() => cooldownRemaining.value > 0)
+
 const isLoading = computed(() => ingestionStore.status === 'loading')
-const isBlocked = computed(() => driverStore.isIngestionBlocked)
-const isDisabled = computed(() => !sessionStore.isReady || isLoading.value || isBlocked.value)
+const isDisabled = computed(() => !sessionStore.isReady || isLoading.value || isOnCooldown.value)
 
 const syncStatusText = computed(() => {
   if (driverStore.syncedToFormatted) {
@@ -24,14 +43,16 @@ const showCta = computed(() => {
 })
 
 const buttonTitle = computed(() => {
-  if (isBlocked.value && driverStore.blockedUntilFormatted) {
-    return `Sync temporarily unavailable - try again after ${driverStore.blockedUntilFormatted}`
+  if (isOnCooldown.value) {
+    const minutes = Math.ceil(cooldownRemaining.value / 60000)
+    return `Sync on cooldown - available in ~${minutes} minute${minutes === 1 ? '' : 's'}`
   }
   return 'Sync race history'
 })
 
 function handleClick() {
   if (!isDisabled.value) {
+    cooldownStartTime.value = Date.now()
     ingestionStore.triggerIngestion()
   }
 }
@@ -42,7 +63,7 @@ function handleClick() {
     <span v-if="sessionStore.isReady" class="sync-text">{{ syncStatusText }}</span>
     <button
       class="sync-button"
-      :class="{ loading: isLoading, disabled: isDisabled, blocked: isBlocked }"
+      :class="{ loading: isLoading, disabled: isDisabled, blocked: isOnCooldown }"
       :disabled="isDisabled"
       @click="handleClick"
       :title="buttonTitle"

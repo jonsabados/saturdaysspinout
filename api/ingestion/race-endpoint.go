@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	"github.com/jonsabados/saturdaysspinout/api"
 	"github.com/jonsabados/saturdaysspinout/ingestion"
+	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/rs/zerolog"
 )
 
@@ -18,7 +20,11 @@ type EventDispatcher interface {
 	PublishEvent(ctx context.Context, event any) error
 }
 
-func NewRaceIngestionEndpoint(dispatcher EventDispatcher) http.Handler {
+type Store interface {
+	GetDriver(ctx context.Context, driverID int64) (*store.Driver, error)
+}
+
+func NewRaceIngestionEndpoint(driverStore Store, dispatcher EventDispatcher) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		ctx := request.Context()
 		logger := zerolog.Ctx(ctx)
@@ -32,6 +38,27 @@ func NewRaceIngestionEndpoint(dispatcher EventDispatcher) http.Handler {
 		sensitiveClaims := api.SensitiveClaimsFromContext(ctx)
 		if sensitiveClaims == nil {
 			api.DoUnauthorizedResponse(ctx, "missing sensitive claims", writer)
+			return
+		}
+
+		driver, err := driverStore.GetDriver(ctx, sessionClaims.IRacingUserID)
+		if err != nil {
+			logger.Error().Err(err).Msg("failed to get driver")
+			api.DoErrorResponse(ctx, writer)
+			return
+		}
+		if driver == nil {
+			api.DoNotFoundResponse(ctx, "driver not found", writer)
+			return
+		}
+
+		now := time.Now()
+		if driver.IngestionBlockedUntil != nil && driver.IngestionBlockedUntil.After(now) {
+			retryAfter := int(driver.IngestionBlockedUntil.Sub(now).Seconds())
+			if retryAfter < 1 {
+				retryAfter = 1
+			}
+			api.DoTooManyRequestsResponse(ctx, "race ingestion already in progress", retryAfter, writer)
 			return
 		}
 

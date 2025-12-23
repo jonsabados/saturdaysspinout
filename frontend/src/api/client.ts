@@ -121,16 +121,37 @@ export class ApiClient {
     }
   }
 
-  async triggerRaceIngestion(): Promise<void> {
+  async triggerRaceIngestion(): Promise<{ throttled: boolean; retryAfter?: number }> {
     if (!this.sessionStore.isReady) {
       throw new Error('Session not ready')
     }
 
-    await this.fetch('/ingestion/race', {
+    if (!this.authStore.isLoggedIn) {
+      throw new Error('Not authenticated')
+    }
+
+    const headers = new Headers()
+    headers.set('Authorization', `Bearer ${this.authStore.token}`)
+    headers.set('Content-Type', 'application/json')
+
+    const response = await fetch(`${apiBaseUrl}/ingestion/race`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ notifyConnectionId: this.sessionStore.connectionId }),
     })
+
+    if (response.status === 429) {
+      const data = await response.json()
+      const retryAfter = data.retryAfter ?? parseInt(response.headers.get('Retry-After') || '0', 10)
+      console.warn(`[ApiClient] Race ingestion throttled - already in progress. Retry after ${retryAfter} seconds.`)
+      return { throttled: true, retryAfter }
+    }
+
+    if (!response.ok) {
+      throw await this.parseError(response)
+    }
+
+    return { throttled: false }
   }
 
   async getRaces(

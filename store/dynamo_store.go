@@ -157,20 +157,55 @@ func mapTransactionError(err error) error {
 }
 
 func (s *DynamoStore) GetDriver(ctx context.Context, driverID int64) (*Driver, error) {
-	result, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(s.table),
-		Key: map[string]types.AttributeValue{
-			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
-			sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
+	pk := fmt.Sprintf(driverPartitionFormat, driverID)
+
+	result, err := s.client.BatchGetItem(ctx, &dynamodb.BatchGetItemInput{
+		RequestItems: map[string]types.KeysAndAttributes{
+			s.table: {
+				Keys: []map[string]types.AttributeValue{
+					{
+						partitionKeyName: &types.AttributeValueMemberS{Value: pk},
+						sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
+					},
+					{
+						partitionKeyName: &types.AttributeValueMemberS{Value: pk},
+						sortKeyName:      &types.AttributeValueMemberS{Value: ingestionLockSortKey},
+					},
+				},
+			},
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
-	if result.Item == nil {
+
+	var driver *Driver
+	var lockedUntil *time.Time
+
+	for _, item := range result.Responses[s.table] {
+		sk, _ := getStringAttr(item, sortKeyName)
+		switch sk {
+		case defaultSortKey:
+			driver, err = driverFromAttributeMap(item)
+			if err != nil {
+				return nil, err
+			}
+		case ingestionLockSortKey:
+			if lu, ok := getOptionalInt64Attr(item, "locked_until"); ok {
+				t := time.Unix(lu, 0)
+				if t.After(s.now()) {
+					lockedUntil = &t
+				}
+			}
+		}
+	}
+
+	if driver == nil {
 		return nil, nil
 	}
-	return driverFromAttributeMap(result.Item)
+
+	driver.IngestionBlockedUntil = lockedUntil
+	return driver, nil
 }
 
 func (s *DynamoStore) InsertDriver(ctx context.Context, driver Driver) error {
@@ -185,10 +220,6 @@ func (s *DynamoStore) InsertDriver(ctx context.Context, driver Driver) error {
 	if driver.RacesIngestedTo != nil {
 		rit := toUnixSeconds(*driver.RacesIngestedTo)
 		model.racesIngestedTo = &rit
-	}
-	if driver.IngestionBlockedUntil != nil {
-		ibu := toUnixSeconds(*driver.IngestionBlockedUntil)
-		model.ingestionBlockedUntil = &ibu
 	}
 
 	_, err := s.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
@@ -251,22 +282,45 @@ func (s *DynamoStore) UpdateDriverRacesIngestedTo(ctx context.Context, driverID 
 	return err
 }
 
-func (s *DynamoStore) UpdateDriverIngestionBlockedUntil(ctx context.Context, driverID int64, ingestionBlockedUntil time.Time) error {
-	_, err := s.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+// AcquireIngestionLock attempts to acquire an ingestion lock for a driver.
+// Returns (true, nil) if lock acquired, (false, nil) if lock already held, (false, err) on error.
+func (s *DynamoStore) AcquireIngestionLock(ctx context.Context, driverID int64, lockDuration time.Duration) (bool, error) {
+	now := s.now()
+	lockedUntil := now.Add(lockDuration)
+
+	_, err := s.client.PutItem(ctx, &dynamodb.PutItemInput{
+		TableName: aws.String(s.table),
+		Item: ingestionLockModel{
+			driverID:    driverID,
+			lockedUntil: lockedUntil.Unix(),
+		}.toAttributeMap(),
+		ConditionExpression: aws.String("attribute_not_exists(#pk) OR #locked_until < :now"),
+		ExpressionAttributeNames: map[string]string{
+			"#pk":           partitionKeyName,
+			"#locked_until": "locked_until",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":now": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", now.Unix())},
+		},
+	})
+	if err != nil {
+		var condErr *types.ConditionalCheckFailedException
+		if errors.As(err, &condErr) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+// ReleaseIngestionLock removes the ingestion lock for a driver.
+func (s *DynamoStore) ReleaseIngestionLock(ctx context.Context, driverID int64) error {
+	_, err := s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
 		TableName: aws.String(s.table),
 		Key: map[string]types.AttributeValue{
 			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
-			sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
+			sortKeyName:      &types.AttributeValueMemberS{Value: ingestionLockSortKey},
 		},
-		UpdateExpression: aws.String("SET #ingestion_blocked_until = :val"),
-		ExpressionAttributeNames: map[string]string{
-			"#pk":                      partitionKeyName,
-			"#ingestion_blocked_until": "ingestion_blocked_until",
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":val": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", toUnixSeconds(ingestionBlockedUntil))},
-		},
-		ConditionExpression: aws.String("attribute_exists(#pk)"),
 	})
 	return err
 }

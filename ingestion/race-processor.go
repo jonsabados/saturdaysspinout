@@ -34,6 +34,8 @@ type Store interface {
 	GetSessionDrivers(ctx context.Context, subsessionID int64) ([]store.SessionDriver, error)
 	UpdateDriverRacesIngestedTo(ctx context.Context, driverID int64, racesIngestedTo time.Time) error
 	PersistSessionData(ctx context.Context, data store.SessionDataInsertion) error
+	AcquireIngestionLock(ctx context.Context, driverID int64, lockDuration time.Duration) (bool, error)
+	ReleaseIngestionLock(ctx context.Context, driverID int64) error
 }
 
 type IRacingClient interface {
@@ -79,10 +81,11 @@ type RaceProcessor struct {
 	eventDispatcher            EventDispatcher
 	raceConsumptionConcurrency int
 	lapConsumptionConcurrency  int
+	lockDuration               time.Duration
 	now                        func() time.Time
 }
 
-func NewRaceProcessor(store Store, iracingClient IRacingClient, pusher Pusher, eventDispatcher EventDispatcher, opts ...RaceProcessorOption) *RaceProcessor {
+func NewRaceProcessor(store Store, iracingClient IRacingClient, pusher Pusher, eventDispatcher EventDispatcher, lockDuration time.Duration, opts ...RaceProcessorOption) *RaceProcessor {
 	r := &RaceProcessor{
 		store:                      store,
 		iracingClient:              iracingClient,
@@ -91,6 +94,7 @@ func NewRaceProcessor(store Store, iracingClient IRacingClient, pusher Pusher, e
 		searchWindowDuration:       time.Hour * 24 * 10,
 		raceConsumptionConcurrency: DefaultRaceConsumptionConcurrency,
 		lapConsumptionConcurrency:  DefaultLapConsumptionConcurrency,
+		lockDuration:               lockDuration,
 		now:                        time.Now,
 	}
 	for _, opt := range opts {
@@ -100,6 +104,41 @@ func NewRaceProcessor(store Store, iracingClient IRacingClient, pusher Pusher, e
 }
 
 func (r *RaceProcessor) IngestRaces(ctx context.Context, request RaceIngestionRequest) error {
+	logger := zerolog.Ctx(ctx)
+
+	acquired, err := r.store.AcquireIngestionLock(ctx, request.DriverID, r.lockDuration)
+	if err != nil {
+		return fmt.Errorf("acquiring ingestion lock: %w", err)
+	}
+	if !acquired {
+		logger.Warn().Int64("driverID", request.DriverID).Msg("ingestion lock already held, skipping")
+		return nil
+	}
+
+	needsRecursion, err := r.doIngestRaces(ctx, request)
+	if err != nil {
+		// Release lock so SQS backoff can handle retry
+		if releaseErr := r.store.ReleaseIngestionLock(ctx, request.DriverID); releaseErr != nil {
+			logger.Err(releaseErr).Msg("failed to release ingestion lock after error")
+		}
+		return err
+	}
+
+	if needsRecursion {
+		if err := r.store.ReleaseIngestionLock(ctx, request.DriverID); err != nil {
+			return fmt.Errorf("releasing ingestion lock: %w", err)
+		}
+		logger.Info().Msg("more races to ingest, dispatching another round")
+		if err := r.eventDispatcher.PublishEvent(ctx, request); err != nil {
+			return fmt.Errorf("dispatching next ingestion round: %w", err)
+		}
+	}
+	// If up to date, let the lock expire naturally (cooldown period)
+
+	return nil
+}
+
+func (r *RaceProcessor) doIngestRaces(ctx context.Context, request RaceIngestionRequest) (needsRecursion bool, err error) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -107,10 +146,10 @@ func (r *RaceProcessor) IngestRaces(ctx context.Context, request RaceIngestionRe
 
 	driver, err := r.store.GetDriver(ctx, request.DriverID)
 	if err != nil {
-		return fmt.Errorf("getting driver: %w", err)
+		return false, fmt.Errorf("getting driver: %w", err)
 	}
 	if driver == nil {
-		return fmt.Errorf("driver %d not found", request.DriverID)
+		return false, fmt.Errorf("driver %d not found", request.DriverID)
 	}
 
 	rangeBegin := driver.MemberSince
@@ -139,9 +178,9 @@ func (r *RaceProcessor) IngestRaces(ctx context.Context, request RaceIngestionRe
 	if err != nil {
 		if errors.Is(err, iracing.ErrUpstreamUnauthorized) {
 			r.notifyStaleCredentials(ctx, request.NotifyConnectionID)
-			return nil
+			return false, nil
 		}
-		return fmt.Errorf("searching series results: %w", err)
+		return false, fmt.Errorf("searching series results: %w", err)
 	}
 
 	raceCount := 0
@@ -207,26 +246,19 @@ func (r *RaceProcessor) IngestRaces(ctx context.Context, request RaceIngestionRe
 	collectorDone.Wait()
 
 	if len(errs) > 0 {
-		return errors.Join(errs...)
+		return false, errors.Join(errs...)
 	}
 
 	if err := r.store.UpdateDriverRacesIngestedTo(ctx, driver.DriverID, rangeEnd); err != nil {
-		return fmt.Errorf("updating driver ingested to: %w", err)
+		return false, fmt.Errorf("updating driver ingested to: %w", err)
 	}
 	if err := r.pusher.Broadcast(ctx, driver.DriverID, "ingestionChunkComplete", ChunkCompleteMsg{IngestedTo: rangeEnd}); err != nil {
-		return fmt.Errorf("pushing chunk complete notification: %w", err)
+		return false, fmt.Errorf("pushing chunk complete notification: %w", err)
 	}
 
 	logger.Info().Int("raceCount", raceCount).Int("newRaceCount", newRaceCount).Bool("willBeUpToDate", willBeUpToDate).Msg("ingested races")
 
-	if !willBeUpToDate {
-		logger.Info().Msg("more races to ingest, dispatching another round")
-		if err := r.eventDispatcher.PublishEvent(ctx, request); err != nil {
-			return fmt.Errorf("dispatching next ingestion round: %w", err)
-		}
-	}
-
-	return nil
+	return !willBeUpToDate, nil
 }
 
 func (r *RaceProcessor) ingestRace(ctx context.Context, driver *store.Driver, request RaceIngestionRequest, race iracing.SeriesResult, collectorChan chan collectionResult) {

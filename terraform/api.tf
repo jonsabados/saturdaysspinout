@@ -50,6 +50,7 @@ data "aws_iam_policy_document" "api_lambda" {
     effect = "Allow"
     actions = [
       "dynamodb:GetItem",
+      "dynamodb:BatchGetItem",
       "dynamodb:PutItem",
       "dynamodb:UpdateItem",
       "dynamodb:DeleteItem",

@@ -143,8 +143,14 @@ func WithLogger(h HandlerFunc, logger zerolog.Logger) HandlerFunc {
 
 func WithXRayCapture(h HandlerFunc, segmentName string) HandlerFunc {
 	return func(ctx context.Context, event events.SQSEvent) error {
-		return xray.Capture(ctx, segmentName, func(captureCtx context.Context) error {
-			return h(captureCtx, event)
-		})
+		// For Lambda, we need to create a facade segment that references the Lambda-provided trace
+		ctx, seg := xray.BeginFacadeSegment(ctx, segmentName, nil)
+		defer seg.Close(nil)
+
+		err := h(ctx, event)
+		if err != nil {
+			seg.AddError(err)
+		}
+		return err
 	}
 }
