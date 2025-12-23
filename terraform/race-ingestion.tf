@@ -63,6 +63,8 @@ data "aws_iam_policy_document" "race_ingestion_lambda" {
       "sqs:ReceiveMessage",
       "sqs:DeleteMessage",
       "sqs:GetQueueAttributes",
+      "sqs:GetQueueUrl",
+      "sqs:ChangeMessageVisibility",
       "sqs:SendMessage"
     ]
     resources = [

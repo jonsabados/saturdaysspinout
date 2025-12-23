@@ -2,12 +2,10 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/aws/aws-lambda-go/events"
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
@@ -20,6 +18,7 @@ import (
 	"github.com/jonsabados/saturdaysspinout/ingestion"
 	"github.com/jonsabados/saturdaysspinout/iracing"
 	"github.com/jonsabados/saturdaysspinout/metrics"
+	sqsutil "github.com/jonsabados/saturdaysspinout/sqs"
 	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/jonsabados/saturdaysspinout/ws"
 	"github.com/kelseyhightower/envconfig"
@@ -93,29 +92,12 @@ func main() {
 		ingestion.WithLapConsumptionConcurrency(cfg.LapConsumptionConcurrency),
 	)
 
-	lambda.Start(func(ctx context.Context, event events.SQSEvent) error {
-		ctx = logger.WithContext(ctx)
-		log := zerolog.Ctx(ctx)
+	handler := NewHandler(processor)
+	handler = sqsutil.WithReducedContextDeadline(handler, time.Second*5)
+	handler = sqsutil.WithVisibilityResetOnError(handler, sqsClient, sqsutil.LinearVisibilityTimeoutComputer(time.Second*2))
+	handler = sqsutil.WithXRayCapture(handler, "ProcessIngestion")
+	handler = sqsutil.WithPanicProtection(handler)
+	handler = sqsutil.WithLogger(handler, logger)
 
-		for _, record := range event.Records {
-			var msg ingestion.RaceIngestionRequest
-			if err := json.Unmarshal([]byte(record.Body), &msg); err != nil {
-				log.Error().Err(err).Str("messageId", record.MessageId).Msg("failed to parse message")
-				continue
-			}
-
-			log.Info().Int64("driverId", msg.DriverID).Str("messageId", record.MessageId).Msg("processing race ingestion")
-
-			err := xray.Capture(ctx, "IngestRaces", func(captureCtx context.Context) error {
-				_ = xray.AddAnnotation(captureCtx, "driverID", msg.DriverID)
-				return processor.IngestRaces(captureCtx, msg)
-			})
-			if err != nil {
-				log.Error().Err(err).Int64("driverId", msg.DriverID).Msg("failed to ingest races")
-				return err
-			}
-		}
-
-		return nil
-	})
+	lambda.Start(handler)
 }
