@@ -3,7 +3,6 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { initiateLogin } from '@/auth/iracing'
 import { useSessionStore } from '@/stores/session'
-import RaceSyncStatus from './RaceSyncStatus.vue'
 
 const session = useSessionStore()
 const router = useRouter()
@@ -57,9 +56,6 @@ router.afterEach(() => {
   <nav class="navbar">
     <RouterLink to="/" class="brand">Saturday's Spinout</RouterLink>
 
-    <!-- Sync button - always visible, even on mobile -->
-    <RaceSyncStatus v-if="session.isLoggedIn" class="sync-status-mobile" />
-
     <button
       class="menu-toggle"
       :class="{ open: menuOpen }"
@@ -93,7 +89,6 @@ router.afterEach(() => {
           <RouterLink to="/iracing-api" class="nav-link" @click="closeMenu">iRacing API Explorer</RouterLink>
         </div>
 
-        <RaceSyncStatus class="sync-status-desktop" />
         <span class="user-name">{{ session.userName }}</span>
         <button @click="handleLogout" class="nav-button">Logout</button>
       </template>
@@ -124,15 +119,6 @@ router.afterEach(() => {
 
 .brand:hover {
   color: var(--color-accent);
-}
-
-/* Sync status visibility - mobile version in navbar, desktop version in nav-links */
-.sync-status-mobile {
-  display: none;
-}
-
-.sync-status-desktop {
-  display: flex;
 }
 
 .nav-links {
@@ -364,15 +350,6 @@ router.afterEach(() => {
 
   .mobile-only {
     display: contents;
-  }
-
-  /* Swap sync button visibility - show mobile version in navbar */
-  .sync-status-mobile {
-    display: flex;
-  }
-
-  .sync-status-desktop {
-    display: none;
   }
 }
 </style>
