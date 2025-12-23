@@ -88,6 +88,17 @@ type publishEventCall struct {
 	err   error
 }
 
+type acquireIngestionLockCall struct {
+	driverID int64
+	acquired bool
+	err      error
+}
+
+type releaseIngestionLockCall struct {
+	driverID int64
+	err      error
+}
+
 func TestRaceProcessor_IngestRaces(t *testing.T) {
 	driverID := int64(12345)
 	subsessionID := int64(99999)
@@ -95,13 +106,16 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 	now := time.Date(2024, 6, 15, 12, 0, 0, 0, time.UTC)
 	sessionStartTime := time.Date(2024, 6, 10, 18, 0, 0, 0, time.UTC)
 	rangeEnd := memberSince.Add(time.Hour * 24 * 10) // default search window
+	lockDuration := 15 * time.Minute
 
 	testCases := []struct {
 		name string
 
 		request RaceIngestionRequest
 
-		getDriverCall                   getDriverCall
+		acquireIngestionLockCall        acquireIngestionLockCall
+		releaseIngestionLockCall        *releaseIngestionLockCall
+		getDriverCall                   *getDriverCall
 		searchSeriesResultsCall         *searchSeriesResultsCall
 		getSessionCalls                 []getSessionCall
 		getSessionDriversCalls          []getSessionDriversCall
@@ -123,7 +137,9 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				IRacingAccessToken: "test-token",
 				NotifyConnectionID: "conn-123",
 			},
-			getDriverCall: getDriverCall{
+			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
+			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID},
+			getDriverCall: &getDriverCall{
 				driverID: driverID,
 				result: &store.Driver{
 					DriverID:    driverID,
@@ -238,7 +254,9 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				IRacingAccessToken: "test-token",
 				NotifyConnectionID: "conn-123",
 			},
-			getDriverCall: getDriverCall{
+			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
+			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID},
+			getDriverCall: &getDriverCall{
 				driverID: driverID,
 				result: &store.Driver{
 					DriverID:    driverID,
@@ -309,7 +327,9 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				IRacingAccessToken: "test-token",
 				NotifyConnectionID: "conn-123",
 			},
-			getDriverCall: getDriverCall{
+			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
+			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID},
+			getDriverCall: &getDriverCall{
 				driverID: driverID,
 				result: &store.Driver{
 					DriverID:    driverID,
@@ -435,7 +455,9 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				IRacingAccessToken: "stale-token",
 				NotifyConnectionID: "conn-123",
 			},
-			getDriverCall: getDriverCall{
+			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
+			// No release - stale creds returns (false, nil) so lock expires naturally
+			getDriverCall: &getDriverCall{
 				driverID: driverID,
 				result: &store.Driver{
 					DriverID:    driverID,
@@ -464,7 +486,9 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				IRacingAccessToken: "test-token",
 				NotifyConnectionID: "conn-123",
 			},
-			getDriverCall: getDriverCall{
+			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
+			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID}, // Release on error
+			getDriverCall: &getDriverCall{
 				driverID: driverID,
 				result:   nil, // driver not found
 			},
@@ -481,9 +505,21 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 			mockPusher := NewMockPusher(t)
 			mockEventDispatcher := NewMockEventDispatcher(t)
 
+			// Setup AcquireIngestionLock
+			mockStore.EXPECT().AcquireIngestionLock(mock.Anything, tc.acquireIngestionLockCall.driverID, lockDuration).
+				Return(tc.acquireIngestionLockCall.acquired, tc.acquireIngestionLockCall.err)
+
+			// Setup ReleaseIngestionLock
+			if tc.releaseIngestionLockCall != nil {
+				mockStore.EXPECT().ReleaseIngestionLock(mock.Anything, tc.releaseIngestionLockCall.driverID).
+					Return(tc.releaseIngestionLockCall.err)
+			}
+
 			// Setup GetDriver
-			mockStore.EXPECT().GetDriver(mock.Anything, tc.getDriverCall.driverID).
-				Return(tc.getDriverCall.result, tc.getDriverCall.err)
+			if tc.getDriverCall != nil {
+				mockStore.EXPECT().GetDriver(mock.Anything, tc.getDriverCall.driverID).
+					Return(tc.getDriverCall.result, tc.getDriverCall.err)
+			}
 
 			// Setup SearchSeriesResults
 			if tc.searchSeriesResultsCall != nil {
@@ -572,7 +608,7 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					Return(tc.publishEventCall.err)
 			}
 
-			processor := NewRaceProcessor(mockStore, mockIRacing, mockPusher, mockEventDispatcher)
+			processor := NewRaceProcessor(mockStore, mockIRacing, mockPusher, mockEventDispatcher, lockDuration)
 			processor.now = func() time.Time { return now }
 
 			err := processor.IngestRaces(ctx, tc.request)

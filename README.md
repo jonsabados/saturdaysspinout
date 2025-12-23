@@ -146,7 +146,8 @@ The persistence layer uses DynamoDB with a single-table design.
 
 | Sort Key | Description | Attributes                                                                                                                                                                                         |
 |----------|-------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `info` | Driver record | driver_name, member_since, races_ingested_to, ingestion_blocked_until, first_login, last_login, login_count, session_count                                                                                                |
+| `info` | Driver record | driver_name, member_since, races_ingested_to, first_login, last_login, login_count, session_count                                                                                                |
+| `ingestion_lock` | Distributed lock for race ingestion | locked_until, ttl                                                                                                                                                                                  |
 | `ws#<connectionId>` | WebSocket connection | connected_at, ttl                                                                                                                                                                                  |
 | `session#<timestamp>` | Race participation (list view) | subsession_id, track_id, car_id, start_time, start_position, start_position_in_class, finish_position, finish_position_in_class, incidents, old_cpi, new_cpi, old_irating, new_irating, reason_out |
 
@@ -213,14 +214,19 @@ The `ingestion/` package handles asynchronous ingestion of race history from the
 
 **Ingestion Flow:**
 1. REST API receives request at `POST /ingestion/race` with authenticated user
-2. API enqueues message to SQS with driver ID and iRacing access token
-3. Race Ingestion Lambda consumes message, queries iRacing `/data/results/search_series`
-4. Results are filtered to races only (event_type=5)
-5. For each race, fetches full session results and lap data for all drivers
-6. Stores session info, car classes, driver results, and lap data in DynamoDB (skips if session already exists from another driver's ingestion)
-7. Driver's `races_ingested_to` timestamp is updated for incremental sync
+2. API checks for active ingestion lock; returns 429 with Retry-After if locked
+3. API enqueues message to SQS with driver ID and iRacing access token
+4. Race Ingestion Lambda consumes message, acquires distributed lock (conditional write)
+5. If lock already held, logs warning and returns success (SQS message acknowledged)
+6. Queries iRacing `/data/results/search_series`, filters to races only (event_type=5)
+7. For each race, fetches full session results and lap data for all drivers
+8. Stores session info, car classes, driver results, and lap data in DynamoDB (skips if session already exists from another driver's ingestion)
+9. Driver's `races_ingested_to` timestamp is updated for incremental sync
+10. Lock released before recursing; allowed to expire naturally when up-to-date (cooldown period)
 
 The iRacing search API returns chunked responses (results split across multiple S3 URLs). The client fetches all chunks and combines them. Search window is configurable (default 10 days) via `SEARCH_WINDOW_IN_DAYS`.
+
+**Distributed Lock:** The ingestion lock prevents concurrent ingestion for the same driver. It uses a DynamoDB conditional write with TTL for automatic cleanup. The lock duration (default 15 minutes) serves as both a timeout for long-running ingestion and a cooldown period after completion.
 
 ## Frontend (Vue 3 + TypeScript)
 
@@ -451,6 +457,7 @@ These are managed in `terraform/api.tf` as `local.app_env_vars` and automaticall
 | `LOG_LEVEL` | Logging level (trace, debug, info, warn, error) |
 | `DYNAMODB_TABLE` | DynamoDB table name |
 | `SEARCH_WINDOW_IN_DAYS` | Days to search per invocation (default: 10) |
+| `INGESTION_LOCK_DURATION_SECONDS` | Duration of the distributed lock to prevent concurrent ingestion (default: 900) |
 
 ### Frontend
 

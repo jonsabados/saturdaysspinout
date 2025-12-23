@@ -39,6 +39,78 @@ func (_m *MockStore) EXPECT() *MockStore_Expecter {
 	return &MockStore_Expecter{mock: &_m.Mock}
 }
 
+// AcquireIngestionLock provides a mock function for the type MockStore
+func (_mock *MockStore) AcquireIngestionLock(ctx context.Context, driverID int64, lockDuration time.Duration) (bool, error) {
+	ret := _mock.Called(ctx, driverID, lockDuration)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AcquireIngestionLock")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, time.Duration) (bool, error)); ok {
+		return returnFunc(ctx, driverID, lockDuration)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, time.Duration) bool); ok {
+		r0 = returnFunc(ctx, driverID, lockDuration)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, time.Duration) error); ok {
+		r1 = returnFunc(ctx, driverID, lockDuration)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockStore_AcquireIngestionLock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AcquireIngestionLock'
+type MockStore_AcquireIngestionLock_Call struct {
+	*mock.Call
+}
+
+// AcquireIngestionLock is a helper method to define mock.On call
+//   - ctx context.Context
+//   - driverID int64
+//   - lockDuration time.Duration
+func (_e *MockStore_Expecter) AcquireIngestionLock(ctx interface{}, driverID interface{}, lockDuration interface{}) *MockStore_AcquireIngestionLock_Call {
+	return &MockStore_AcquireIngestionLock_Call{Call: _e.mock.On("AcquireIngestionLock", ctx, driverID, lockDuration)}
+}
+
+func (_c *MockStore_AcquireIngestionLock_Call) Run(run func(ctx context.Context, driverID int64, lockDuration time.Duration)) *MockStore_AcquireIngestionLock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		var arg2 time.Duration
+		if args[2] != nil {
+			arg2 = args[2].(time.Duration)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_AcquireIngestionLock_Call) Return(b bool, err error) *MockStore_AcquireIngestionLock_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *MockStore_AcquireIngestionLock_Call) RunAndReturn(run func(ctx context.Context, driverID int64, lockDuration time.Duration) (bool, error)) *MockStore_AcquireIngestionLock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetDriver provides a mock function for the type MockStore
 func (_mock *MockStore) GetDriver(ctx context.Context, driverID int64) (*store.Driver, error) {
 	ret := _mock.Called(ctx, driverID)
@@ -370,6 +442,63 @@ func (_c *MockStore_PersistSessionData_Call) Return(err error) *MockStore_Persis
 }
 
 func (_c *MockStore_PersistSessionData_Call) RunAndReturn(run func(ctx context.Context, data store.SessionDataInsertion) error) *MockStore_PersistSessionData_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ReleaseIngestionLock provides a mock function for the type MockStore
+func (_mock *MockStore) ReleaseIngestionLock(ctx context.Context, driverID int64) error {
+	ret := _mock.Called(ctx, driverID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ReleaseIngestionLock")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64) error); ok {
+		r0 = returnFunc(ctx, driverID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockStore_ReleaseIngestionLock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ReleaseIngestionLock'
+type MockStore_ReleaseIngestionLock_Call struct {
+	*mock.Call
+}
+
+// ReleaseIngestionLock is a helper method to define mock.On call
+//   - ctx context.Context
+//   - driverID int64
+func (_e *MockStore_Expecter) ReleaseIngestionLock(ctx interface{}, driverID interface{}) *MockStore_ReleaseIngestionLock_Call {
+	return &MockStore_ReleaseIngestionLock_Call{Call: _e.mock.On("ReleaseIngestionLock", ctx, driverID)}
+}
+
+func (_c *MockStore_ReleaseIngestionLock_Call) Run(run func(ctx context.Context, driverID int64)) *MockStore_ReleaseIngestionLock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int64
+		if args[1] != nil {
+			arg1 = args[1].(int64)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_ReleaseIngestionLock_Call) Return(err error) *MockStore_ReleaseIngestionLock_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockStore_ReleaseIngestionLock_Call) RunAndReturn(run func(ctx context.Context, driverID int64) error) *MockStore_ReleaseIngestionLock_Call {
 	_c.Call.Return(run)
 	return _c
 }

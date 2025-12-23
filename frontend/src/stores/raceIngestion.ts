@@ -57,8 +57,13 @@ export const useRaceIngestionStore = defineStore('raceIngestion', () => {
 
     try {
       const apiClient = useApiClient()
-      await apiClient.triggerRaceIngestion()
-      status.value = 'success'
+      const result = await apiClient.triggerRaceIngestion()
+      if (result.throttled) {
+        // Not an error - ingestion is already running
+        status.value = 'idle'
+      } else {
+        status.value = 'success'
+      }
     } catch (err) {
       status.value = 'error'
       error.value = err instanceof Error ? err.message : 'Failed to trigger ingestion'

@@ -26,13 +26,14 @@ import (
 )
 
 type appCfg struct {
-	LogLevel                   string `envconfig:"LOG_LEVEL" required:"true"`
-	DynamoDBTable              string `envconfig:"DYNAMODB_TABLE" required:"true"`
-	SearchWindowInDays         int    `envconfig:"SEARCH_WINDOW_IN_DAYS" default:"10"`
-	WSManagementEndpoint       string `envconfig:"WS_MANAGEMENT_ENDPOINT" required:"true"`
-	RaceConsumptionConcurrency int    `envconfig:"RACE_CONSUMPTION_CONCURRENCY" required:"true"`
-	LapConsumptionConcurrency  int    `envconfig:"LAP_CONSUMPTION_CONCURRENCY" required:"true"`
-	IngestionQueueURL          string `envconfig:"INGESTION_QUEUE_URL" required:"true"`
+	LogLevel                     string `envconfig:"LOG_LEVEL" required:"true"`
+	DynamoDBTable                string `envconfig:"DYNAMODB_TABLE" required:"true"`
+	SearchWindowInDays           int    `envconfig:"SEARCH_WINDOW_IN_DAYS" default:"10"`
+	WSManagementEndpoint         string `envconfig:"WS_MANAGEMENT_ENDPOINT" required:"true"`
+	RaceConsumptionConcurrency   int    `envconfig:"RACE_CONSUMPTION_CONCURRENCY" required:"true"`
+	LapConsumptionConcurrency    int    `envconfig:"LAP_CONSUMPTION_CONCURRENCY" required:"true"`
+	IngestionQueueURL            string `envconfig:"INGESTION_QUEUE_URL" required:"true"`
+	IngestionLockDurationSeconds int    `envconfig:"INGESTION_LOCK_DURATION_SECONDS" required:"true"`
 }
 
 func main() {
@@ -86,7 +87,8 @@ func main() {
 
 	iracingClient := iracing.NewClient(httpClient, metricsClient)
 
-	processor := ingestion.NewRaceProcessor(driverStore, iracingClient, pusher, eventDispatcher,
+	lockDuration := time.Duration(cfg.IngestionLockDurationSeconds) * time.Second
+	processor := ingestion.NewRaceProcessor(driverStore, iracingClient, pusher, eventDispatcher, lockDuration,
 		ingestion.WithSearchWindowInDays(cfg.SearchWindowInDays),
 		ingestion.WithRaceConsumptionConcurrency(cfg.RaceConsumptionConcurrency),
 		ingestion.WithLapConsumptionConcurrency(cfg.LapConsumptionConcurrency),

@@ -152,6 +152,27 @@ func DoNotFoundResponse(ctx context.Context, message string, writer http.Respons
 	_, _ = writer.Write(bytes)
 }
 
+type TooManyRequestsResponse struct {
+	Message       string `json:"message"`
+	RetryAfter    int    `json:"retryAfter"`
+	CorrelationID string `json:"correlationId"`
+}
+
+func DoTooManyRequestsResponse(ctx context.Context, message string, retryAfterSeconds int, writer http.ResponseWriter) {
+	writer.Header().Add("content-type", "application/json")
+	writer.Header().Add("Retry-After", fmt.Sprintf("%d", retryAfterSeconds))
+	writer.WriteHeader(http.StatusTooManyRequests)
+	bytes, err := json.Marshal(TooManyRequestsResponse{
+		Message:       message,
+		RetryAfter:    retryAfterSeconds,
+		CorrelationID: correlation.FromContext(ctx),
+	})
+	if err != nil {
+		panic(fmt.Errorf("error marshalling TooManyRequestsResponse, this should not happen: %w", err))
+	}
+	_, _ = writer.Write(bytes)
+}
+
 type OKResponse struct {
 	Response      interface{} `json:"response"`
 	CorrelationID string      `json:"correlationId"`

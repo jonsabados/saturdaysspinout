@@ -61,7 +61,7 @@ describe('raceIngestion store', () => {
     })
 
     it('sets status to loading then success on successful API call', async () => {
-      mockTriggerRaceIngestion.mockResolvedValue(undefined)
+      mockTriggerRaceIngestion.mockResolvedValue({ throttled: false })
       const store = useRaceIngestionStore()
 
       const promise = store.triggerIngestion()
@@ -69,6 +69,16 @@ describe('raceIngestion store', () => {
 
       await promise
       expect(store.status).toBe('success')
+      expect(store.error).toBeNull()
+    })
+
+    it('sets status to idle when throttled (429)', async () => {
+      mockTriggerRaceIngestion.mockResolvedValue({ throttled: true, retryAfter: 600 })
+      const store = useRaceIngestionStore()
+
+      await store.triggerIngestion()
+
+      expect(store.status).toBe('idle')
       expect(store.error).toBeNull()
     })
 
@@ -105,7 +115,7 @@ describe('raceIngestion store', () => {
   describe('stale credentials handling (via listener)', () => {
     it('refreshes token and retries ingestion when refresh succeeds', async () => {
       mockRefreshToken.mockResolvedValue(true)
-      mockTriggerRaceIngestion.mockResolvedValue(undefined)
+      mockTriggerRaceIngestion.mockResolvedValue({ throttled: false })
       const store = useRaceIngestionStore()
 
       // Set up the listener to capture the callback

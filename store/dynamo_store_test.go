@@ -593,33 +593,127 @@ func TestUpdateDriverRacesIngestedTo_UpdatesExistingValue(t *testing.T) {
 	assert.Equal(t, newIngestedTo, *got.RacesIngestedTo)
 }
 
-func TestInsertDriver_WithIngestionBlockedUntil(t *testing.T) {
+func TestAcquireIngestionLock_Success(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	blockedUntil := time.Unix(9000, 0)
-	driver := Driver{
-		DriverID:              12345,
-		DriverName:            "Jon Sabados",
-		MemberSince:           time.Unix(500, 0),
-		FirstLogin:            time.Unix(1000, 0),
-		LastLogin:             time.Unix(1000, 0),
-		LoginCount:            1,
-		IngestionBlockedUntil: &blockedUntil,
-	}
+	fixedTime := time.Unix(1000, 0)
+	s.now = func() time.Time { return fixedTime }
 
-	err := s.InsertDriver(ctx, driver)
+	acquired, err := s.AcquireIngestionLock(ctx, 12345, 15*time.Minute)
 	require.NoError(t, err)
+	assert.True(t, acquired)
+
+	// Verify lock is visible via GetDriver (need a driver record first)
+	driver := Driver{
+		DriverID:    12345,
+		DriverName:  "Jon Sabados",
+		MemberSince: time.Unix(500, 0),
+		FirstLogin:  time.Unix(1000, 0),
+		LastLogin:   time.Unix(1000, 0),
+		LoginCount:  1,
+	}
+	require.NoError(t, s.InsertDriver(ctx, driver))
 
 	got, err := s.GetDriver(ctx, 12345)
 	require.NoError(t, err)
 	require.NotNil(t, got.IngestionBlockedUntil)
-	assert.Equal(t, blockedUntil, *got.IngestionBlockedUntil)
+	assert.Equal(t, fixedTime.Add(15*time.Minute), *got.IngestionBlockedUntil)
 }
 
-func TestUpdateDriverIngestionBlockedUntil_Success(t *testing.T) {
+func TestAcquireIngestionLock_AlreadyHeld(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
+
+	fixedTime := time.Unix(1000, 0)
+	s.now = func() time.Time { return fixedTime }
+
+	// First acquisition should succeed
+	acquired, err := s.AcquireIngestionLock(ctx, 12345, 15*time.Minute)
+	require.NoError(t, err)
+	assert.True(t, acquired)
+
+	// Second acquisition should fail (lock still held)
+	acquired, err = s.AcquireIngestionLock(ctx, 12345, 15*time.Minute)
+	require.NoError(t, err)
+	assert.False(t, acquired)
+}
+
+func TestAcquireIngestionLock_ExpiredLockCanBeAcquired(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	currentTime := time.Unix(1000, 0)
+	s.now = func() time.Time { return currentTime }
+
+	// First acquisition
+	acquired, err := s.AcquireIngestionLock(ctx, 12345, 15*time.Minute)
+	require.NoError(t, err)
+	assert.True(t, acquired)
+
+	// Advance time past lock expiration
+	currentTime = time.Unix(1000+16*60, 0) // 16 minutes later
+
+	// Should be able to acquire again
+	acquired, err = s.AcquireIngestionLock(ctx, 12345, 15*time.Minute)
+	require.NoError(t, err)
+	assert.True(t, acquired)
+}
+
+func TestAcquireIngestionLock_DifferentDriversIndependent(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	fixedTime := time.Unix(1000, 0)
+	s.now = func() time.Time { return fixedTime }
+
+	// Acquire lock for driver 1
+	acquired, err := s.AcquireIngestionLock(ctx, 111, 15*time.Minute)
+	require.NoError(t, err)
+	assert.True(t, acquired)
+
+	// Should be able to acquire lock for driver 2
+	acquired, err = s.AcquireIngestionLock(ctx, 222, 15*time.Minute)
+	require.NoError(t, err)
+	assert.True(t, acquired)
+}
+
+func TestReleaseIngestionLock_Success(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	fixedTime := time.Unix(1000, 0)
+	s.now = func() time.Time { return fixedTime }
+
+	// Acquire then release
+	acquired, err := s.AcquireIngestionLock(ctx, 12345, 15*time.Minute)
+	require.NoError(t, err)
+	assert.True(t, acquired)
+
+	err = s.ReleaseIngestionLock(ctx, 12345)
+	require.NoError(t, err)
+
+	// Should be able to acquire again immediately
+	acquired, err = s.AcquireIngestionLock(ctx, 12345, 15*time.Minute)
+	require.NoError(t, err)
+	assert.True(t, acquired)
+}
+
+func TestReleaseIngestionLock_NotFoundNoError(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Releasing non-existent lock should not error
+	err := s.ReleaseIngestionLock(ctx, 99999)
+	require.NoError(t, err)
+}
+
+func TestGetDriver_IngestionBlockedUntilFromLock(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	fixedTime := time.Unix(1000, 0)
+	s.now = func() time.Time { return fixedTime }
 
 	driver := Driver{
 		DriverID:    12345,
@@ -631,52 +725,55 @@ func TestUpdateDriverIngestionBlockedUntil_Success(t *testing.T) {
 	}
 	require.NoError(t, s.InsertDriver(ctx, driver))
 
-	blockedUntil := time.Unix(8000, 0)
-	err := s.UpdateDriverIngestionBlockedUntil(ctx, 12345, blockedUntil)
-	require.NoError(t, err)
-
+	// Initially no lock
 	got, err := s.GetDriver(ctx, 12345)
 	require.NoError(t, err)
+	assert.Nil(t, got.IngestionBlockedUntil)
+
+	// Acquire lock
+	_, err = s.AcquireIngestionLock(ctx, 12345, 15*time.Minute)
+	require.NoError(t, err)
+
+	// Now should see the lock
+	got, err = s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
 	require.NotNil(t, got.IngestionBlockedUntil)
-	assert.Equal(t, blockedUntil, *got.IngestionBlockedUntil)
-	// Verify other fields unchanged
+	assert.Equal(t, fixedTime.Add(15*time.Minute), *got.IngestionBlockedUntil)
+
+	// Other fields unchanged
 	assert.Equal(t, driver.DriverName, got.DriverName)
 	assert.Equal(t, driver.FirstLogin, got.FirstLogin)
 	assert.Equal(t, driver.LoginCount, got.LoginCount)
 }
 
-func TestUpdateDriverIngestionBlockedUntil_DriverNotFound(t *testing.T) {
+func TestGetDriver_ExpiredLockNotReturned(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	err := s.UpdateDriverIngestionBlockedUntil(ctx, 999, time.Unix(1000, 0))
-	assert.Error(t, err)
-}
+	currentTime := time.Unix(1000, 0)
+	s.now = func() time.Time { return currentTime }
 
-func TestUpdateDriverIngestionBlockedUntil_UpdatesExistingValue(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	blockedUntil := time.Unix(3000, 0)
 	driver := Driver{
-		DriverID:              12345,
-		DriverName:            "Jon Sabados",
-		MemberSince:           time.Unix(500, 0),
-		FirstLogin:            time.Unix(1000, 0),
-		LastLogin:             time.Unix(1000, 0),
-		LoginCount:            1,
-		IngestionBlockedUntil: &blockedUntil,
+		DriverID:    12345,
+		DriverName:  "Jon Sabados",
+		MemberSince: time.Unix(500, 0),
+		FirstLogin:  time.Unix(1000, 0),
+		LastLogin:   time.Unix(1000, 0),
+		LoginCount:  1,
 	}
 	require.NoError(t, s.InsertDriver(ctx, driver))
 
-	newBlockedUntil := time.Unix(9000, 0)
-	err := s.UpdateDriverIngestionBlockedUntil(ctx, 12345, newBlockedUntil)
+	// Acquire lock
+	_, err := s.AcquireIngestionLock(ctx, 12345, 15*time.Minute)
 	require.NoError(t, err)
 
+	// Advance time past lock expiration
+	currentTime = time.Unix(1000+16*60, 0) // 16 minutes later
+
+	// Expired lock should not be returned
 	got, err := s.GetDriver(ctx, 12345)
 	require.NoError(t, err)
-	require.NotNil(t, got.IngestionBlockedUntil)
-	assert.Equal(t, newBlockedUntil, *got.IngestionBlockedUntil)
+	assert.Nil(t, got.IngestionBlockedUntil)
 }
 
 func TestPersistSessionData_HappyPath(t *testing.T) {

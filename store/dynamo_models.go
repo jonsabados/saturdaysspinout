@@ -18,6 +18,7 @@ const trackPartitionKeyFormat = "track#%d"
 const driverPartitionFormat = "driver#%d"
 const driverNoteSortKeyFormat = "note#%d" // note, the number should be a unix timestamp allowing us to find notes within a specified time period
 const wsConnectionSortKeyFormat = "ws#%s"
+const ingestionLockSortKey = "ingestion_lock"
 
 const websocketPartitionFormat = "websocket#%s"
 
@@ -174,15 +175,14 @@ func driverNoteFromAttributeMap(driverID int64, item map[string]types.AttributeV
 }
 
 type driverModel struct {
-	driverID           int64
-	driverName         string
-	memberSince        int64
-	racesIngestedTo       *int64
-	ingestionBlockedUntil *int64
-	firstLogin         int64
-	lastLogin          int64
-	loginCount         int64
-	sessionCount       int64
+	driverID        int64
+	driverName      string
+	memberSince     int64
+	racesIngestedTo *int64
+	firstLogin      int64
+	lastLogin       int64
+	loginCount      int64
+	sessionCount    int64
 }
 
 func (d driverModel) toAttributeMap() map[string]types.AttributeValue {
@@ -199,9 +199,6 @@ func (d driverModel) toAttributeMap() map[string]types.AttributeValue {
 	}
 	if d.racesIngestedTo != nil {
 		m["races_ingested_to"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(*d.racesIngestedTo, 10)}
-	}
-	if d.ingestionBlockedUntil != nil {
-		m["ingestion_blocked_until"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(*d.ingestionBlockedUntil, 10)}
 	}
 	return m
 }
@@ -238,24 +235,17 @@ func driverFromAttributeMap(item map[string]types.AttributeValue) (*Driver, erro
 		racesIngestedTo = &t
 	}
 
-	var ingestionBlockedUntil *time.Time
-	if ibu, ok := getOptionalInt64Attr(item, "ingestion_blocked_until"); ok {
-		t := time.Unix(ibu, 0)
-		ingestionBlockedUntil = &t
-	}
-
 	sessionCount, _ := getOptionalInt64Attr(item, "session_count")
 
 	return &Driver{
-		DriverID:           driverID,
-		DriverName:         driverName,
-		MemberSince:        time.Unix(memberSince, 0),
-		RacesIngestedTo:       racesIngestedTo,
-		IngestionBlockedUntil: ingestionBlockedUntil,
-		FirstLogin:         time.Unix(firstLogin, 0),
-		LastLogin:          time.Unix(lastLogin, 0),
-		LoginCount:         loginCount,
-		SessionCount:       sessionCount,
+		DriverID:        driverID,
+		DriverName:      driverName,
+		MemberSince:     time.Unix(memberSince, 0),
+		RacesIngestedTo: racesIngestedTo,
+		FirstLogin:      time.Unix(firstLogin, 0),
+		LastLogin:       time.Unix(lastLogin, 0),
+		LoginCount:      loginCount,
+		SessionCount:    sessionCount,
 	}, nil
 }
 
@@ -310,6 +300,21 @@ func wsConnectionFromAttributeMap(item map[string]types.AttributeValue) (*WebSoc
 		ConnectionID: connectionID,
 		ConnectedAt:  time.Unix(connectedAt, 0),
 	}, nil
+}
+
+// ingestionLockModel represents a lock preventing concurrent ingestion (driver#<id> / ingestion_lock)
+type ingestionLockModel struct {
+	driverID    int64
+	lockedUntil int64
+}
+
+func (l ingestionLockModel) toAttributeMap() map[string]types.AttributeValue {
+	return map[string]types.AttributeValue{
+		partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, l.driverID)},
+		sortKeyName:      &types.AttributeValueMemberS{Value: ingestionLockSortKey},
+		"locked_until":   &types.AttributeValueMemberN{Value: strconv.FormatInt(l.lockedUntil, 10)},
+		"ttl":            &types.AttributeValueMemberN{Value: strconv.FormatInt(l.lockedUntil, 10)},
+	}
 }
 
 // driverSessionModel represents a driver's participation in a session (driver#<id> / session#<timestamp>)
