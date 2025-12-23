@@ -57,12 +57,13 @@ data "aws_iam_policy_document" "race_ingestion_lambda" {
   }
 
   statement {
-    sid    = "AllowSQSConsume"
+    sid    = "AllowSQS"
     effect = "Allow"
     actions = [
       "sqs:ReceiveMessage",
       "sqs:DeleteMessage",
-      "sqs:GetQueueAttributes"
+      "sqs:GetQueueAttributes",
+      "sqs:SendMessage"
     ]
     resources = [
       aws_sqs_queue.race_ingestion_requests.arn
@@ -114,7 +115,7 @@ resource "aws_lambda_function" "race_ingestion_lambda" {
   source_code_hash = filebase64sha256("../dist/raceIngestionProcessorLambda.zip")
   timeout          = 300
 
-  # reserved_concurrent_executions = var.race_ingestion_processor_concurrency
+  reserved_concurrent_executions = var.race_ingestion_processor_concurrency
   memory_size                    = 1024 // memory is less an issue, but we want the greater CPU allocation and bigger pipes
 
   runtime       = "provided.al2"
@@ -134,6 +135,7 @@ resource "aws_lambda_function" "race_ingestion_lambda" {
       WS_MANAGEMENT_ENDPOINT       = "https://${aws_apigatewayv2_api.websockets.id}.execute-api.us-east-1.amazonaws.com/${aws_apigatewayv2_stage.ws.name}"
       RACE_CONSUMPTION_CONCURRENCY = "3"
       LAP_CONSUMPTION_CONCURRENCY  = "4"
+      INGESTION_QUEUE_URL          = aws_sqs_queue.race_ingestion_requests.url
     }
   }
 }

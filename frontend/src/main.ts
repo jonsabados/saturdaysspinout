@@ -6,6 +6,7 @@ import App from './App.vue'
 import router from './router'
 import { setupWebSocketAutoConnect } from './stores/websocket'
 import { setupRaceIngestionListener } from './stores/raceIngestion'
+import { setupDriverListener } from './stores/driver'
 import './assets/variables.css'
 
 const pinia = createPinia()
@@ -20,3 +21,4 @@ app.mount('#app')
 
 setupWebSocketAutoConnect()
 setupRaceIngestionListener()
+setupDriverListener()

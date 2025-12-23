@@ -1,6 +1,7 @@
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { useSessionStore } from './session'
+import { useWebSocketStore } from './websocket'
 import { useApiClient, type Driver } from '@/api/client'
 
 export const useDriverStore = defineStore('driver', () => {
@@ -99,6 +100,14 @@ export const useDriverStore = defineStore('driver', () => {
     }
   )
 
+  function setupListener() {
+    const wsStore = useWebSocketStore()
+    wsStore.on('ingestionChunkComplete', () => {
+      console.log('[Driver] Received ingestionChunkComplete, refreshing driver data')
+      refresh()
+    })
+  }
+
   return {
     driver,
     loading,
@@ -112,5 +121,11 @@ export const useDriverStore = defineStore('driver', () => {
     refresh,
     clear,
     incrementSessionCount,
+    setupListener,
   }
 })
+
+export function setupDriverListener() {
+  const driverStore = useDriverStore()
+  driverStore.setupListener()
+}

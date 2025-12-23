@@ -108,7 +108,7 @@ resource "aws_lambda_function" "api_lambda" {
   timeout          = 15
 
   // setting reserved concurrent executions super low cause personal account & don't want to make it too easy for someone to grief my wallet by pounding on things
-  # reserved_concurrent_executions = 15
+  reserved_concurrent_executions = 15
   memory_size                    = 512
 
   runtime       = "provided.al2"

@@ -83,6 +83,11 @@ type updateDriverRacesIngestedToCall struct {
 	err             error
 }
 
+type publishEventCall struct {
+	event any
+	err   error
+}
+
 func TestRaceProcessor_IngestRaces(t *testing.T) {
 	driverID := int64(12345)
 	subsessionID := int64(99999)
@@ -107,6 +112,7 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 		pushCalls                       []pushCall
 		broadcastCalls                  []broadcastCall
 		updateDriverRacesIngestedToCall *updateDriverRacesIngestedToCall
+		publishEventCall                *publishEventCall
 
 		expectedErr string
 	}{
@@ -207,10 +213,22 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					actionType: "raceIngested",
 					payload:    RaceReadyMsg{RaceID: sessionStartTime.Unix()},
 				},
+				{
+					driverID:   driverID,
+					actionType: "ingestionChunkComplete",
+					payload:    ChunkCompleteMsg{IngestedTo: rangeEnd},
+				},
 			},
 			updateDriverRacesIngestedToCall: &updateDriverRacesIngestedToCall{
 				driverID:        driverID,
 				racesIngestedTo: rangeEnd,
+			},
+			publishEventCall: &publishEventCall{
+				event: RaceIngestionRequest{
+					DriverID:           driverID,
+					IRacingAccessToken: "test-token",
+					NotifyConnectionID: "conn-123",
+				},
 			},
 		},
 		{
@@ -263,10 +281,25 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 			persistSessionDataCalls: []persistSessionDataCall{},
 			// No push calls - nothing new to notify
 			pushCalls: []pushCall{},
+			// Should still broadcast chunk complete
+			broadcastCalls: []broadcastCall{
+				{
+					driverID:   driverID,
+					actionType: "ingestionChunkComplete",
+					payload:    ChunkCompleteMsg{IngestedTo: rangeEnd},
+				},
+			},
 			// Should still update ingested-to marker
 			updateDriverRacesIngestedToCall: &updateDriverRacesIngestedToCall{
 				driverID:        driverID,
 				racesIngestedTo: rangeEnd,
+			},
+			publishEventCall: &publishEventCall{
+				event: RaceIngestionRequest{
+					DriverID:           driverID,
+					IRacingAccessToken: "test-token",
+					NotifyConnectionID: "conn-123",
+				},
 			},
 		},
 		{
@@ -377,10 +410,22 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					actionType: "raceIngested",
 					payload:    RaceReadyMsg{RaceID: sessionStartTime.Unix()},
 				},
+				{
+					driverID:   driverID,
+					actionType: "ingestionChunkComplete",
+					payload:    ChunkCompleteMsg{IngestedTo: rangeEnd},
+				},
 			},
 			updateDriverRacesIngestedToCall: &updateDriverRacesIngestedToCall{
 				driverID:        driverID,
 				racesIngestedTo: rangeEnd,
+			},
+			publishEventCall: &publishEventCall{
+				event: RaceIngestionRequest{
+					DriverID:           driverID,
+					IRacingAccessToken: "test-token",
+					NotifyConnectionID: "conn-123",
+				},
 			},
 		},
 		{
@@ -434,6 +479,7 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 			mockStore := NewMockStore(t)
 			mockIRacing := NewMockIRacingClient(t)
 			mockPusher := NewMockPusher(t)
+			mockEventDispatcher := NewMockEventDispatcher(t)
 
 			// Setup GetDriver
 			mockStore.EXPECT().GetDriver(mock.Anything, tc.getDriverCall.driverID).
@@ -520,7 +566,13 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				).Return(tc.updateDriverRacesIngestedToCall.err)
 			}
 
-			processor := NewRaceProcessor(mockStore, mockIRacing, mockPusher)
+			// Setup PublishEvent
+			if tc.publishEventCall != nil {
+				mockEventDispatcher.EXPECT().PublishEvent(mock.Anything, tc.publishEventCall.event).
+					Return(tc.publishEventCall.err)
+			}
+
+			processor := NewRaceProcessor(mockStore, mockIRacing, mockPusher, mockEventDispatcher)
 			processor.now = func() time.Time { return now }
 
 			err := processor.IngestRaces(ctx, tc.request)

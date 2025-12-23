@@ -23,6 +23,10 @@ type RaceReadyMsg struct {
 	RaceID int64 `json:"raceId"`
 }
 
+type ChunkCompleteMsg struct {
+	IngestedTo time.Time `json:"ingestedTo"`
+}
+
 type Store interface {
 	GetDriver(ctx context.Context, driverID int64) (*store.Driver, error)
 	GetDriverSession(ctx context.Context, driverID int64, startTime time.Time) (*store.DriverSession, error)
@@ -41,6 +45,10 @@ type IRacingClient interface {
 type Pusher interface {
 	Push(ctx context.Context, connectionID string, actionType string, payload any) (bool, error)
 	Broadcast(ctx context.Context, driverID int64, actionType string, payload any) error
+}
+
+type EventDispatcher interface {
+	PublishEvent(ctx context.Context, event any) error
 }
 
 type RaceProcessorOption func(*RaceProcessor)
@@ -68,16 +76,18 @@ type RaceProcessor struct {
 	iracingClient              IRacingClient
 	searchWindowDuration       time.Duration
 	pusher                     Pusher
+	eventDispatcher            EventDispatcher
 	raceConsumptionConcurrency int
 	lapConsumptionConcurrency  int
 	now                        func() time.Time
 }
 
-func NewRaceProcessor(store Store, iracingClient IRacingClient, pusher Pusher, opts ...RaceProcessorOption) *RaceProcessor {
+func NewRaceProcessor(store Store, iracingClient IRacingClient, pusher Pusher, eventDispatcher EventDispatcher, opts ...RaceProcessorOption) *RaceProcessor {
 	r := &RaceProcessor{
 		store:                      store,
 		iracingClient:              iracingClient,
 		pusher:                     pusher,
+		eventDispatcher:            eventDispatcher,
 		searchWindowDuration:       time.Hour * 24 * 10,
 		raceConsumptionConcurrency: DefaultRaceConsumptionConcurrency,
 		lapConsumptionConcurrency:  DefaultLapConsumptionConcurrency,
@@ -108,10 +118,12 @@ func (r *RaceProcessor) IngestRaces(ctx context.Context, request RaceIngestionRe
 		rangeBegin = *driver.RacesIngestedTo
 	}
 
+	willBeUpToDate := false
 	now := r.now()
 	rangeEnd := rangeBegin.Add(r.searchWindowDuration)
 	if rangeEnd.After(now) {
 		rangeEnd = now
+		willBeUpToDate = true
 	}
 
 	logger.Info().
@@ -198,12 +210,22 @@ func (r *RaceProcessor) IngestRaces(ctx context.Context, request RaceIngestionRe
 		return errors.Join(errs...)
 	}
 
-	err = r.store.UpdateDriverRacesIngestedTo(ctx, driver.DriverID, rangeEnd)
-	if err != nil {
+	if err := r.store.UpdateDriverRacesIngestedTo(ctx, driver.DriverID, rangeEnd); err != nil {
 		return fmt.Errorf("updating driver ingested to: %w", err)
 	}
-	// todo - trigger another round ingestion if our range is in the past
-	logger.Info().Int("raceCount", raceCount).Int("newRaceCount", newRaceCount).Msg("ingested races")
+	if err := r.pusher.Broadcast(ctx, driver.DriverID, "ingestionChunkComplete", ChunkCompleteMsg{IngestedTo: rangeEnd}); err != nil {
+		return fmt.Errorf("pushing chunk complete notification: %w", err)
+	}
+
+	logger.Info().Int("raceCount", raceCount).Int("newRaceCount", newRaceCount).Bool("willBeUpToDate", willBeUpToDate).Msg("ingested races")
+
+	if !willBeUpToDate {
+		logger.Info().Msg("more races to ingest, dispatching another round")
+		if err := r.eventDispatcher.PublishEvent(ctx, request); err != nil {
+			return fmt.Errorf("dispatching next ingestion round: %w", err)
+		}
+	}
+
 	return nil
 }
 

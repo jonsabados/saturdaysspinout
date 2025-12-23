@@ -19,6 +19,10 @@ const syncStatusText = computed(() => {
   return 'Not synced'
 })
 
+const showCta = computed(() => {
+  return sessionStore.isReady && !driverStore.syncedToFormatted
+})
+
 const buttonTitle = computed(() => {
   if (isBlocked.value && driverStore.blockedUntilFormatted) {
     return `Sync temporarily unavailable - try again after ${driverStore.blockedUntilFormatted}`
@@ -34,7 +38,7 @@ function handleClick() {
 </script>
 
 <template>
-  <div v-if="sessionStore.isLoggedIn" class="sync-status">
+  <div class="sync-status">
     <span v-if="sessionStore.isReady" class="sync-text">{{ syncStatusText }}</span>
     <button
       class="sync-button"
@@ -46,6 +50,9 @@ function handleClick() {
       <span class="sync-icon" :class="{ spinning: isLoading }">&#x21bb;</span>
       <span class="sync-label">Sync</span>
     </button>
+    <span v-if="showCta" class="sync-cta">
+      Sync your race history to get started
+    </span>
   </div>
 </template>
 
@@ -53,11 +60,11 @@ function handleClick() {
 .sync-status {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 }
 
 .sync-text {
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   color: var(--color-text-secondary);
   white-space: nowrap;
 }
@@ -65,13 +72,13 @@ function handleClick() {
 .sync-button {
   display: flex;
   align-items: center;
-  gap: 0.375rem;
-  padding: 0.375rem 0.75rem;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem;
   background: transparent;
   border: 1px solid var(--color-border);
   border-radius: 4px;
   color: var(--color-text-secondary);
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   cursor: pointer;
   transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
@@ -93,7 +100,7 @@ function handleClick() {
 }
 
 .sync-icon {
-  font-size: 1rem;
+  font-size: 0.875rem;
   line-height: 1;
 }
 
@@ -114,14 +121,31 @@ function handleClick() {
   font-weight: 500;
 }
 
-/* Hide button label on smaller screens, keep icon */
+.sync-cta {
+  font-size: 0.75rem;
+  color: var(--color-accent);
+  white-space: nowrap;
+  animation: pulse 1.5s ease-in-out 3;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Hide button label and CTA on smaller screens, keep icon */
 @media (max-width: 480px) {
-  .sync-label {
+  .sync-label,
+  .sync-cta {
     display: none;
   }
 
   .sync-button {
-    padding: 0.375rem;
+    padding: 0.25rem;
   }
 }
 </style>
