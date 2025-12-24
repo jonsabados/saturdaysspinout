@@ -1,0 +1,26 @@
+{
+  "response": [
+    {
+      "id": 1,
+      "name": "Lime Rock Park",
+      "configName": "Full Course",
+      "category": "road",
+      "location": "Lakeville, Connecticut, USA",
+      "cornersPerLap": 7,
+      "lengthMiles": 1.53,
+      "description": "<p>A great road course</p>",
+      "logoUrl": "https://images-static.iracing.com/logo.png",
+      "smallImageUrl": "https://images-static.iracing.com/small.jpg",
+      "largeImageUrl": "https://images-static.iracing.com/large.jpg",
+      "trackMapUrl": "https://example.com/map",
+      "isDirt": false,
+      "isOval": false,
+      "hasNightLighting": false,
+      "rainEnabled": true,
+      "freeWithSubscription": false,
+      "retired": false,
+      "pitRoadSpeedLimit": 45
+    }
+  ],
+  "correlationId": "test-correlation-id"
+}

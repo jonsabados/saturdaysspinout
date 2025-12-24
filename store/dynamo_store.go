@@ -29,23 +29,6 @@ func NewDynamoStore(client *dynamodb.Client, table string) *DynamoStore {
 	}
 }
 
-func (s *DynamoStore) GetTrack(ctx context.Context, id int64) (*Track, error) {
-	result, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(s.table),
-		Key: map[string]types.AttributeValue{
-			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(trackPartitionKeyFormat, id)},
-			sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	if result.Item == nil {
-		return nil, nil
-	}
-	return trackFromAttributeMap(result.Item)
-}
-
 func (s *DynamoStore) GetGlobalCounters(ctx context.Context) (*GlobalCounters, error) {
 	result, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(s.table),
@@ -61,28 +44,6 @@ func (s *DynamoStore) GetGlobalCounters(ctx context.Context) (*GlobalCounters, e
 		return &GlobalCounters{}, nil
 	}
 	return globalCountersFromAttributeMap(result.Item)
-}
-
-func (s *DynamoStore) InsertTrack(ctx context.Context, value Track) error {
-	_, err := s.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
-		TransactItems: []types.TransactWriteItem{
-			{
-				Put: &types.Put{
-					Item: trackModel{
-						id:   value.ID,
-						name: value.Name,
-					}.toAttributeMap(),
-					TableName:           aws.String(s.table),
-					ConditionExpression: aws.String("attribute_not_exists(#pk)"),
-					ExpressionAttributeNames: map[string]string{
-						"#pk": partitionKeyName,
-					},
-				},
-			},
-			s.incrementCounter(globalCountersAttributeTracks),
-		},
-	})
-	return mapTransactionError(err)
 }
 
 func (s *DynamoStore) GetDriverNotes(ctx context.Context, driverID int64, fromInclusive, toExclusive time.Time) ([]DriverNote, error) {
