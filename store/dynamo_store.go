@@ -14,6 +14,7 @@ import (
 
 const wsConnectionTTLDuration = 24 * time.Hour
 const maxTransactWriteItems = 100
+const maxBatchWriteItems = 25
 
 type DynamoStore struct {
 	client *dynamodb.Client
@@ -829,4 +830,86 @@ func (s *DynamoStore) incrementDriverSessionCount(driverID int64, count int) typ
 			},
 		},
 	}
+}
+
+// DeleteDriverRaces removes all records under a driver's partition except their info record,
+// and resets their sync state to appear as if they've never synced (useful for testing initial sync flows).
+func (s *DynamoStore) DeleteDriverRaces(ctx context.Context, driverID int64) error {
+	pk := fmt.Sprintf(driverPartitionFormat, driverID)
+
+	// Query all items under driver partition, fetching only keys for efficiency
+	result, err := s.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(s.table),
+		KeyConditionExpression: aws.String("#pk = :pk"),
+		ProjectionExpression:   aws.String("#pk, #sk"),
+		ExpressionAttributeNames: map[string]string{
+			"#pk": partitionKeyName,
+			"#sk": sortKeyName,
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk": &types.AttributeValueMemberS{Value: pk},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("querying driver partition: %w", err)
+	}
+
+	// Collect keys to delete (everything except info)
+	var keysToDelete []map[string]types.AttributeValue
+	for _, item := range result.Items {
+		sk, _ := getStringAttr(item, sortKeyName)
+		if sk != defaultSortKey {
+			keysToDelete = append(keysToDelete, map[string]types.AttributeValue{
+				partitionKeyName: item[partitionKeyName],
+				sortKeyName:      item[sortKeyName],
+			})
+		}
+	}
+
+	// Batch delete in chunks of 25
+	for i := 0; i < len(keysToDelete); i += maxBatchWriteItems {
+		end := i + maxBatchWriteItems
+		if end > len(keysToDelete) {
+			end = len(keysToDelete)
+		}
+		batch := keysToDelete[i:end]
+
+		writeRequests := make([]types.WriteRequest, len(batch))
+		for j, key := range batch {
+			writeRequests[j] = types.WriteRequest{
+				DeleteRequest: &types.DeleteRequest{Key: key},
+			}
+		}
+
+		_, err := s.client.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{
+			RequestItems: map[string][]types.WriteRequest{
+				s.table: writeRequests,
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("batch delete failed: %w", err)
+		}
+	}
+
+	// Reset races_ingested_to to nil and session_count to 0
+	_, err = s.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			partitionKeyName: &types.AttributeValueMemberS{Value: pk},
+			sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
+		},
+		UpdateExpression: aws.String("REMOVE #races_ingested_to SET #session_count = :zero"),
+		ExpressionAttributeNames: map[string]string{
+			"#races_ingested_to": "races_ingested_to",
+			"#session_count":     "session_count",
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":zero": &types.AttributeValueMemberN{Value: "0"},
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("resetting driver info: %w", err)
+	}
+
+	return nil
 }

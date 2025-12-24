@@ -1189,6 +1189,233 @@ func TestGetOptionalStringSliceAttr_ListContainsNonString(t *testing.T) {
 	assert.Nil(t, result)
 }
 
+func TestDeleteDriverRaces_DeletesAllExceptInfo(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Insert a driver with RacesIngestedTo set
+	ingestedTo := time.Unix(5000, 0)
+	driver := Driver{
+		DriverID:        12345,
+		DriverName:      "Jon Sabados",
+		MemberSince:     time.Unix(500, 0),
+		FirstLogin:      time.Unix(1000, 0),
+		LastLogin:       time.Unix(1000, 0),
+		LoginCount:      1,
+		RacesIngestedTo: &ingestedTo,
+		Entitlements:    []string{"developer"},
+	}
+	require.NoError(t, s.InsertDriver(ctx, driver))
+
+	// Add session data for this driver
+	sessionStartTime := time.Unix(1700000000, 0)
+	data := SessionDataInsertion{
+		SessionEntries: []Session{
+			{SubsessionID: 12345, TrackID: 100, StartTime: sessionStartTime},
+		},
+		DriverSessionEntries: []DriverSession{
+			{DriverID: 12345, SubsessionID: 12345, TrackID: 100, CarID: 101, StartTime: sessionStartTime, ReasonOut: "Running"},
+		},
+	}
+	require.NoError(t, s.PersistSessionData(ctx, data))
+
+	// Verify driver has sessions
+	sessions, err := s.GetDriverSessions(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
+	require.NoError(t, err)
+	assert.Len(t, sessions, 1)
+
+	// Delete driver races
+	err = s.DeleteDriverRaces(ctx, 12345)
+	require.NoError(t, err)
+
+	// Verify driver info still exists with entitlements preserved
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "Jon Sabados", got.DriverName)
+	assert.Equal(t, []string{"developer"}, got.Entitlements)
+
+	// Verify RacesIngestedTo is nil'd
+	assert.Nil(t, got.RacesIngestedTo)
+
+	// Verify SessionCount is reset to 0
+	assert.Equal(t, int64(0), got.SessionCount)
+
+	// Verify sessions are deleted
+	sessions, err = s.GetDriverSessions(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
+	require.NoError(t, err)
+	assert.Empty(t, sessions)
+}
+
+func TestDeleteDriverRaces_DeletesConnectionsAndLocks(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	fixedTime := time.Unix(1000, 0)
+	s.now = func() time.Time { return fixedTime }
+
+	// Insert a driver
+	driver := Driver{
+		DriverID:    12345,
+		DriverName:  "Jon Sabados",
+		MemberSince: time.Unix(500, 0),
+		FirstLogin:  time.Unix(1000, 0),
+		LastLogin:   time.Unix(1000, 0),
+		LoginCount:  1,
+	}
+	require.NoError(t, s.InsertDriver(ctx, driver))
+
+	// Add WebSocket connection
+	require.NoError(t, s.SaveConnection(ctx, WebSocketConnection{
+		DriverID:     12345,
+		ConnectionID: "conn123",
+	}))
+
+	// Acquire ingestion lock
+	acquired, err := s.AcquireIngestionLock(ctx, 12345, 15*time.Minute)
+	require.NoError(t, err)
+	assert.True(t, acquired)
+
+	// Verify they exist
+	conn, err := s.GetConnection(ctx, 12345, "conn123")
+	require.NoError(t, err)
+	require.NotNil(t, conn)
+
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	require.NotNil(t, got.IngestionBlockedUntil)
+
+	// Delete driver races
+	err = s.DeleteDriverRaces(ctx, 12345)
+	require.NoError(t, err)
+
+	// Verify connection is gone
+	conn, err = s.GetConnection(ctx, 12345, "conn123")
+	require.NoError(t, err)
+	assert.Nil(t, conn)
+
+	// Verify ingestion lock is gone
+	got, err = s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	assert.Nil(t, got.IngestionBlockedUntil)
+}
+
+func TestDeleteDriverRaces_NoRecordsToDelete(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Insert a driver with no other records
+	driver := Driver{
+		DriverID:    12345,
+		DriverName:  "Jon Sabados",
+		MemberSince: time.Unix(500, 0),
+		FirstLogin:  time.Unix(1000, 0),
+		LastLogin:   time.Unix(1000, 0),
+		LoginCount:  1,
+	}
+	require.NoError(t, s.InsertDriver(ctx, driver))
+
+	// Delete should succeed even with nothing to delete
+	err := s.DeleteDriverRaces(ctx, 12345)
+	require.NoError(t, err)
+
+	// Driver info should still exist
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "Jon Sabados", got.DriverName)
+}
+
+func TestDeleteDriverRaces_MultipleSessions(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Insert a driver
+	ingestedTo := time.Unix(5000, 0)
+	driver := Driver{
+		DriverID:        12345,
+		DriverName:      "Jon Sabados",
+		MemberSince:     time.Unix(500, 0),
+		FirstLogin:      time.Unix(1000, 0),
+		LastLogin:       time.Unix(1000, 0),
+		LoginCount:      1,
+		RacesIngestedTo: &ingestedTo,
+	}
+	require.NoError(t, s.InsertDriver(ctx, driver))
+
+	// Add multiple sessions
+	for i := 0; i < 30; i++ { // More than maxBatchWriteItems (25) to test batching
+		startTime := time.Unix(int64(1700000000+i*1000), 0)
+		data := SessionDataInsertion{
+			SessionEntries: []Session{
+				{SubsessionID: int64(i + 1), TrackID: 100, StartTime: startTime},
+			},
+			DriverSessionEntries: []DriverSession{
+				{DriverID: 12345, SubsessionID: int64(i + 1), TrackID: 100, CarID: 101, StartTime: startTime, ReasonOut: "Running"},
+			},
+		}
+		require.NoError(t, s.PersistSessionData(ctx, data))
+	}
+
+	// Verify driver has sessions
+	sessions, err := s.GetDriverSessions(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
+	require.NoError(t, err)
+	assert.Len(t, sessions, 30)
+
+	// Delete driver races
+	err = s.DeleteDriverRaces(ctx, 12345)
+	require.NoError(t, err)
+
+	// Verify all sessions are deleted
+	sessions, err = s.GetDriverSessions(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
+	require.NoError(t, err)
+	assert.Empty(t, sessions)
+
+	// Verify driver info still exists
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Nil(t, got.RacesIngestedTo)
+	assert.Equal(t, int64(0), got.SessionCount)
+}
+
+func TestDeleteDriverRaces_IsolatedByDriver(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Insert two drivers
+	driver1 := Driver{DriverID: 111, DriverName: "Driver 1", MemberSince: time.Unix(500, 0), FirstLogin: time.Unix(1000, 0), LastLogin: time.Unix(1000, 0), LoginCount: 1}
+	driver2 := Driver{DriverID: 222, DriverName: "Driver 2", MemberSince: time.Unix(500, 0), FirstLogin: time.Unix(1000, 0), LastLogin: time.Unix(1000, 0), LoginCount: 1}
+	require.NoError(t, s.InsertDriver(ctx, driver1))
+	require.NoError(t, s.InsertDriver(ctx, driver2))
+
+	// Add sessions for both drivers
+	data := SessionDataInsertion{
+		SessionEntries: []Session{
+			{SubsessionID: 1, TrackID: 100, StartTime: time.Unix(1700000000, 0)},
+		},
+		DriverSessionEntries: []DriverSession{
+			{DriverID: 111, SubsessionID: 1, TrackID: 100, CarID: 101, StartTime: time.Unix(1700000000, 0), ReasonOut: "Running"},
+			{DriverID: 222, SubsessionID: 1, TrackID: 100, CarID: 102, StartTime: time.Unix(1700000000, 0), ReasonOut: "Running"},
+		},
+	}
+	require.NoError(t, s.PersistSessionData(ctx, data))
+
+	// Delete only driver 111's races
+	err := s.DeleteDriverRaces(ctx, 111)
+	require.NoError(t, err)
+
+	// Driver 111 should have no sessions
+	sessions, err := s.GetDriverSessions(ctx, 111, time.Unix(0, 0), time.Unix(9999999999, 0))
+	require.NoError(t, err)
+	assert.Empty(t, sessions)
+
+	// Driver 222 should still have their session
+	sessions, err = s.GetDriverSessions(ctx, 222, time.Unix(0, 0), time.Unix(9999999999, 0))
+	require.NoError(t, err)
+	assert.Len(t, sessions, 1)
+}
+
 func setupTestStore(t *testing.T) *DynamoStore {
 	t.Helper()
 	t.Parallel()

@@ -4,9 +4,13 @@ import { RouterLink, useRouter } from 'vue-router'
 import { initiateLogin } from '@/auth/iracing'
 import { useSessionStore } from '@/stores/session'
 import { useAuthStore } from '@/stores/auth'
+import { useDriverStore } from '@/stores/driver'
+import { useApiClient } from '@/api/client'
 
 const session = useSessionStore()
 const auth = useAuthStore()
+const driverStore = useDriverStore()
+const apiClient = useApiClient()
 
 const hasDeveloperAccess = computed(() => auth.hasEntitlement('developer'))
 const hasAnyTools = computed(() => hasDeveloperAccess.value)
@@ -45,6 +49,27 @@ async function copyIRacingToken() {
     showCopyStatus('iRacing token copied!')
   } catch {
     showCopyStatus('Failed to copy')
+  }
+  closeMenu()
+}
+
+async function purgeRaceHistory() {
+  if (!auth.userId) return
+
+  const confirmed = window.confirm(
+    'This will delete all your race history and reset your sync state. You will need to re-sync to see your races again.\n\nAre you sure you want to continue?'
+  )
+  if (!confirmed) {
+    closeMenu()
+    return
+  }
+
+  try {
+    await apiClient.deleteDriverRaces(auth.userId)
+    await driverStore.refresh()
+    showCopyStatus('Race history purged!')
+  } catch {
+    showCopyStatus('Failed to purge')
   }
   closeMenu()
 }
@@ -128,6 +153,7 @@ router.afterEach(() => {
             <RouterLink v-if="hasDeveloperAccess" to="/iracing-api" class="more-item" @click="closeMenu">iRacing API Explorer</RouterLink>
             <button v-if="hasDeveloperAccess" class="more-item" @click="copyBearerToken">Copy Bearer Token</button>
             <button v-if="hasDeveloperAccess" class="more-item" @click="copyIRacingToken">Copy iRacing Token</button>
+            <button v-if="hasDeveloperAccess" class="more-item" @click="purgeRaceHistory">Purge Race History</button>
           </div>
         </div>
 
@@ -138,6 +164,7 @@ router.afterEach(() => {
           <RouterLink v-if="hasDeveloperAccess" to="/iracing-api" class="nav-link" @click="closeMenu">iRacing API Explorer</RouterLink>
           <button v-if="hasDeveloperAccess" class="nav-link tool-button" @click="copyBearerToken">Copy Bearer Token</button>
           <button v-if="hasDeveloperAccess" class="nav-link tool-button" @click="copyIRacingToken">Copy iRacing Token</button>
+          <button v-if="hasDeveloperAccess" class="nav-link tool-button" @click="purgeRaceHistory">Purge Race History</button>
         </div>
 
         <!-- Copy status toast -->

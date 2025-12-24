@@ -456,7 +456,7 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				NotifyConnectionID: "conn-123",
 			},
 			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
-			// No release - stale creds returns (false, nil) so lock expires naturally
+			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID}, // Release so client can retry immediately
 			getDriverCall: &getDriverCall{
 				driverID: driverID,
 				result: &store.Driver{

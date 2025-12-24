@@ -158,10 +158,9 @@ function handleClick() {
   }
 }
 
-/* Hide button label and CTA on smaller screens, keep icon */
+/* Hide button label on smaller screens, keep icon */
 @media (max-width: 480px) {
-  .sync-label,
-  .sync-cta {
+  .sync-label {
     display: none;
   }
 
