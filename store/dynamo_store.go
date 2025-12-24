@@ -670,6 +670,10 @@ func (s *DynamoStore) writeSessionSubItems(ctx context.Context, data SessionData
 			newCPI:                driver.NewCPI,
 			oldIRating:            driver.OldIRating,
 			newIRating:            driver.NewIRating,
+			oldLicenseLevel:       driver.OldLicenseLevel,
+			newLicenseLevel:       driver.NewLicenseLevel,
+			oldSubLevel:           driver.OldSubLevel,
+			newSubLevel:           driver.NewSubLevel,
 			reasonOut:             driver.ReasonOut,
 			ai:                    driver.AI,
 		}.toAttributeMap()))
@@ -698,9 +702,12 @@ func (s *DynamoStore) writeSessionRecords(ctx context.Context, data SessionDataI
 	var items []types.TransactWriteItem
 	for _, session := range data.SessionEntries {
 		items = append(items, s.putWithKeyCheck(sessionModel{
-			subsessionID: session.SubsessionID,
-			trackID:      session.TrackID,
-			startTime:    toUnixSeconds(session.StartTime),
+			subsessionID:    session.SubsessionID,
+			trackID:         session.TrackID,
+			seriesID:        session.SeriesID,
+			seriesName:      session.SeriesName,
+			licenseCategory: session.LicenseCategory,
+			startTime:       toUnixSeconds(session.StartTime),
 		}.toAttributeMap()))
 	}
 
@@ -723,6 +730,8 @@ func (s *DynamoStore) writeDriverSessionRecords(ctx context.Context, data Sessio
 			subsessionID:          driverSession.SubsessionID,
 			trackID:               driverSession.TrackID,
 			carID:                 driverSession.CarID,
+			seriesID:              driverSession.SeriesID,
+			seriesName:            driverSession.SeriesName,
 			startTime:             toUnixSeconds(driverSession.StartTime),
 			startPosition:         driverSession.StartPosition,
 			startPositionInClass:  driverSession.StartPositionInClass,
@@ -733,6 +742,10 @@ func (s *DynamoStore) writeDriverSessionRecords(ctx context.Context, data Sessio
 			newCPI:                driverSession.NewCPI,
 			oldIRating:            driverSession.OldIRating,
 			newIRating:            driverSession.NewIRating,
+			oldLicenseLevel:       driverSession.OldLicenseLevel,
+			newLicenseLevel:       driverSession.NewLicenseLevel,
+			oldSubLevel:           driverSession.OldSubLevel,
+			newSubLevel:           driverSession.NewSubLevel,
 			reasonOut:             driverSession.ReasonOut,
 		}.toAttributeMap()))
 	}

@@ -13,6 +13,25 @@ See [CODING_STANDARDS.md](CODING_STANDARDS.md) for coding conventions and patter
 ### Go-Specific
 - **No labels**: Avoid labeled breaks/continues - they're essentially GOTOs. Use boolean flags, helper functions, or restructure the logic instead.
 
+## Testing
+
+Tests are a first-class concern, not an afterthought.
+
+### Backend (Go)
+- **Test-Driven Development**: When adding new functionality, prefer writing tests first. This applies especially to:
+  - New endpoints or handlers
+  - New store methods
+  - Business logic with clear inputs/outputs
+- **Proactive test updates**: When modifying existing code, immediately check for existing tests that need updating. Don't wait for the user to catch missing test updates.
+- **Test data**: When updating structs or adding fields, update test data to exercise the new fields with meaningful values (not just zero values).
+- **Fixtures**: If tests use JSON fixtures, update them as part of the same change that modifies the response structure.
+
+### Frontend (Vue/TypeScript)
+- **Component tests**: When creating new components, create corresponding `.test.ts` files following existing patterns (see `TrackCell.test.ts` for reference).
+- **Testable logic**: Components with meaningful logic (computed properties, data transformations, conditional rendering) should have tests.
+- **Store mocking**: Use `vi.mock()` to mock Pinia stores when testing components that depend on them.
+- **Cleanup**: When removing components, remove their corresponding test files.
+
 ## IDE Integration
 - IntelliJ is configured to auto-optimize imports on save
 - When adding new imports, ensure they are used in the same edit - unused imports will be removed automatically

@@ -22,6 +22,8 @@ func TestNewGetRaceEndpoint(t *testing.T) {
 		DriverID:              12345,
 		SubsessionID:          100001,
 		TrackID:               1,
+		SeriesID:              42,
+		SeriesName:            "Advanced Mazda MX-5 Cup Series",
 		CarID:                 10,
 		StartTime:             time.Unix(1700000000, 0),
 		StartPosition:         5,
@@ -33,6 +35,10 @@ func TestNewGetRaceEndpoint(t *testing.T) {
 		NewCPI:                1.4,
 		OldIRating:            1500,
 		NewIRating:            1550,
+		OldLicenseLevel:       17,
+		NewLicenseLevel:       18,
+		OldSubLevel:           381,
+		NewSubLevel:           399,
 		ReasonOut:             "Running",
 	}
 

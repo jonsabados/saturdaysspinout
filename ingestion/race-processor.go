@@ -361,6 +361,8 @@ func (r *RaceProcessor) processExistingSession(ctx context.Context, insertionMut
 				DriverID:              driverID,
 				SubsessionID:          existingSession.SubsessionID,
 				TrackID:               existingSession.TrackID,
+				SeriesID:              existingSession.SeriesID,
+				SeriesName:            existingSession.SeriesName,
 				CarID:                 sd.CarID,
 				StartTime:             existingSession.StartTime,
 				StartPosition:         sd.StartPosition,
@@ -372,6 +374,10 @@ func (r *RaceProcessor) processExistingSession(ctx context.Context, insertionMut
 				NewCPI:                sd.NewCPI,
 				OldIRating:            sd.OldIRating,
 				NewIRating:            sd.NewIRating,
+				OldLicenseLevel:       sd.OldLicenseLevel,
+				NewLicenseLevel:       sd.NewLicenseLevel,
+				OldSubLevel:           sd.OldSubLevel,
+				NewSubLevel:           sd.NewSubLevel,
 				ReasonOut:             sd.ReasonOut,
 			})
 			break
@@ -409,10 +415,13 @@ func (r *RaceProcessor) processNewSession(ctx context.Context, insertionMutex *s
 	var insertions store.SessionDataInsertion
 
 	insertions.SessionEntries = append(insertions.SessionEntries, store.Session{
-		SubsessionID: sessionResult.SubsessionID,
-		TrackID:      sessionResult.Track.TrackID,
-		StartTime:    sessionResult.StartTime,
-		CarClasses:   mapCarClasses(sessionResult.SubsessionID, sessionResult.CarClasses),
+		SubsessionID:    sessionResult.SubsessionID,
+		TrackID:         sessionResult.Track.TrackID,
+		SeriesID:        int64(sessionResult.SeriesID),
+		SeriesName:      sessionResult.SeriesName,
+		LicenseCategory: sessionResult.LicenseCategory,
+		StartTime:       sessionResult.StartTime,
+		CarClasses:      mapCarClasses(sessionResult.SubsessionID, sessionResult.CarClasses),
 	})
 
 	// first lets process the session level stats - these are all just in memory operations
@@ -549,6 +558,10 @@ func (r *RaceProcessor) processDriverSessionResults(ctx context.Context, subsess
 		NewCPI:                driverResult.NewCPI,
 		OldIRating:            driverResult.OldIRating,
 		NewIRating:            driverResult.NewIRating,
+		OldLicenseLevel:       driverResult.OldLicenseLevel,
+		NewLicenseLevel:       driverResult.NewLicenseLevel,
+		OldSubLevel:           driverResult.OldSubLevel,
+		NewSubLevel:           driverResult.NewSubLevel,
 		ReasonOut:             driverResult.ReasonOut,
 		AI:                    driverResult.AI,
 	})
@@ -566,6 +579,8 @@ func (r *RaceProcessor) processDriverSessionResults(ctx context.Context, subsess
 				DriverID:              driverID,
 				SubsessionID:          sessionResult.SubsessionID,
 				TrackID:               sessionResult.Track.TrackID,
+				SeriesID:              int64(sessionResult.SeriesID),
+				SeriesName:            sessionResult.SeriesName,
 				CarID:                 driverResult.CarID,
 				StartTime:             sessionResult.StartTime,
 				StartPosition:         driverResult.StartingPosition,
@@ -577,6 +592,10 @@ func (r *RaceProcessor) processDriverSessionResults(ctx context.Context, subsess
 				NewCPI:                driverResult.NewCPI,
 				OldIRating:            driverResult.OldIRating,
 				NewIRating:            driverResult.NewIRating,
+				OldLicenseLevel:       driverResult.OldLicenseLevel,
+				NewLicenseLevel:       driverResult.NewLicenseLevel,
+				OldSubLevel:           driverResult.OldSubLevel,
+				NewSubLevel:           driverResult.NewSubLevel,
 				ReasonOut:             driverResult.ReasonOut,
 			})
 		}

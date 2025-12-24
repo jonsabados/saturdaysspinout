@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
-import CarCell from './CarCell.vue'
+import SessionCell from './SessionCell.vue'
 import type { Car } from '@/api/client'
 
 const mockCar: Car = {
@@ -32,41 +32,43 @@ vi.mock('@/stores/cars', () => ({
   }),
 }))
 
-describe('CarCell', () => {
+describe('SessionCell', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
   })
 
-  it('displays car name when found', () => {
+  it('displays series name and car name when car is found', () => {
     mockGetCar.mockReturnValue(mockCar)
 
-    const wrapper = mount(CarCell, {
-      props: { carId: 1 },
+    const wrapper = mount(SessionCell, {
+      props: { seriesName: 'Advanced Mazda MX-5 Cup Series', carId: 1 },
     })
 
-    expect(wrapper.find('.car-text-full').text()).toBe('Mazda MX-5 Miata')
-    expect(wrapper.find('.car-text-abbrev').text()).toBe('MX-5')
-    expect(wrapper.attributes('title')).toBe('Mazda MX-5 Miata')
+    expect(wrapper.find('.series-name').text()).toBe('Advanced Mazda MX-5 Cup Series')
+    expect(wrapper.find('.car-name').text()).toBe('Mazda MX-5 Miata')
+    expect(wrapper.find('.session-text-abbrev').text()).toBe('MX-5')
+    expect(wrapper.attributes('title')).toBe('Advanced Mazda MX-5 Cup Series - Mazda MX-5 Miata')
   })
 
-  it('displays fallback when car not found', () => {
+  it('displays fallback car name when car not found', () => {
     mockGetCar.mockReturnValue(undefined)
 
-    const wrapper = mount(CarCell, {
-      props: { carId: 999 },
+    const wrapper = mount(SessionCell, {
+      props: { seriesName: 'Some Series', carId: 999 },
     })
 
-    expect(wrapper.find('.car-text-full').text()).toBe('Car 999')
-    expect(wrapper.find('.car-text-abbrev').text()).toBe('Car 999')
-    expect(wrapper.attributes('title')).toBe('Car 999')
+    expect(wrapper.find('.series-name').text()).toBe('Some Series')
+    expect(wrapper.find('.car-name').text()).toBe('Car 999')
+    expect(wrapper.find('.session-text-abbrev').text()).toBe('Car 999')
+    expect(wrapper.attributes('title')).toBe('Some Series - Car 999')
   })
 
   it('calls getCar with correct carId', () => {
     mockGetCar.mockReturnValue(mockCar)
 
-    mount(CarCell, {
-      props: { carId: 42 },
+    mount(SessionCell, {
+      props: { seriesName: 'Test Series', carId: 42 },
     })
 
     expect(mockGetCar).toHaveBeenCalledWith(42)

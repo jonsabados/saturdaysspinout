@@ -296,6 +296,8 @@ type driverSessionModel struct {
 	subsessionID          int64
 	trackID               int64
 	carID                 int64
+	seriesID              int64
+	seriesName            string
 	startTime             int64
 	startPosition         int
 	startPositionInClass  int
@@ -306,6 +308,10 @@ type driverSessionModel struct {
 	newCPI                float64
 	oldIRating            int
 	newIRating            int
+	oldLicenseLevel       int
+	newLicenseLevel       int
+	oldSubLevel           int
+	newSubLevel           int
 	reasonOut             string
 }
 
@@ -316,6 +322,8 @@ func (d driverSessionModel) toAttributeMap() map[string]types.AttributeValue {
 		"subsession_id":            &types.AttributeValueMemberN{Value: strconv.FormatInt(d.subsessionID, 10)},
 		"track_id":                 &types.AttributeValueMemberN{Value: strconv.FormatInt(d.trackID, 10)},
 		"car_id":                   &types.AttributeValueMemberN{Value: strconv.FormatInt(d.carID, 10)},
+		"series_id":                &types.AttributeValueMemberN{Value: strconv.FormatInt(d.seriesID, 10)},
+		"series_name":              &types.AttributeValueMemberS{Value: d.seriesName},
 		"start_time":               &types.AttributeValueMemberN{Value: strconv.FormatInt(d.startTime, 10)},
 		"start_position":           &types.AttributeValueMemberN{Value: strconv.Itoa(d.startPosition)},
 		"start_position_in_class":  &types.AttributeValueMemberN{Value: strconv.Itoa(d.startPositionInClass)},
@@ -326,6 +334,10 @@ func (d driverSessionModel) toAttributeMap() map[string]types.AttributeValue {
 		"new_cpi":                  &types.AttributeValueMemberN{Value: strconv.FormatFloat(d.newCPI, 'f', -1, 64)},
 		"old_irating":              &types.AttributeValueMemberN{Value: strconv.Itoa(d.oldIRating)},
 		"new_irating":              &types.AttributeValueMemberN{Value: strconv.Itoa(d.newIRating)},
+		"old_license_level":        &types.AttributeValueMemberN{Value: strconv.Itoa(d.oldLicenseLevel)},
+		"new_license_level":        &types.AttributeValueMemberN{Value: strconv.Itoa(d.newLicenseLevel)},
+		"old_sub_level":            &types.AttributeValueMemberN{Value: strconv.Itoa(d.oldSubLevel)},
+		"new_sub_level":            &types.AttributeValueMemberN{Value: strconv.Itoa(d.newSubLevel)},
 		"reason_out":               &types.AttributeValueMemberS{Value: d.reasonOut},
 	}
 }
@@ -340,6 +352,14 @@ func driverSessionFromAttributeMap(driverID int64, item map[string]types.Attribu
 		return nil, err
 	}
 	carID, err := getInt64Attr(item, "car_id")
+	if err != nil {
+		return nil, err
+	}
+	seriesID, err := getInt64Attr(item, "series_id")
+	if err != nil {
+		return nil, err
+	}
+	seriesName, err := getStringAttr(item, "series_name")
 	if err != nil {
 		return nil, err
 	}
@@ -383,6 +403,22 @@ func driverSessionFromAttributeMap(driverID int64, item map[string]types.Attribu
 	if err != nil {
 		return nil, err
 	}
+	oldLicenseLevel, err := getIntAttr(item, "old_license_level")
+	if err != nil {
+		return nil, err
+	}
+	newLicenseLevel, err := getIntAttr(item, "new_license_level")
+	if err != nil {
+		return nil, err
+	}
+	oldSubLevel, err := getIntAttr(item, "old_sub_level")
+	if err != nil {
+		return nil, err
+	}
+	newSubLevel, err := getIntAttr(item, "new_sub_level")
+	if err != nil {
+		return nil, err
+	}
 	reasonOut, err := getStringAttr(item, "reason_out")
 	if err != nil {
 		return nil, err
@@ -393,6 +429,8 @@ func driverSessionFromAttributeMap(driverID int64, item map[string]types.Attribu
 		SubsessionID:          subsessionID,
 		TrackID:               trackID,
 		CarID:                 carID,
+		SeriesID:              seriesID,
+		SeriesName:            seriesName,
 		StartTime:             time.Unix(startTime, 0),
 		StartPosition:         startPosition,
 		StartPositionInClass:  startPositionInClass,
@@ -403,24 +441,34 @@ func driverSessionFromAttributeMap(driverID int64, item map[string]types.Attribu
 		NewCPI:                newCPI,
 		OldIRating:            oldIRating,
 		NewIRating:            newIRating,
+		OldLicenseLevel:       oldLicenseLevel,
+		NewLicenseLevel:       newLicenseLevel,
+		OldSubLevel:           oldSubLevel,
+		NewSubLevel:           newSubLevel,
 		ReasonOut:             reasonOut,
 	}, nil
 }
 
 // sessionModel represents race metadata (session#<id> / info)
 type sessionModel struct {
-	subsessionID int64
-	trackID      int64
-	startTime    int64
+	subsessionID    int64
+	trackID         int64
+	seriesID        int64
+	seriesName      string
+	licenseCategory string
+	startTime       int64
 }
 
 func (s sessionModel) toAttributeMap() map[string]types.AttributeValue {
 	return map[string]types.AttributeValue{
-		partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(sessionPartitionKeyFormat, s.subsessionID)},
-		sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
-		"subsession_id":  &types.AttributeValueMemberN{Value: strconv.FormatInt(s.subsessionID, 10)},
-		"track_id":       &types.AttributeValueMemberN{Value: strconv.FormatInt(s.trackID, 10)},
-		"start_time":     &types.AttributeValueMemberN{Value: strconv.FormatInt(s.startTime, 10)},
+		partitionKeyName:   &types.AttributeValueMemberS{Value: fmt.Sprintf(sessionPartitionKeyFormat, s.subsessionID)},
+		sortKeyName:        &types.AttributeValueMemberS{Value: defaultSortKey},
+		"subsession_id":    &types.AttributeValueMemberN{Value: strconv.FormatInt(s.subsessionID, 10)},
+		"track_id":         &types.AttributeValueMemberN{Value: strconv.FormatInt(s.trackID, 10)},
+		"series_id":        &types.AttributeValueMemberN{Value: strconv.FormatInt(s.seriesID, 10)},
+		"series_name":      &types.AttributeValueMemberS{Value: s.seriesName},
+		"license_category": &types.AttributeValueMemberS{Value: s.licenseCategory},
+		"start_time":       &types.AttributeValueMemberN{Value: strconv.FormatInt(s.startTime, 10)},
 	}
 }
 
@@ -433,15 +481,30 @@ func sessionFromAttributeMap(item map[string]types.AttributeValue) (*Session, er
 	if err != nil {
 		return nil, err
 	}
+	seriesID, err := getInt64Attr(item, "series_id")
+	if err != nil {
+		return nil, err
+	}
+	seriesName, err := getStringAttr(item, "series_name")
+	if err != nil {
+		return nil, err
+	}
+	licenseCategory, err := getStringAttr(item, "license_category")
+	if err != nil {
+		return nil, err
+	}
 	startTime, err := getInt64Attr(item, "start_time")
 	if err != nil {
 		return nil, err
 	}
 
 	return &Session{
-		SubsessionID: subsessionID,
-		TrackID:      trackID,
-		StartTime:    time.Unix(startTime, 0),
+		SubsessionID:    subsessionID,
+		TrackID:         trackID,
+		SeriesID:        seriesID,
+		SeriesName:      seriesName,
+		LicenseCategory: licenseCategory,
+		StartTime:       time.Unix(startTime, 0),
 	}, nil
 }
 
@@ -495,6 +558,10 @@ type sessionDriverModel struct {
 	newCPI                float64
 	oldIRating            int
 	newIRating            int
+	oldLicenseLevel       int
+	newLicenseLevel       int
+	oldSubLevel           int
+	newSubLevel           int
 	reasonOut             string
 	ai                    bool
 }
@@ -515,6 +582,10 @@ func (d sessionDriverModel) toAttributeMap() map[string]types.AttributeValue {
 		"new_cpi":                  &types.AttributeValueMemberN{Value: strconv.FormatFloat(d.newCPI, 'f', -1, 64)},
 		"old_irating":              &types.AttributeValueMemberN{Value: strconv.Itoa(d.oldIRating)},
 		"new_irating":              &types.AttributeValueMemberN{Value: strconv.Itoa(d.newIRating)},
+		"old_license_level":        &types.AttributeValueMemberN{Value: strconv.Itoa(d.oldLicenseLevel)},
+		"new_license_level":        &types.AttributeValueMemberN{Value: strconv.Itoa(d.newLicenseLevel)},
+		"old_sub_level":            &types.AttributeValueMemberN{Value: strconv.Itoa(d.oldSubLevel)},
+		"new_sub_level":            &types.AttributeValueMemberN{Value: strconv.Itoa(d.newSubLevel)},
 		"reason_out":               &types.AttributeValueMemberS{Value: d.reasonOut},
 		"ai":                       &types.AttributeValueMemberBOOL{Value: d.ai},
 	}
@@ -569,6 +640,22 @@ func sessionDriverFromAttributeMap(item map[string]types.AttributeValue) (*Sessi
 	if err != nil {
 		return nil, err
 	}
+	oldLicenseLevel, err := getIntAttr(item, "old_license_level")
+	if err != nil {
+		return nil, err
+	}
+	newLicenseLevel, err := getIntAttr(item, "new_license_level")
+	if err != nil {
+		return nil, err
+	}
+	oldSubLevel, err := getIntAttr(item, "old_sub_level")
+	if err != nil {
+		return nil, err
+	}
+	newSubLevel, err := getIntAttr(item, "new_sub_level")
+	if err != nil {
+		return nil, err
+	}
 	reasonOut, err := getStringAttr(item, "reason_out")
 	if err != nil {
 		return nil, err
@@ -591,6 +678,10 @@ func sessionDriverFromAttributeMap(item map[string]types.AttributeValue) (*Sessi
 		NewCPI:                newCPI,
 		OldIRating:            oldIRating,
 		NewIRating:            newIRating,
+		OldLicenseLevel:       oldLicenseLevel,
+		NewLicenseLevel:       newLicenseLevel,
+		OldSubLevel:           oldSubLevel,
+		NewSubLevel:           newSubLevel,
 		ReasonOut:             reasonOut,
 		AI:                    ai,
 	}, nil

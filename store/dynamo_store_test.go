@@ -769,9 +769,12 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 	data := SessionDataInsertion{
 		SessionEntries: []Session{
 			{
-				SubsessionID: 12345,
-				TrackID:      100,
-				StartTime:    sessionStartTime,
+				SubsessionID:    12345,
+				TrackID:         100,
+				SeriesID:        42,
+				SeriesName:      "Advanced Mazda MX-5 Cup Series",
+				LicenseCategory: "Road",
+				StartTime:       sessionStartTime,
 				CarClasses: []SessionCarClass{
 					{
 						SubsessionID:    12345,
@@ -809,6 +812,10 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 				NewCPI:                0.6,
 				OldIRating:            2000,
 				NewIRating:            2050,
+				OldLicenseLevel:       17,
+				NewLicenseLevel:       18,
+				OldSubLevel:           381,
+				NewSubLevel:           399,
 				ReasonOut:             "Running",
 				AI:                    false,
 			},
@@ -825,6 +832,10 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 				NewCPI:                0.25,
 				OldIRating:            2100,
 				NewIRating:            2150,
+				OldLicenseLevel:       18,
+				NewLicenseLevel:       18,
+				OldSubLevel:           425,
+				NewSubLevel:           450,
 				ReasonOut:             "Running",
 				AI:                    false,
 			},
@@ -842,6 +853,8 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 				SubsessionID:          12345,
 				TrackID:               100,
 				CarID:                 101,
+				SeriesID:              42,
+				SeriesName:            "Advanced Mazda MX-5 Cup Series",
 				StartTime:             sessionStartTime,
 				StartPosition:         1,
 				StartPositionInClass:  1,
@@ -852,6 +865,10 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 				NewCPI:                0.6,
 				OldIRating:            2000,
 				NewIRating:            2050,
+				OldLicenseLevel:       17,
+				NewLicenseLevel:       18,
+				OldSubLevel:           381,
+				NewSubLevel:           399,
 				ReasonOut:             "Running",
 			},
 			{
@@ -859,6 +876,8 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 				SubsessionID:          12345,
 				TrackID:               100,
 				CarID:                 102,
+				SeriesID:              42,
+				SeriesName:            "Advanced Mazda MX-5 Cup Series",
 				StartTime:             sessionStartTime,
 				StartPosition:         2,
 				StartPositionInClass:  2,
@@ -869,6 +888,10 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 				NewCPI:                0.25,
 				OldIRating:            2100,
 				NewIRating:            2150,
+				OldLicenseLevel:       18,
+				NewLicenseLevel:       18,
+				OldSubLevel:           425,
+				NewSubLevel:           450,
 				ReasonOut:             "Running",
 			},
 		},
@@ -883,6 +906,9 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 	require.NotNil(t, session)
 	assert.Equal(t, int64(12345), session.SubsessionID)
 	assert.Equal(t, int64(100), session.TrackID)
+	assert.Equal(t, int64(42), session.SeriesID)
+	assert.Equal(t, "Advanced Mazda MX-5 Cup Series", session.SeriesName)
+	assert.Equal(t, "Road", session.LicenseCategory)
 	assert.Equal(t, sessionStartTime, session.StartTime)
 	assert.Len(t, session.CarClasses, 2)
 
@@ -909,8 +935,16 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 	assert.Equal(t, 2, driverByID[1001].FinishPosition)
 	assert.Equal(t, 2, driverByID[1001].FinishPositionInClass)
 	assert.Equal(t, 3, driverByID[1001].Incidents)
+	assert.Equal(t, 17, driverByID[1001].OldLicenseLevel)
+	assert.Equal(t, 18, driverByID[1001].NewLicenseLevel)
+	assert.Equal(t, 381, driverByID[1001].OldSubLevel)
+	assert.Equal(t, 399, driverByID[1001].NewSubLevel)
 	assert.Equal(t, 1, driverByID[1002].FinishPosition)
 	assert.Equal(t, 1, driverByID[1002].FinishPositionInClass)
+	assert.Equal(t, 18, driverByID[1002].OldLicenseLevel)
+	assert.Equal(t, 18, driverByID[1002].NewLicenseLevel)
+	assert.Equal(t, 425, driverByID[1002].OldSubLevel)
+	assert.Equal(t, 450, driverByID[1002].NewSubLevel)
 
 	// Verify GetSessionDriverLaps for driver 1001
 	laps1001, err := s.GetSessionDriverLaps(ctx, 12345, 1001)
@@ -941,6 +975,8 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 			SubsessionID:          12345,
 			TrackID:               100,
 			CarID:                 101,
+			SeriesID:              42,
+			SeriesName:            "Advanced Mazda MX-5 Cup Series",
 			StartTime:             sessionStartTime,
 			StartPosition:         1,
 			StartPositionInClass:  1,
@@ -951,6 +987,10 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 			NewCPI:                0.6,
 			OldIRating:            2000,
 			NewIRating:            2050,
+			OldLicenseLevel:       17,
+			NewLicenseLevel:       18,
+			OldSubLevel:           381,
+			NewSubLevel:           399,
 			ReasonOut:             "Running",
 		},
 	}, driverSessions)

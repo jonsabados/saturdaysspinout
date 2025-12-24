@@ -4,6 +4,8 @@
       "id": 1700000000,
       "subsessionId": 100001,
       "trackId": 1,
+      "seriesId": 42,
+      "seriesName": "Advanced Mazda MX-5 Cup Series",
       "carId": 10,
       "startTime": "2023-11-14T22:13:20Z",
       "startPosition": 5,
@@ -15,6 +17,10 @@
       "newCpi": 1.4,
       "oldIrating": 1500,
       "newIrating": 1550,
+      "oldLicenseLevel": 17,
+      "newLicenseLevel": 18,
+      "oldSubLevel": 381,
+      "newSubLevel": 399,
       "reasonOut": "Running"
     }
   ],
