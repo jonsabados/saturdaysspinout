@@ -198,6 +198,8 @@ resource "aws_api_gateway_deployment" "api" {
     module.driver_races_options,
     module.driver_race_get,
     module.driver_race_options,
+    module.tracks_get,
+    module.tracks_options,
   ]
   rest_api_id = aws_api_gateway_rest_api.api.id
 

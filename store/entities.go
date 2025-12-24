@@ -7,11 +7,6 @@ import (
 
 var ErrEntityAlreadyExists = errors.New("entity already exists")
 
-type Track struct {
-	ID   int64
-	Name string
-}
-
 type Driver struct {
 	DriverID              int64
 	DriverName            string
@@ -104,7 +99,6 @@ type SessionDriverLap struct {
 
 type GlobalCounters struct {
 	Drivers  int64
-	Tracks   int64
 	Notes    int64
 	Sessions int64
 	Laps     int64

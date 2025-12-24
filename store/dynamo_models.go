@@ -13,8 +13,6 @@ const sortKeyName = "sort_key"
 
 const defaultSortKey = "info"
 
-const trackPartitionKeyFormat = "track#%d"
-
 const driverPartitionFormat = "driver#%d"
 const driverNoteSortKeyFormat = "note#%d" // note, the number should be a unix timestamp allowing us to find notes within a specified time period
 const wsConnectionSortKeyFormat = "ws#%s"
@@ -33,40 +31,9 @@ const sessionDriverLapSortKeyFormat = "laps#driver#%d#lap#%d"
 const globalCountersPartitionKey = "global"
 const globalCountersSortKey = "counters"
 const globalCountersAttributeDrivers = "drivers"
-const globalCountersAttributeTracks = "tracks"
 const globalCountersAttributeNotes = "notes"
 const globalCountersAttributeSessions = "sessions"
 const globalCountersAttributeLaps = "laps"
-
-type trackModel struct {
-	id   int64
-	name string
-}
-
-func (t trackModel) toAttributeMap() map[string]types.AttributeValue {
-	return map[string]types.AttributeValue{
-		partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(trackPartitionKeyFormat, t.id)},
-		sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
-		"id":             &types.AttributeValueMemberN{Value: strconv.FormatInt(t.id, 10)},
-		"name":           &types.AttributeValueMemberS{Value: t.name},
-	}
-}
-
-func trackFromAttributeMap(item map[string]types.AttributeValue) (*Track, error) {
-	id, err := getInt64Attr(item, "id")
-	if err != nil {
-		return nil, err
-	}
-	name, err := getStringAttr(item, "name")
-	if err != nil {
-		return nil, err
-	}
-
-	return &Track{
-		ID:   id,
-		Name: name,
-	}, nil
-}
 
 func globalCountersFromAttributeMap(item map[string]types.AttributeValue) (*GlobalCounters, error) {
 	counters := &GlobalCounters{}
@@ -77,14 +44,6 @@ func globalCountersFromAttributeMap(item map[string]types.AttributeValue) (*Glob
 			return nil, fmt.Errorf("invalid 'drivers' value: %w", err)
 		}
 		counters.Drivers = drivers
-	}
-
-	if tracksAttr, ok := item[globalCountersAttributeTracks].(*types.AttributeValueMemberN); ok {
-		tracks, err := strconv.ParseInt(tracksAttr.Value, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid 'tracks' value: %w", err)
-		}
-		counters.Tracks = tracks
 	}
 
 	if notesAttr, ok := item[globalCountersAttributeNotes].(*types.AttributeValueMemberN); ok {

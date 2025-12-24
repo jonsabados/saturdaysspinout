@@ -61,6 +61,33 @@ export interface DriverResponse {
   correlationId: string
 }
 
+export interface Track {
+  id: number
+  name: string
+  configName: string
+  category: string
+  location: string
+  cornersPerLap: number
+  lengthMiles: number
+  description: string
+  logoUrl: string
+  smallImageUrl: string
+  largeImageUrl: string
+  trackMapUrl: string
+  isDirt: boolean
+  isOval: boolean
+  hasNightLighting: boolean
+  rainEnabled: boolean
+  freeWithSubscription: boolean
+  retired: boolean
+  pitRoadSpeedLimit: number
+}
+
+export interface TracksResponse {
+  response: Track[]
+  correlationId: string
+}
+
 export class ApiClient {
   private authStore: ReturnType<typeof useAuthStore>
   private sessionStore: ReturnType<typeof useSessionStore>
@@ -176,6 +203,10 @@ export class ApiClient {
 
   async getDriver(driverId: number): Promise<DriverResponse> {
     return this.fetch<DriverResponse>(`/driver/${driverId}`)
+  }
+
+  async getTracks(): Promise<TracksResponse> {
+    return this.fetch<TracksResponse>('/tracks')
   }
 }
 

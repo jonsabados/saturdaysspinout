@@ -22,6 +22,7 @@ import (
 	"github.com/jonsabados/saturdaysspinout/api/driver"
 	"github.com/jonsabados/saturdaysspinout/api/health"
 	"github.com/jonsabados/saturdaysspinout/api/ingestion"
+	apiTracks "github.com/jonsabados/saturdaysspinout/api/tracks"
 	"github.com/jonsabados/saturdaysspinout/event"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
@@ -31,6 +32,7 @@ import (
 	"github.com/jonsabados/saturdaysspinout/iracing"
 	"github.com/jonsabados/saturdaysspinout/metrics"
 	"github.com/jonsabados/saturdaysspinout/store"
+	"github.com/jonsabados/saturdaysspinout/tracks"
 )
 
 type appCfg struct {
@@ -147,6 +149,7 @@ func CreateAPI() http.Handler {
 	raceIngestionDispatcher := event.NewSQSEventDispatcher(sqsClient, cfg.RaceIngestionQueueURL)
 
 	authService := auth.NewService(iRacingOAuthClient, jwtService, iRacingClient, driverStore)
+	tracksService := tracks.NewService(iRacingClient)
 
 	authMiddleware := api.AuthMiddleware(jwtService)
 
@@ -156,6 +159,7 @@ func CreateAPI() http.Handler {
 		DeveloperRouter: developer.NewRouter(iracing.NewDocClient(httpClient), authMiddleware),
 		IngestionRouter: ingestion.NewRouter(driverStore, raceIngestionDispatcher, authMiddleware),
 		DriverRouter:    driver.NewRouter(driverStore, authMiddleware),
+		TracksRouter:    apiTracks.NewRouter(tracksService, authMiddleware),
 	}
 
 	return api.NewRestAPI(logger, uuid.NewString, cfg.CORSAllowedOrigins, routers)

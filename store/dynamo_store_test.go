@@ -17,50 +17,6 @@ import (
 
 const localDynamoEndpoint = "http://localhost:8000"
 
-func TestInsertTrack_Success(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	track := Track{
-		ID:   1,
-		Name: "Daytona International Speedway",
-	}
-
-	err := s.InsertTrack(ctx, track)
-	require.NoError(t, err)
-
-	// Verify by reading it back
-	got, err := s.GetTrack(ctx, 1)
-	require.NoError(t, err)
-	assert.Equal(t, &track, got)
-}
-
-func TestInsertTrack_DuplicateReturnsError(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	track := Track{
-		ID:   1,
-		Name: "Daytona International Speedway",
-	}
-
-	err := s.InsertTrack(ctx, track)
-	require.NoError(t, err)
-
-	// Try to insert again with same ID
-	err = s.InsertTrack(ctx, track)
-	assert.ErrorIs(t, err, ErrEntityAlreadyExists)
-}
-
-func TestGetTrack_NotFound(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	got, err := s.GetTrack(ctx, 999)
-	require.NoError(t, err)
-	assert.Nil(t, got)
-}
-
 func TestGetGlobalCounters_Empty(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
@@ -68,19 +24,6 @@ func TestGetGlobalCounters_Empty(t *testing.T) {
 	counters, err := s.GetGlobalCounters(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, &GlobalCounters{}, counters)
-}
-
-func TestGetGlobalCounters_AfterInserts(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	// Insert a couple tracks
-	require.NoError(t, s.InsertTrack(ctx, Track{ID: 1, Name: "Track 1"}))
-	require.NoError(t, s.InsertTrack(ctx, Track{ID: 2, Name: "Track 2"}))
-
-	counters, err := s.GetGlobalCounters(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, int64(2), counters.Tracks)
 }
 
 func TestAddDriverNote_Success(t *testing.T) {
@@ -180,7 +123,6 @@ func TestGetGlobalCounters_IncludesNotes(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	require.NoError(t, s.InsertTrack(ctx, Track{ID: 1, Name: "Track 1"}))
 	require.NoError(t, s.AddDriverNote(ctx, DriverNote{
 		DriverID:  1,
 		Timestamp: time.Unix(1000, 0),
@@ -200,7 +142,6 @@ func TestGetGlobalCounters_IncludesNotes(t *testing.T) {
 
 	counters, err := s.GetGlobalCounters(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, int64(1), counters.Tracks)
 	assert.Equal(t, int64(2), counters.Notes)
 }
 

@@ -24,6 +24,7 @@
     "@types/node": "^24.10.1",
     "@vitejs/plugin-vue": "^5.2.1",
     "@vitest/coverage-v8": "^4.0.15",
+    "@vue/test-utils": "^2.4.6",
     "@vue/tsconfig": "^0.7.0",
     "jsdom": "^26.0.0",
     "npm-run-all2": "^7.0.2",

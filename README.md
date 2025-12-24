@@ -70,6 +70,7 @@ flowchart TB
 ├── ingestion/              # Race data ingestion processing
 ├── iracing/                # iRacing API client and OAuth integration
 ├── store/                  # Data persistence layer (DynamoDB)
+├── tracks/                 # Track data service (merges iRacing track info + assets)
 ├── ws/                     # WebSocket handler package
 ├── frontend/               # Vue 3 SPA
 ├── terraform/              # Infrastructure as Code
@@ -108,6 +109,7 @@ Both entry points share the same API setup via [`cmd/api.go`](cmd/api.go), which
 | [`api/entitlement-middleware.go`](api/entitlement-middleware.go) | Entitlement-based access control middleware |
 | [`api/developer/`](api/developer/) | Developer tools (requires `developer` entitlement): iRacing API doc proxy (`GET /developer/iracing-api/*`), token endpoint (`GET /developer/iracing-token`) |
 | [`api/driver/`](api/driver/) | Driver endpoints (`GET /driver/{driver_id}`, `GET /driver/{driver_id}/races`, `GET /driver/{driver_id}/races/{driver_race_id}`) |
+| [`api/tracks/`](api/tracks/) | Track data endpoint (`GET /tracks`) |
 
 #### API Naming Conventions
 
@@ -177,9 +179,9 @@ Expected access patterns:
 
 #### `global` partition
 
-| Sort Key | Description | Attributes                             |
-|----------|-------------|----------------------------------------|
-| `counters` | Aggregate counts | drivers, tracks, notes, sessions, laps |
+| Sort Key | Description | Attributes                           |
+|----------|-------------|--------------------------------------|
+| `counters` | Aggregate counts | drivers, notes, sessions, laps |
 
 | File | Purpose |
 |------|---------|

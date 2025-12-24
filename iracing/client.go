@@ -496,3 +496,50 @@ func (c *Client) GetLapData(ctx context.Context, accessToken string, subsessionI
 		Laps:            laps,
 	}, nil
 }
+
+// GetTracks fetches all track information from iRacing.
+func (c *Client) GetTracks(ctx context.Context, accessToken string) ([]TrackInfo, error) {
+	endpoint := c.baseURL + "/data/track/get"
+
+	data, err := c.fetchLinkedData(ctx, accessToken, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	var tracks []TrackInfo
+	if err := json.Unmarshal(data, &tracks); err != nil {
+		return nil, fmt.Errorf("parsing tracks response: %w", err)
+	}
+
+	return tracks, nil
+}
+
+// GetTrackAssets fetches track asset information (images, descriptions, maps) from iRacing.
+// Returns a map keyed by track ID.
+func (c *Client) GetTrackAssets(ctx context.Context, accessToken string) (map[int64]TrackAssets, error) {
+	endpoint := c.baseURL + "/data/track/assets"
+
+	data, err := c.fetchLinkedData(ctx, accessToken, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	// API returns map with string keys (track IDs as strings)
+	var rawAssets map[string]TrackAssets
+	if err := json.Unmarshal(data, &rawAssets); err != nil {
+		return nil, fmt.Errorf("parsing track assets response: %w", err)
+	}
+
+	// Convert to int64 keys for consistency
+	assets := make(map[int64]TrackAssets, len(rawAssets))
+	for idStr, asset := range rawAssets {
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			continue // Skip invalid IDs
+		}
+		asset.TrackID = id
+		assets[id] = asset
+	}
+
+	return assets, nil
+}

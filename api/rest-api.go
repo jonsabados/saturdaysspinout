@@ -15,16 +15,18 @@ import (
 )
 
 type RootRouters struct {
-	HealthRouter      http.Handler
-	AuthRouter        http.Handler
-	DeveloperRouter   http.Handler
-	IngestionRouter   http.Handler
-	DriverRouter      http.Handler
+	HealthRouter    http.Handler
+	AuthRouter      http.Handler
+	DeveloperRouter http.Handler
+	IngestionRouter http.Handler
+	DriverRouter    http.Handler
+	TracksRouter    http.Handler
 }
 
 func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGenerator, corsAllowedOrigins []string, routers RootRouters) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.Compress(5))
 	r.Use(middleware.RealIP)
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   corsAllowedOrigins,
@@ -43,6 +45,7 @@ func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGene
 	r.Mount("/ingestion", routers.IngestionRouter)
 	r.Mount("/developer", routers.DeveloperRouter)
 	r.Mount("/driver", routers.DriverRouter)
+	r.Mount("/tracks", routers.TracksRouter)
 
 	return xray.Handler(xray.NewFixedSegmentNamer("processHttpRequest"), r)
 }
