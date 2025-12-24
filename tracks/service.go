@@ -41,8 +41,6 @@ func NewService(client IRacingClient) *Service {
 	return &Service{client: client}
 }
 
-const iracingImgBaseURL = "https://images-static.iracing.com"
-
 func (s *Service) GetAll(ctx context.Context, accessToken string) ([]Track, error) {
 	trackInfos, err := s.client.GetTracks(ctx, accessToken)
 	if err != nil {
@@ -79,13 +77,13 @@ func (s *Service) GetAll(ctx context.Context, accessToken string) ([]Track, erro
 			track.TrackMapURL = asset.TrackMap
 
 			if asset.Logo != "" {
-				track.LogoURL = iracingImgBaseURL + asset.Logo
+				track.LogoURL = iracing.ImageBaseURL + asset.Logo
 			}
 			if asset.SmallImage != "" && asset.Folder != "" {
-				track.SmallImageURL = iracingImgBaseURL + asset.Folder + "/" + asset.SmallImage
+				track.SmallImageURL = iracing.ImageBaseURL + asset.Folder + "/" + asset.SmallImage
 			}
 			if asset.LargeImage != "" && asset.Folder != "" {
-				track.LargeImageURL = iracingImgBaseURL + asset.Folder + "/" + asset.LargeImage
+				track.LargeImageURL = iracing.ImageBaseURL + asset.Folder + "/" + asset.LargeImage
 			}
 		}
 

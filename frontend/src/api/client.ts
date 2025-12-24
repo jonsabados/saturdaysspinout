@@ -88,6 +88,32 @@ export interface TracksResponse {
   correlationId: string
 }
 
+export interface Car {
+  id: number
+  name: string
+  nameAbbreviated: string
+  make: string
+  model: string
+  description: string
+  weight: number
+  hpUnderHood: number
+  hpActual: number
+  categories: string[]
+  logoUrl: string
+  smallImageUrl: string
+  largeImageUrl: string
+  hasHeadlights: boolean
+  hasMultipleDryTires: boolean
+  rainEnabled: boolean
+  freeWithSubscription: boolean
+  retired: boolean
+}
+
+export interface CarsResponse {
+  response: Car[]
+  correlationId: string
+}
+
 export class ApiClient {
   private authStore: ReturnType<typeof useAuthStore>
   private sessionStore: ReturnType<typeof useSessionStore>
@@ -207,6 +233,10 @@ export class ApiClient {
 
   async getTracks(): Promise<TracksResponse> {
     return this.fetch<TracksResponse>('/tracks')
+  }
+
+  async getCars(): Promise<CarsResponse> {
+    return this.fetch<CarsResponse>('/cars')
   }
 }
 

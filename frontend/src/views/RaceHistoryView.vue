@@ -8,6 +8,7 @@ import { useWebSocketStore } from '@/stores/websocket'
 import { useDriverStore } from '@/stores/driver'
 import GridPosition from '@/components/GridPosition.vue'
 import TrackCell from '@/components/TrackCell.vue'
+import CarCell from '@/components/CarCell.vue'
 
 const apiClient = useApiClient()
 const auth = useAuthStore()
@@ -266,7 +267,7 @@ onUnmounted(() => {
         <tbody>
           <tr v-for="race in sortedRaces" :key="race.id">
             <td>{{ formatDate(race.startTime) }}</td>
-            <td>{{ race.carId }}</td>
+            <td><CarCell :car-id="race.carId" /></td>
             <td><TrackCell :track-id="race.trackId" /></td>
             <td><GridPosition :position="race.startPosition" :position-in-class="race.startPositionInClass" /></td>
             <td><GridPosition :position="race.finishPosition" :position-in-class="race.finishPositionInClass" /></td>
@@ -291,8 +292,6 @@ onUnmounted(() => {
 <style scoped>
 .race-history {
   padding: 2rem;
-  max-width: 1000px;
-  margin: 0 auto;
 }
 
 .page-header {
