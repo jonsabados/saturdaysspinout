@@ -208,6 +208,8 @@ func (r *RaceProcessor) doIngestRaces(ctx context.Context, request RaceIngestion
 	racesChan := make(chan iracing.SeriesResult)
 	racesDone := sync.WaitGroup{}
 
+	insertionMutex := sync.Mutex{}
+
 	for i := 0; i < r.raceConsumptionConcurrency; i++ {
 		racesDone.Add(1)
 		go func() {
@@ -221,7 +223,7 @@ func (r *RaceProcessor) doIngestRaces(ctx context.Context, request RaceIngestion
 					if !ok {
 						return
 					}
-					r.ingestRace(ctx, driver, request, race, collectionChan)
+					r.ingestRace(ctx, &insertionMutex, driver, request, race, collectionChan)
 				}
 			}
 		}()
@@ -261,7 +263,7 @@ func (r *RaceProcessor) doIngestRaces(ctx context.Context, request RaceIngestion
 	return !willBeUpToDate, nil
 }
 
-func (r *RaceProcessor) ingestRace(ctx context.Context, driver *store.Driver, request RaceIngestionRequest, race iracing.SeriesResult, collectorChan chan collectionResult) {
+func (r *RaceProcessor) ingestRace(ctx context.Context, insertionMutex *sync.Mutex, driver *store.Driver, request RaceIngestionRequest, race iracing.SeriesResult, collectorChan chan collectionResult) {
 	ctx, segment := xray.BeginSubsegment(ctx, "IngestRace")
 	var segmentErr error
 	defer func() { segment.Close(segmentErr) }()
@@ -283,7 +285,7 @@ func (r *RaceProcessor) ingestRace(ctx context.Context, driver *store.Driver, re
 
 	if existingSession != nil {
 		logger.Info().Int64("sessionID", race.SubsessionID).Msg("session already ingested")
-		if err := r.processExistingSession(ctx, existingSession, driver.DriverID); err != nil {
+		if err := r.processExistingSession(ctx, insertionMutex, existingSession, driver.DriverID); err != nil {
 			segmentErr = err
 			collectorChan <- collectionResult{err: err}
 		}
@@ -291,7 +293,7 @@ func (r *RaceProcessor) ingestRace(ctx context.Context, driver *store.Driver, re
 	}
 
 	collectorChan <- collectionResult{newRace: 1}
-	if err := r.processNewSession(ctx, request, race.SubsessionID); err != nil {
+	if err := r.processNewSession(ctx, insertionMutex, request, race.SubsessionID); err != nil {
 		segmentErr = err
 		collectorChan <- collectionResult{err: err}
 	}
@@ -309,14 +311,18 @@ func (r *RaceProcessor) notifyStaleCredentials(ctx context.Context, connectionID
 	}
 }
 
-func (r *RaceProcessor) persistAndNotify(ctx context.Context, insertions store.SessionDataInsertion) error {
+func (r *RaceProcessor) persistAndNotify(ctx context.Context, insertionMutex *sync.Mutex, insertions store.SessionDataInsertion) error {
 	if !insertions.HasData() {
 		return nil
 	}
 
+	// do not defer the unlock of this - we don't want to hold the lock while were notifying browsers
+	insertionMutex.Lock()
 	if err := r.store.PersistSessionData(ctx, insertions); err != nil {
+		insertionMutex.Unlock()
 		return fmt.Errorf("persisting data: %w", err)
 	}
+	insertionMutex.Unlock()
 
 	for _, driverSession := range insertions.DriverSessionEntries {
 		raceID := store.DriverRaceIDFromTime(driverSession.StartTime)
@@ -327,7 +333,7 @@ func (r *RaceProcessor) persistAndNotify(ctx context.Context, insertions store.S
 	return nil
 }
 
-func (r *RaceProcessor) processExistingSession(ctx context.Context, existingSession *store.Session, driverID int64) error {
+func (r *RaceProcessor) processExistingSession(ctx context.Context, insertionMutex *sync.Mutex, existingSession *store.Session, driverID int64) error {
 	var err error
 	ctx, segment := xray.BeginSubsegment(ctx, "ProcessExistingSession")
 	defer func() { segment.Close(err) }()
@@ -372,7 +378,7 @@ func (r *RaceProcessor) processExistingSession(ctx context.Context, existingSess
 		}
 	}
 
-	err = r.persistAndNotify(ctx, insertions)
+	err = r.persistAndNotify(ctx, insertionMutex, insertions)
 	return err
 }
 
@@ -385,7 +391,7 @@ func findRaceSession(sessions []iracing.SimSessionResult) *iracing.SimSessionRes
 	return nil
 }
 
-func (r *RaceProcessor) processNewSession(ctx context.Context, request RaceIngestionRequest, subsessionID int64) error {
+func (r *RaceProcessor) processNewSession(ctx context.Context, insertionMutex *sync.Mutex, request RaceIngestionRequest, subsessionID int64) error {
 	logger := zerolog.Ctx(ctx)
 
 	sessionResult, err := r.iracingClient.GetSessionResults(ctx, request.IRacingAccessToken, subsessionID, iracing.WithIncludeLicenses(true))
@@ -424,7 +430,7 @@ func (r *RaceProcessor) processNewSession(ctx context.Context, request RaceInges
 	}
 	insertions.SessionDriverLapEntries = append(insertions.SessionDriverLapEntries, laps...)
 
-	return r.persistAndNotify(ctx, insertions)
+	return r.persistAndNotify(ctx, insertionMutex, insertions)
 }
 
 func (r *RaceProcessor) processLaps(ctx context.Context, request RaceIngestionRequest, raceSession *iracing.SimSessionResult, sessionResult *iracing.SessionResult) ([]store.SessionDriverLap, error) {
