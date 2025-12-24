@@ -266,6 +266,14 @@ module "driver_races_get" {
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }
 
+module "driver_races_delete" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.driver_races.id
+  http_method       = "DELETE"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
 module "driver_races_options" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id

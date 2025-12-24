@@ -57,7 +57,8 @@ data "aws_iam_policy_document" "api_lambda" {
       "dynamodb:Query",
       "dynamodb:Scan",
       "dynamodb:TransactWriteItems",
-      "dynamodb:TransactGetItems"
+      "dynamodb:TransactGetItems",
+      "dynamodb:BatchWriteItem"
     ]
     resources = [
       aws_dynamodb_table.application_store.arn
@@ -195,6 +196,7 @@ resource "aws_api_gateway_deployment" "api" {
     module.developer_iracing_token_get,
     module.developer_iracing_token_options,
     module.driver_races_get,
+    module.driver_races_delete,
     module.driver_races_options,
     module.driver_race_get,
     module.driver_race_options,

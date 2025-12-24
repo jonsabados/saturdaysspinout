@@ -117,9 +117,13 @@ func (r *RaceProcessor) IngestRaces(ctx context.Context, request RaceIngestionRe
 
 	needsRecursion, err := r.doIngestRaces(ctx, request)
 	if err != nil {
-		// Release lock so SQS backoff can handle retry
+		// Release lock so SQS backoff can handle retry (or client can retry immediately for stale credentials)
 		if releaseErr := r.store.ReleaseIngestionLock(ctx, request.DriverID); releaseErr != nil {
 			logger.Err(releaseErr).Msg("failed to release ingestion lock after error")
+		}
+		if errors.Is(err, iracing.ErrUpstreamUnauthorized) {
+			r.notifyStaleCredentials(ctx, request.NotifyConnectionID)
+			return nil
 		}
 		return err
 	}
@@ -176,10 +180,6 @@ func (r *RaceProcessor) doIngestRaces(ctx context.Context, request RaceIngestion
 		iracing.WithEventTypes(iracing.EventTypeRace),
 	)
 	if err != nil {
-		if errors.Is(err, iracing.ErrUpstreamUnauthorized) {
-			r.notifyStaleCredentials(ctx, request.NotifyConnectionID)
-			return false, nil
-		}
 		return false, fmt.Errorf("searching series results: %w", err)
 	}
 
@@ -390,10 +390,6 @@ func (r *RaceProcessor) processNewSession(ctx context.Context, request RaceInges
 
 	sessionResult, err := r.iracingClient.GetSessionResults(ctx, request.IRacingAccessToken, subsessionID, iracing.WithIncludeLicenses(true))
 	if err != nil {
-		if errors.Is(err, iracing.ErrUpstreamUnauthorized) {
-			r.notifyStaleCredentials(ctx, request.NotifyConnectionID)
-			return nil
-		}
 		return fmt.Errorf("pulling session results: %w", err)
 	}
 	logger.Trace().Interface("result", sessionResult).Msg("got session result")
@@ -424,10 +420,6 @@ func (r *RaceProcessor) processNewSession(ctx context.Context, request RaceInges
 	// now laps, which is going to involve some concurrency
 	laps, err := r.processLaps(ctx, request, raceSession, sessionResult)
 	if err != nil {
-		if errors.Is(err, iracing.ErrUpstreamUnauthorized) {
-			r.notifyStaleCredentials(ctx, request.NotifyConnectionID)
-			return nil
-		}
 		return err
 	}
 	insertions.SessionDriverLapEntries = append(insertions.SessionDriverLapEntries, laps...)

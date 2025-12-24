@@ -238,6 +238,40 @@ export class ApiClient {
   async getCars(): Promise<CarsResponse> {
     return this.fetch<CarsResponse>('/cars')
   }
+
+  async deleteDriverRaces(driverId: number): Promise<void> {
+    if (!this.authStore.isLoggedIn) {
+      throw new Error('Not authenticated')
+    }
+
+    const headers = new Headers()
+    headers.set('Authorization', `Bearer ${this.authStore.token}`)
+
+    const response = await fetch(`${apiBaseUrl}/driver/${driverId}/races`, {
+      method: 'DELETE',
+      headers,
+    })
+
+    if (response.status === 401) {
+      const refreshed = await this.authStore.refreshToken()
+      if (refreshed) {
+        headers.set('Authorization', `Bearer ${this.authStore.token}`)
+        const retryResponse = await fetch(`${apiBaseUrl}/driver/${driverId}/races`, {
+          method: 'DELETE',
+          headers,
+        })
+        if (!retryResponse.ok) {
+          throw await this.parseError(retryResponse)
+        }
+        return
+      }
+      throw new Error('Session expired - please log in again')
+    }
+
+    if (!response.ok) {
+      throw await this.parseError(response)
+    }
+  }
 }
 
 export function useApiClient() {

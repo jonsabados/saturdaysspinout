@@ -155,13 +155,14 @@ func CreateAPI() http.Handler {
 	carsService := cars.NewService(iRacingClient)
 
 	authMiddleware := api.AuthMiddleware(jwtService)
+	developerMiddleware := api.EntitlementMiddleware("developer")
 
 	routers := api.RootRouters{
 		HealthRouter:    health.NewRouter(),
 		AuthRouter:      apiAuth.NewRouter(authService, authMiddleware),
-		DeveloperRouter: developer.NewRouter(iracing.NewDocClient(httpClient), authMiddleware),
+		DeveloperRouter: developer.NewRouter(iracing.NewDocClient(httpClient), authMiddleware, developerMiddleware),
 		IngestionRouter: ingestion.NewRouter(driverStore, raceIngestionDispatcher, authMiddleware),
-		DriverRouter:    driver.NewRouter(driverStore, authMiddleware),
+		DriverRouter:    driver.NewRouter(driverStore, authMiddleware, developerMiddleware),
 		TracksRouter:    apiTracks.NewRouter(tracksService, authMiddleware),
 		CarsRouter:      apiCars.NewRouter(carsService, authMiddleware),
 	}
