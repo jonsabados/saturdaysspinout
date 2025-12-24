@@ -280,6 +280,49 @@ func TestInsertDriver_IncrementsGlobalCounter(t *testing.T) {
 	assert.Equal(t, int64(2), counters.Drivers)
 }
 
+func TestInsertDriver_WithEntitlements(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	driver := Driver{
+		DriverID:     12345,
+		DriverName:   "Jon Sabados",
+		MemberSince:  time.Unix(500, 0),
+		FirstLogin:   time.Unix(1000, 0),
+		LastLogin:    time.Unix(1000, 0),
+		LoginCount:   1,
+		Entitlements: []string{"developer", "beta-tester"},
+	}
+
+	err := s.InsertDriver(ctx, driver)
+	require.NoError(t, err)
+
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	assert.Equal(t, &driver, got)
+}
+
+func TestInsertDriver_WithoutEntitlements(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	driver := Driver{
+		DriverID:    12345,
+		DriverName:  "Jon Sabados",
+		MemberSince: time.Unix(500, 0),
+		FirstLogin:  time.Unix(1000, 0),
+		LastLogin:   time.Unix(1000, 0),
+		LoginCount:  1,
+	}
+
+	err := s.InsertDriver(ctx, driver)
+	require.NoError(t, err)
+
+	got, err := s.GetDriver(ctx, 12345)
+	require.NoError(t, err)
+	assert.Nil(t, got.Entitlements)
+}
+
 func TestRecordLogin_Success(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
@@ -1141,6 +1184,68 @@ func TestGetDriverSessions_DateRangeFiltering(t *testing.T) {
 		{DriverID: 1001, SubsessionID: 3, TrackID: 100, CarID: 101, StartTime: time.Unix(3000, 0), ReasonOut: "Running"},
 		{DriverID: 1001, SubsessionID: 2, TrackID: 100, CarID: 101, StartTime: time.Unix(2000, 0), ReasonOut: "Running"},
 	}, sessions)
+}
+
+func TestGetOptionalStringSliceAttr_NotPresent(t *testing.T) {
+	item := map[string]types.AttributeValue{}
+
+	result, err := getOptionalStringSliceAttr(item, "entitlements")
+	require.NoError(t, err)
+	assert.Nil(t, result)
+}
+
+func TestGetOptionalStringSliceAttr_ValidList(t *testing.T) {
+	item := map[string]types.AttributeValue{
+		"entitlements": &types.AttributeValueMemberL{
+			Value: []types.AttributeValue{
+				&types.AttributeValueMemberS{Value: "developer"},
+				&types.AttributeValueMemberS{Value: "beta-tester"},
+			},
+		},
+	}
+
+	result, err := getOptionalStringSliceAttr(item, "entitlements")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"developer", "beta-tester"}, result)
+}
+
+func TestGetOptionalStringSliceAttr_EmptyList(t *testing.T) {
+	item := map[string]types.AttributeValue{
+		"entitlements": &types.AttributeValueMemberL{
+			Value: []types.AttributeValue{},
+		},
+	}
+
+	result, err := getOptionalStringSliceAttr(item, "entitlements")
+	require.NoError(t, err)
+	assert.Equal(t, []string{}, result)
+}
+
+func TestGetOptionalStringSliceAttr_WrongType(t *testing.T) {
+	item := map[string]types.AttributeValue{
+		"entitlements": &types.AttributeValueMemberS{Value: "not-a-list"},
+	}
+
+	result, err := getOptionalStringSliceAttr(item, "entitlements")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "is not a list")
+	assert.Nil(t, result)
+}
+
+func TestGetOptionalStringSliceAttr_ListContainsNonString(t *testing.T) {
+	item := map[string]types.AttributeValue{
+		"entitlements": &types.AttributeValueMemberL{
+			Value: []types.AttributeValue{
+				&types.AttributeValueMemberS{Value: "developer"},
+				&types.AttributeValueMemberN{Value: "123"},
+			},
+		},
+	}
+
+	result, err := getOptionalStringSliceAttr(item, "entitlements")
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "element at index 1 is not a string")
+	assert.Nil(t, result)
 }
 
 func setupTestStore(t *testing.T) *DynamoStore {

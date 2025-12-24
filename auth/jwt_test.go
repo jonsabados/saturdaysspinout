@@ -29,7 +29,7 @@ func TestJWTService_CreateToken(t *testing.T) {
 	require.NoError(t, err)
 
 	tokenExpiry := time.Now().Add(time.Hour)
-	token, err := service.CreateToken(ctx, 12345, "TestDriver", "access-token-123", "refresh-token-456", tokenExpiry)
+	token, err := service.CreateToken(ctx, 12345, "TestDriver", []string{"developer"}, "access-token-123", "refresh-token-456", tokenExpiry)
 
 	require.NoError(t, err)
 	assert.NotEmpty(t, token)
@@ -53,7 +53,7 @@ func TestJWTService_CreateAndValidateToken(t *testing.T) {
 
 	// Create token
 	tokenExpiry := time.Now().Add(time.Hour)
-	token, err := service.CreateToken(ctx, 12345, "TestDriver", "access-token-123", "refresh-token-456", tokenExpiry)
+	token, err := service.CreateToken(ctx, 12345, "TestDriver", []string{"developer", "beta"}, "access-token-123", "refresh-token-456", tokenExpiry)
 	require.NoError(t, err)
 
 	// Validate token
@@ -66,6 +66,7 @@ func TestJWTService_CreateAndValidateToken(t *testing.T) {
 	assert.Equal(t, "TestDriver", sessionClaims.IRacingUserName)
 	assert.Equal(t, "test-issuer", sessionClaims.Issuer)
 	assert.Equal(t, "12345", sessionClaims.Subject)
+	assert.Equal(t, []string{"developer", "beta"}, sessionClaims.Entitlements)
 
 	// Verify sensitive claims were decrypted correctly
 	assert.Equal(t, "access-token-123", sensitiveClaims.IRacingAccessToken)
@@ -92,7 +93,7 @@ func TestJWTService_ValidateToken_InvalidSignature(t *testing.T) {
 	service1, err := NewJWTService(privateKey1, encryptionKey, idGenerator, "test-issuer", time.Hour)
 	require.NoError(t, err)
 
-	token, err := service1.CreateToken(ctx, 12345, "TestDriver", "access-token", "refresh-token", time.Now().Add(time.Hour))
+	token, err := service1.CreateToken(ctx, 12345, "TestDriver", nil, "access-token", "refresh-token", time.Now().Add(time.Hour))
 	require.NoError(t, err)
 
 	// Try to validate with key2 (should fail)
@@ -119,7 +120,7 @@ func TestJWTService_ValidateToken_Expired(t *testing.T) {
 	service, err := NewJWTService(privateKey, encryptionKey, idGenerator, "test-issuer", -time.Hour)
 	require.NoError(t, err)
 
-	token, err := service.CreateToken(ctx, 12345, "TestDriver", "access-token", "refresh-token", time.Now().Add(time.Hour))
+	token, err := service.CreateToken(ctx, 12345, "TestDriver", nil, "access-token", "refresh-token", time.Now().Add(time.Hour))
 	require.NoError(t, err)
 
 	_, _, err = service.ValidateToken(ctx, token)

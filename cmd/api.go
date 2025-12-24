@@ -18,7 +18,7 @@ import (
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/google/uuid"
 	apiAuth "github.com/jonsabados/saturdaysspinout/api/auth"
-	"github.com/jonsabados/saturdaysspinout/api/doc"
+	"github.com/jonsabados/saturdaysspinout/api/developer"
 	"github.com/jonsabados/saturdaysspinout/api/driver"
 	"github.com/jonsabados/saturdaysspinout/api/health"
 	"github.com/jonsabados/saturdaysspinout/api/ingestion"
@@ -153,7 +153,7 @@ func CreateAPI() http.Handler {
 	routers := api.RootRouters{
 		HealthRouter:    health.NewRouter(),
 		AuthRouter:      apiAuth.NewRouter(authService, authMiddleware),
-		DocRouter:       doc.NewRouter(iracing.NewDocClient(httpClient), authMiddleware),
+		DeveloperRouter: developer.NewRouter(iracing.NewDocClient(httpClient), authMiddleware),
 		IngestionRouter: ingestion.NewRouter(driverStore, raceIngestionDispatcher, authMiddleware),
 		DriverRouter:    driver.NewRouter(driverStore, authMiddleware),
 	}

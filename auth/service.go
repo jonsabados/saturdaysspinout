@@ -26,7 +26,7 @@ type UserInfoProvider interface {
 }
 
 type JWTCreator interface {
-	CreateToken(ctx context.Context, userID int64, userName string, accessToken, refreshToken string, tokenExpiry time.Time) (string, error)
+	CreateToken(ctx context.Context, userID int64, userName string, entitlements []string, accessToken, refreshToken string, tokenExpiry time.Time) (string, error)
 }
 
 type DriverStore interface {
@@ -54,14 +54,14 @@ func NewService(oauthClient OAuthClient, jwtCreator JWTCreator, userInfoProvider
 }
 
 // HandleRefresh refreshes the iRacing tokens and issues a new JWT
-func (s *Service) HandleRefresh(ctx context.Context, userID int64, userName string, refreshToken string) (*Result, error) {
+func (s *Service) HandleRefresh(ctx context.Context, userID int64, userName string, entitlements []string, refreshToken string) (*Result, error) {
 	tokenResp, err := s.oauthClient.RefreshToken(ctx, refreshToken)
 	if err != nil {
 		return nil, fmt.Errorf("refreshing iRacing token: %w", err)
 	}
 
 	tokenExpiry := s.now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
-	jwt, err := s.jwtCreator.CreateToken(ctx, userID, userName, tokenResp.AccessToken, tokenResp.RefreshToken, tokenExpiry)
+	jwt, err := s.jwtCreator.CreateToken(ctx, userID, userName, entitlements, tokenResp.AccessToken, tokenResp.RefreshToken, tokenExpiry)
 	if err != nil {
 		return nil, fmt.Errorf("creating JWT: %w", err)
 	}
@@ -90,6 +90,8 @@ func (s *Service) HandleCallback(ctx context.Context, code, codeVerifier, redire
 	if err != nil {
 		return nil, fmt.Errorf("getting driver record: %w", err)
 	}
+
+	var entitlements []string
 	if driverRecord == nil {
 		now := s.now()
 		err := s.driverStore.InsertDriver(ctx, store.Driver{
@@ -104,6 +106,7 @@ func (s *Service) HandleCallback(ctx context.Context, code, codeVerifier, redire
 			return nil, fmt.Errorf("creating driver: %w", err)
 		}
 	} else {
+		entitlements = driverRecord.Entitlements
 		err := s.driverStore.RecordLogin(ctx, userInfo.UserID, s.now())
 		if err != nil {
 			return nil, fmt.Errorf("recording login: %w", err)
@@ -111,7 +114,7 @@ func (s *Service) HandleCallback(ctx context.Context, code, codeVerifier, redire
 	}
 
 	tokenExpiry := s.now().Add(time.Duration(tokenResp.ExpiresIn) * time.Second)
-	jwt, err := s.jwtCreator.CreateToken(ctx, userInfo.UserID, userInfo.UserName, tokenResp.AccessToken, tokenResp.RefreshToken, tokenExpiry)
+	jwt, err := s.jwtCreator.CreateToken(ctx, userInfo.UserID, userInfo.UserName, entitlements, tokenResp.AccessToken, tokenResp.RefreshToken, tokenExpiry)
 	if err != nil {
 		return nil, fmt.Errorf("creating JWT: %w", err)
 	}

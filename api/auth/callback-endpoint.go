@@ -26,7 +26,7 @@ type CallbackResponse struct {
 
 type Service interface {
 	HandleCallback(ctx context.Context, code, codeVerifier, redirectURI string) (*auth.Result, error)
-	HandleRefresh(ctx context.Context, userID int64, userName string, refreshToken string) (*auth.Result, error)
+	HandleRefresh(ctx context.Context, userID int64, userName string, entitlements []string, refreshToken string) (*auth.Result, error)
 }
 
 func NewAuthCallbackEndpoint(authService Service) http.Handler {

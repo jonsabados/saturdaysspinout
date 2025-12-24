@@ -48,6 +48,7 @@ func TestService_HandleCallback(t *testing.T) {
 	type jwtCreatorCall struct {
 		inputUserID       int64
 		inputUserName     string
+		inputEntitlements []string
 		inputAccessToken  string
 		inputRefreshToken string
 		inputTokenExpiry  time.Time
@@ -159,11 +160,12 @@ func TestService_HandleCallback(t *testing.T) {
 				{
 					inputDriverID: 12345,
 					result: &store.Driver{
-						DriverID:   12345,
-						DriverName: "Test Driver",
-						FirstLogin: time.Unix(1000, 0),
-						LastLogin:  time.Unix(2000, 0),
-						LoginCount: 5,
+						DriverID:     12345,
+						DriverName:   "Test Driver",
+						FirstLogin:   time.Unix(1000, 0),
+						LastLogin:    time.Unix(2000, 0),
+						LoginCount:   5,
+						Entitlements: []string{"developer"},
 					},
 				},
 			},
@@ -174,6 +176,7 @@ func TestService_HandleCallback(t *testing.T) {
 				{
 					inputUserID:       12345,
 					inputUserName:     "Test Driver",
+					inputEntitlements: []string{"developer"},
 					inputAccessToken:  "access-token",
 					inputRefreshToken: "refresh-token",
 					inputTokenExpiry:  expectedTokenExpiry,
@@ -417,7 +420,7 @@ func TestService_HandleCallback(t *testing.T) {
 
 			jwtCreator := NewMockJWTCreator(t)
 			for _, call := range tc.jwtCreatorCalls {
-				jwtCreator.EXPECT().CreateToken(mock.Anything, call.inputUserID, call.inputUserName, call.inputAccessToken, call.inputRefreshToken, call.inputTokenExpiry).Return(call.result, call.err)
+				jwtCreator.EXPECT().CreateToken(mock.Anything, call.inputUserID, call.inputUserName, call.inputEntitlements, call.inputAccessToken, call.inputRefreshToken, call.inputTokenExpiry).Return(call.result, call.err)
 			}
 
 			service := NewService(oauthClient, jwtCreator, userInfoProvider, driverStore)

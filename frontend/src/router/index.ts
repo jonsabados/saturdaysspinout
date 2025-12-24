@@ -4,6 +4,7 @@ import AuthCallbackView from '../views/AuthCallbackView.vue'
 import ApiExplorerView from '../views/ApiExplorerView.vue'
 import RaceHistoryView from '../views/RaceHistoryView.vue'
 import { useSessionStore } from '@/stores/session'
+import { useAuthStore } from '@/stores/auth'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -22,7 +23,7 @@ const router = createRouter({
       path: '/iracing-api',
       name: 'iracing-api',
       component: ApiExplorerView,
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, requiresEntitlement: 'developer' },
     },
     {
       path: '/race-history',
@@ -34,10 +35,23 @@ const router = createRouter({
 })
 
 router.beforeEach((to) => {
-  if (to.meta.requiresAuth) {
-    const session = useSessionStore()
-    if (!session.isLoggedIn) {
-      return { name: 'home' }
+  const session = useSessionStore()
+  const auth = useAuthStore()
+
+  // Redirect logged-in users from home to race-history
+  if (to.name === 'home' && session.isLoggedIn) {
+    return { name: 'race-history' }
+  }
+
+  // Redirect unauthenticated users away from protected routes
+  if (to.meta.requiresAuth && !session.isLoggedIn) {
+    return { name: 'home' }
+  }
+
+  // Check entitlement requirements
+  if (to.meta.requiresEntitlement && typeof to.meta.requiresEntitlement === 'string') {
+    if (!auth.hasEntitlement(to.meta.requiresEntitlement)) {
+      return { name: 'race-history' }
     }
   }
 })

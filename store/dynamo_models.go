@@ -183,6 +183,7 @@ type driverModel struct {
 	lastLogin       int64
 	loginCount      int64
 	sessionCount    int64
+	entitlements    []string
 }
 
 func (d driverModel) toAttributeMap() map[string]types.AttributeValue {
@@ -199,6 +200,13 @@ func (d driverModel) toAttributeMap() map[string]types.AttributeValue {
 	}
 	if d.racesIngestedTo != nil {
 		m["races_ingested_to"] = &types.AttributeValueMemberN{Value: strconv.FormatInt(*d.racesIngestedTo, 10)}
+	}
+	if len(d.entitlements) > 0 {
+		entitlementValues := make([]types.AttributeValue, len(d.entitlements))
+		for i, e := range d.entitlements {
+			entitlementValues[i] = &types.AttributeValueMemberS{Value: e}
+		}
+		m["entitlements"] = &types.AttributeValueMemberL{Value: entitlementValues}
 	}
 	return m
 }
@@ -237,6 +245,11 @@ func driverFromAttributeMap(item map[string]types.AttributeValue) (*Driver, erro
 
 	sessionCount, _ := getOptionalInt64Attr(item, "session_count")
 
+	entitlements, err := getOptionalStringSliceAttr(item, "entitlements")
+	if err != nil {
+		return nil, err
+	}
+
 	return &Driver{
 		DriverID:        driverID,
 		DriverName:      driverName,
@@ -246,6 +259,7 @@ func driverFromAttributeMap(item map[string]types.AttributeValue) (*Driver, erro
 		LastLogin:       time.Unix(lastLogin, 0),
 		LoginCount:      loginCount,
 		SessionCount:    sessionCount,
+		Entitlements:    entitlements,
 	}, nil
 }
 
@@ -802,6 +816,26 @@ func getBoolAttr(item map[string]types.AttributeValue, name string) (bool, error
 		return false, fmt.Errorf("missing or invalid '%s' attribute", name)
 	}
 	return attr.Value, nil
+}
+
+func getOptionalStringSliceAttr(item map[string]types.AttributeValue, name string) ([]string, error) {
+	attr, ok := item[name]
+	if !ok || attr == nil {
+		return nil, nil
+	}
+	listAttr, ok := attr.(*types.AttributeValueMemberL)
+	if !ok {
+		return nil, fmt.Errorf("'%s' attribute is not a list", name)
+	}
+	result := make([]string, 0, len(listAttr.Value))
+	for i, elem := range listAttr.Value {
+		strElem, ok := elem.(*types.AttributeValueMemberS)
+		if !ok {
+			return nil, fmt.Errorf("'%s' element at index %d is not a string", name, i)
+		}
+		result = append(result, strElem.Value)
+	}
+	return result, nil
 }
 
 // toUnixSeconds truncates a time to second precision and returns the Unix timestamp.

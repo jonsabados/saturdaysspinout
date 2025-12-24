@@ -210,12 +210,13 @@ func (s *DynamoStore) GetDriver(ctx context.Context, driverID int64) (*Driver, e
 
 func (s *DynamoStore) InsertDriver(ctx context.Context, driver Driver) error {
 	model := driverModel{
-		driverID:    driver.DriverID,
-		driverName:  driver.DriverName,
-		memberSince: toUnixSeconds(driver.MemberSince),
-		firstLogin:  toUnixSeconds(driver.FirstLogin),
-		lastLogin:   toUnixSeconds(driver.LastLogin),
-		loginCount:  driver.LoginCount,
+		driverID:     driver.DriverID,
+		driverName:   driver.DriverName,
+		memberSince:  toUnixSeconds(driver.MemberSince),
+		firstLogin:   toUnixSeconds(driver.FirstLogin),
+		lastLogin:    toUnixSeconds(driver.LastLogin),
+		loginCount:   driver.LoginCount,
+		entitlements: driver.Entitlements,
 	}
 	if driver.RacesIngestedTo != nil {
 		rit := toUnixSeconds(*driver.RacesIngestedTo)

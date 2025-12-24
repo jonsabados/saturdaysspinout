@@ -105,7 +105,8 @@ Both entry points share the same API setup via [`cmd/api.go`](cmd/api.go), which
 | [`api/common-responses.go`](api/common-responses.go) | Shared response utilities |
 | [`api/health/`](api/health/) | Health check endpoints (`GET /health/ping`) |
 | [`api/auth/`](api/auth/) | Auth endpoints (`POST /auth/ir/callback`) |
-| [`api/doc/`](api/doc/) | iRacing API doc proxy (`GET /doc/iracing-api/*`) |
+| [`api/entitlement-middleware.go`](api/entitlement-middleware.go) | Entitlement-based access control middleware |
+| [`api/developer/`](api/developer/) | Developer tools (requires `developer` entitlement): iRacing API doc proxy (`GET /developer/iracing-api/*`), token endpoint (`GET /developer/iracing-token`) |
 | [`api/driver/`](api/driver/) | Driver endpoints (`GET /driver/{driver_id}`, `GET /driver/{driver_id}/races`, `GET /driver/{driver_id}/races/{driver_race_id}`) |
 
 #### API Naming Conventions
@@ -146,7 +147,7 @@ The persistence layer uses DynamoDB with a single-table design.
 
 | Sort Key | Description | Attributes                                                                                                                                                                                         |
 |----------|-------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `info` | Driver record | driver_name, member_since, races_ingested_to, first_login, last_login, login_count, session_count                                                                                                |
+| `info` | Driver record | driver_name, member_since, races_ingested_to, first_login, last_login, login_count, session_count, entitlements                                                                                  |
 | `ingestion_lock` | Distributed lock for race ingestion | locked_until, ttl                                                                                                                                                                                  |
 | `ws#<connectionId>` | WebSocket connection | connected_at, ttl                                                                                                                                                                                  |
 | `session#<timestamp>` | Race participation (list view) | subsession_id, track_id, car_id, start_time, start_position, start_position_in_class, finish_position, finish_position_in_class, incidents, old_cpi, new_cpi, old_irating, new_irating, reason_out |
