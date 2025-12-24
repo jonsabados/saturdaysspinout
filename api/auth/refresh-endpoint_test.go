@@ -38,6 +38,7 @@ func TestNewAuthRefreshEndpoint(t *testing.T) {
 	type authServiceCall struct {
 		inputUserID       int64
 		inputUserName     string
+		inputEntitlements []string
 		inputRefreshToken string
 		result            *auth.Result
 		resultErr         error
@@ -152,7 +153,7 @@ func TestNewAuthRefreshEndpoint(t *testing.T) {
 
 			authService := NewMockService(t)
 			for _, call := range tc.expectedAuthServiceCalls {
-				authService.EXPECT().HandleRefresh(mock.Anything, call.inputUserID, call.inputUserName, call.inputRefreshToken).Return(call.result, call.resultErr)
+				authService.EXPECT().HandleRefresh(mock.Anything, call.inputUserID, call.inputUserName, call.inputEntitlements, call.inputRefreshToken).Return(call.result, call.resultErr)
 			}
 
 			endpoint := NewAuthRefreshEndpoint(authService)

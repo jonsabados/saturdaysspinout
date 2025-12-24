@@ -22,6 +22,7 @@ type Driver struct {
 	LastLogin             time.Time
 	LoginCount            int64
 	SessionCount          int64
+	Entitlements          []string
 }
 
 type DriverNote struct {

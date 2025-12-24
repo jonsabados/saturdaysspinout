@@ -32,6 +32,7 @@ type SessionClaims struct {
 	SessionID       string          `json:"sid"`
 	IRacingUserID   int64           `json:"ir_uid"`
 	IRacingUserName string          `json:"ir_name"`
+	Entitlements    []string        `json:"ent,omitempty"`
 	Encrypted       EncryptedClaims `json:"encrypted"`
 }
 
@@ -71,7 +72,7 @@ func NewJWTService(signingKey *ecdsa.PrivateKey, encryptionKey []byte, idGenerat
 	}, nil
 }
 
-func (s *JWTService) CreateToken(_ context.Context, userID int64, userName string, accessToken, refreshToken string, tokenExpiry time.Time) (string, error) {
+func (s *JWTService) CreateToken(_ context.Context, userID int64, userName string, entitlements []string, accessToken, refreshToken string, tokenExpiry time.Time) (string, error) {
 	encryptedClaims, err := s.encryptSensitiveClaims(&SensitiveClaims{
 		IRacingAccessToken:  accessToken,
 		IRacingRefreshToken: refreshToken,
@@ -93,6 +94,7 @@ func (s *JWTService) CreateToken(_ context.Context, userID int64, userName strin
 		SessionID:       s.idGenerator(),
 		IRacingUserID:   userID,
 		IRacingUserName: userName,
+		Entitlements:    entitlements,
 		Encrypted:       *encryptedClaims,
 	}
 

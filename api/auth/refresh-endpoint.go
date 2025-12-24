@@ -25,7 +25,7 @@ func NewAuthRefreshEndpoint(authService Service) http.Handler {
 			return
 		}
 
-		result, err := authService.HandleRefresh(ctx, sessionClaims.IRacingUserID, sessionClaims.IRacingUserName, sensitiveClaims.IRacingRefreshToken)
+		result, err := authService.HandleRefresh(ctx, sessionClaims.IRacingUserID, sessionClaims.IRacingUserName, sessionClaims.Entitlements, sensitiveClaims.IRacingRefreshToken)
 		if err != nil {
 			logger.Error().Err(err).Msg("token refresh failed")
 			api.DoErrorResponse(ctx, writer)

@@ -54,7 +54,7 @@ async function loadDocs() {
   loading.value = true
   error.value = null
   try {
-    docs.value = await apiClient.fetch<ApiDocs>('/doc/iracing-api/')
+    docs.value = await apiClient.fetch<ApiDocs>('/developer/iracing-api/')
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to load API docs'
   } finally {
@@ -78,7 +78,7 @@ async function selectEndpoint(category: string, name: string, endpoint: Endpoint
 
   try {
     // Fetch detailed docs for this specific endpoint
-    const detailed = await apiClient.fetch<DetailedEndpoint>(`/doc/iracing-api/${category}/${name}`)
+    const detailed = await apiClient.fetch<DetailedEndpoint>(`/developer/iracing-api/${category}/${name}`)
     detailedDocs.value = detailed
   } catch (e) {
     detailError.value = e instanceof Error ? e.message : 'Failed to load detailed docs'

@@ -1,14 +1,60 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { initiateLogin } from '@/auth/iracing'
 import { useSessionStore } from '@/stores/session'
+import { useAuthStore } from '@/stores/auth'
 
 const session = useSessionStore()
+const auth = useAuthStore()
+
+const hasDeveloperAccess = computed(() => auth.hasEntitlement('developer'))
+const hasAnyTools = computed(() => hasDeveloperAccess.value)
 const router = useRouter()
 const menuOpen = ref(false)
 const moreOpen = ref(false)
 const moreDropdown = ref<HTMLElement | null>(null)
+const copyStatus = ref<string | null>(null)
+
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
+
+async function copyBearerToken() {
+  if (!auth.token) return
+  try {
+    await navigator.clipboard.writeText(auth.token)
+    showCopyStatus('Bearer token copied!')
+  } catch {
+    showCopyStatus('Failed to copy')
+  }
+  closeMenu()
+}
+
+async function copyIRacingToken() {
+  if (!auth.token) return
+  try {
+    const response = await fetch(`${apiBaseUrl}/developer/iracing-token`, {
+      headers: {
+        'Authorization': `Bearer ${auth.token}`,
+      },
+    })
+    if (!response.ok) {
+      throw new Error('Failed to fetch token')
+    }
+    const data = await response.json()
+    await navigator.clipboard.writeText(data.response.access_token)
+    showCopyStatus('iRacing token copied!')
+  } catch {
+    showCopyStatus('Failed to copy')
+  }
+  closeMenu()
+}
+
+function showCopyStatus(message: string) {
+  copyStatus.value = message
+  setTimeout(() => {
+    copyStatus.value = null
+  }, 2000)
+}
 
 async function handleLogin() {
   try {
@@ -21,6 +67,7 @@ async function handleLogin() {
 function handleLogout() {
   session.logout()
   menuOpen.value = false
+  router.push({ name: 'home' })
 }
 
 function closeMenu() {
@@ -71,23 +118,32 @@ router.afterEach(() => {
       <template v-if="session.isLoggedIn">
         <RouterLink to="/race-history" class="nav-link" @click="closeMenu">Race History</RouterLink>
 
-        <!-- Desktop "More" dropdown -->
-        <div ref="moreDropdown" class="more-dropdown desktop-only">
+        <!-- Desktop "More" dropdown - only show if user has access to any tools -->
+        <div v-if="hasAnyTools" ref="moreDropdown" class="more-dropdown desktop-only">
           <button class="nav-link more-toggle" @click.stop="toggleMore" :class="{ active: moreOpen }">
             Tools
             <span class="more-arrow" :class="{ open: moreOpen }">▾</span>
           </button>
           <div class="more-menu" v-show="moreOpen">
-            <RouterLink to="/iracing-api" class="more-item" @click="closeMenu">iRacing API Explorer</RouterLink>
+            <RouterLink v-if="hasDeveloperAccess" to="/iracing-api" class="more-item" @click="closeMenu">iRacing API Explorer</RouterLink>
+            <button v-if="hasDeveloperAccess" class="more-item" @click="copyBearerToken">Copy Bearer Token</button>
+            <button v-if="hasDeveloperAccess" class="more-item" @click="copyIRacingToken">Copy iRacing Token</button>
           </div>
         </div>
 
-        <!-- Mobile tools section -->
-        <div class="mobile-tools mobile-only">
+        <!-- Mobile tools section - only show if user has access to any tools -->
+        <div v-if="hasAnyTools" class="mobile-tools mobile-only">
           <div class="tools-divider"></div>
           <span class="tools-header">Tools</span>
-          <RouterLink to="/iracing-api" class="nav-link" @click="closeMenu">iRacing API Explorer</RouterLink>
+          <RouterLink v-if="hasDeveloperAccess" to="/iracing-api" class="nav-link" @click="closeMenu">iRacing API Explorer</RouterLink>
+          <button v-if="hasDeveloperAccess" class="nav-link tool-button" @click="copyBearerToken">Copy Bearer Token</button>
+          <button v-if="hasDeveloperAccess" class="nav-link tool-button" @click="copyIRacingToken">Copy iRacing Token</button>
         </div>
+
+        <!-- Copy status toast -->
+        <Transition name="toast">
+          <div v-if="copyStatus" class="copy-toast">{{ copyStatus }}</div>
+        </Transition>
 
         <span class="user-name">{{ session.userName }}</span>
         <button @click="handleLogout" class="nav-button">Logout</button>
@@ -276,6 +332,54 @@ router.afterEach(() => {
   color: var(--color-accent);
 }
 
+/* Button styling for more-item */
+button.more-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Tool button styling for mobile */
+.tool-button {
+  border: none;
+  background: transparent;
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+/* Copy toast notification */
+.copy-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.75rem 1.5rem;
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  z-index: 1000;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(0.5rem);
+}
+
 /* Responsive visibility */
 .desktop-only {
   display: block;
@@ -323,6 +427,7 @@ router.afterEach(() => {
     background: var(--color-bg-surface);
     border-bottom: 1px solid var(--color-border);
     display: none;
+    z-index: 100;
   }
 
   .nav-links.open {

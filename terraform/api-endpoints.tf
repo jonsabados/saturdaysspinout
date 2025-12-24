@@ -57,25 +57,32 @@ resource "aws_api_gateway_resource" "ingestion_race" {
   path_part   = "race"
 }
 
-# /doc
-resource "aws_api_gateway_resource" "doc" {
+# /developer
+resource "aws_api_gateway_resource" "developer" {
   rest_api_id = aws_api_gateway_rest_api.api.id
   parent_id   = aws_api_gateway_rest_api.api.root_resource_id
-  path_part   = "doc"
+  path_part   = "developer"
 }
 
-# /doc/iracing-api
-resource "aws_api_gateway_resource" "doc_iracing_api" {
+# /developer/iracing-api
+resource "aws_api_gateway_resource" "developer_iracing_api" {
   rest_api_id = aws_api_gateway_rest_api.api.id
-  parent_id   = aws_api_gateway_resource.doc.id
+  parent_id   = aws_api_gateway_resource.developer.id
   path_part   = "iracing-api"
 }
 
-# /doc/iracing-api/{proxy+}
-resource "aws_api_gateway_resource" "doc_iracing_api_proxy" {
+# /developer/iracing-api/{proxy+}
+resource "aws_api_gateway_resource" "developer_iracing_api_proxy" {
   rest_api_id = aws_api_gateway_rest_api.api.id
-  parent_id   = aws_api_gateway_resource.doc_iracing_api.id
+  parent_id   = aws_api_gateway_resource.developer_iracing_api.id
   path_part   = "{proxy+}"
+}
+
+# /developer/iracing-token
+resource "aws_api_gateway_resource" "developer_iracing_token" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.developer.id
+  path_part   = "iracing-token"
 }
 
 # /driver
@@ -173,34 +180,50 @@ module "ingestion_race_options" {
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }
 
-module "doc_iracing_api_get" {
+module "developer_iracing_api_get" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id
-  resource_id       = aws_api_gateway_resource.doc_iracing_api.id
+  resource_id       = aws_api_gateway_resource.developer_iracing_api.id
   http_method       = "GET"
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }
 
-module "doc_iracing_api_options" {
+module "developer_iracing_api_options" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id
-  resource_id       = aws_api_gateway_resource.doc_iracing_api.id
+  resource_id       = aws_api_gateway_resource.developer_iracing_api.id
   http_method       = "OPTIONS"
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }
 
-module "doc_iracing_api_proxy_get" {
+module "developer_iracing_api_proxy_get" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id
-  resource_id       = aws_api_gateway_resource.doc_iracing_api_proxy.id
+  resource_id       = aws_api_gateway_resource.developer_iracing_api_proxy.id
   http_method       = "GET"
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }
 
-module "doc_iracing_api_proxy_options" {
+module "developer_iracing_api_proxy_options" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id
-  resource_id       = aws_api_gateway_resource.doc_iracing_api_proxy.id
+  resource_id       = aws_api_gateway_resource.developer_iracing_api_proxy.id
+  http_method       = "OPTIONS"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "developer_iracing_token_get" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.developer_iracing_token.id
+  http_method       = "GET"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "developer_iracing_token_options" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.developer_iracing_token.id
   http_method       = "OPTIONS"
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }

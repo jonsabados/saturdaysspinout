@@ -119,8 +119,8 @@ func (_c *MockService_HandleCallback_Call) RunAndReturn(run func(ctx context.Con
 }
 
 // HandleRefresh provides a mock function for the type MockService
-func (_mock *MockService) HandleRefresh(ctx context.Context, userID int64, userName string, refreshToken string) (*auth.Result, error) {
-	ret := _mock.Called(ctx, userID, userName, refreshToken)
+func (_mock *MockService) HandleRefresh(ctx context.Context, userID int64, userName string, entitlements []string, refreshToken string) (*auth.Result, error) {
+	ret := _mock.Called(ctx, userID, userName, entitlements, refreshToken)
 
 	if len(ret) == 0 {
 		panic("no return value specified for HandleRefresh")
@@ -128,18 +128,18 @@ func (_mock *MockService) HandleRefresh(ctx context.Context, userID int64, userN
 
 	var r0 *auth.Result
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, string) (*auth.Result, error)); ok {
-		return returnFunc(ctx, userID, userName, refreshToken)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, []string, string) (*auth.Result, error)); ok {
+		return returnFunc(ctx, userID, userName, entitlements, refreshToken)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, string) *auth.Result); ok {
-		r0 = returnFunc(ctx, userID, userName, refreshToken)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, string, []string, string) *auth.Result); ok {
+		r0 = returnFunc(ctx, userID, userName, entitlements, refreshToken)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*auth.Result)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, string, string) error); ok {
-		r1 = returnFunc(ctx, userID, userName, refreshToken)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, string, []string, string) error); ok {
+		r1 = returnFunc(ctx, userID, userName, entitlements, refreshToken)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -155,12 +155,13 @@ type MockService_HandleRefresh_Call struct {
 //   - ctx context.Context
 //   - userID int64
 //   - userName string
+//   - entitlements []string
 //   - refreshToken string
-func (_e *MockService_Expecter) HandleRefresh(ctx interface{}, userID interface{}, userName interface{}, refreshToken interface{}) *MockService_HandleRefresh_Call {
-	return &MockService_HandleRefresh_Call{Call: _e.mock.On("HandleRefresh", ctx, userID, userName, refreshToken)}
+func (_e *MockService_Expecter) HandleRefresh(ctx interface{}, userID interface{}, userName interface{}, entitlements interface{}, refreshToken interface{}) *MockService_HandleRefresh_Call {
+	return &MockService_HandleRefresh_Call{Call: _e.mock.On("HandleRefresh", ctx, userID, userName, entitlements, refreshToken)}
 }
 
-func (_c *MockService_HandleRefresh_Call) Run(run func(ctx context.Context, userID int64, userName string, refreshToken string)) *MockService_HandleRefresh_Call {
+func (_c *MockService_HandleRefresh_Call) Run(run func(ctx context.Context, userID int64, userName string, entitlements []string, refreshToken string)) *MockService_HandleRefresh_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -174,15 +175,20 @@ func (_c *MockService_HandleRefresh_Call) Run(run func(ctx context.Context, user
 		if args[2] != nil {
 			arg2 = args[2].(string)
 		}
-		var arg3 string
+		var arg3 []string
 		if args[3] != nil {
-			arg3 = args[3].(string)
+			arg3 = args[3].([]string)
+		}
+		var arg4 string
+		if args[4] != nil {
+			arg4 = args[4].(string)
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
 			arg3,
+			arg4,
 		)
 	})
 	return _c
@@ -193,7 +199,7 @@ func (_c *MockService_HandleRefresh_Call) Return(result *auth.Result, err error)
 	return _c
 }
 
-func (_c *MockService_HandleRefresh_Call) RunAndReturn(run func(ctx context.Context, userID int64, userName string, refreshToken string) (*auth.Result, error)) *MockService_HandleRefresh_Call {
+func (_c *MockService_HandleRefresh_Call) RunAndReturn(run func(ctx context.Context, userID int64, userName string, entitlements []string, refreshToken string) (*auth.Result, error)) *MockService_HandleRefresh_Call {
 	_c.Call.Return(run)
 	return _c
 }

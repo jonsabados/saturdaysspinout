@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const authStore = useAuthStore()
+const hasDeveloperAccess = computed(() => authStore.hasEntitlement('developer'))
 </script>
 
 <template>
@@ -13,7 +15,10 @@ const authStore = useAuthStore()
 
       <div v-if="authStore.isLoggedIn" class="welcome">
         <p>Welcome back, {{ authStore.userName }}!</p>
-        <RouterLink to="/iracing-api" class="cta-button">
+        <RouterLink to="/race-history" class="cta-button">
+          View Race History
+        </RouterLink>
+        <RouterLink v-if="hasDeveloperAccess" to="/iracing-api" class="cta-button secondary">
           Explore iRacing API
         </RouterLink>
       </div>
@@ -69,6 +74,19 @@ h1 {
 
 .cta-button:hover {
   background: var(--color-accent-hover);
+}
+
+.cta-button.secondary {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-light);
+  margin-left: 0.75rem;
+}
+
+.cta-button.secondary:hover {
+  border-color: var(--color-accent);
+  color: var(--color-text-primary);
+  background: transparent;
 }
 
 @media (max-width: 768px) {

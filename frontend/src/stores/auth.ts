@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { getEntitlementsFromToken } from '@/auth/jwt'
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 
@@ -10,6 +11,7 @@ interface AuthState {
   expiresAt: number | null
   userId: number | null
   userName: string | null
+  entitlements: string[]
   refreshInProgress: boolean
   sessionExpired: boolean
 }
@@ -30,6 +32,7 @@ export const useAuthStore = defineStore('auth', {
     expiresAt: null,
     userId: null,
     userName: null,
+    entitlements: [],
     refreshInProgress: false,
     sessionExpired: false,
   }),
@@ -50,11 +53,16 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
+    hasEntitlement(entitlement: string): boolean {
+      return this.entitlements.includes(entitlement)
+    },
+
     setSession(token: string, expiresAt: number, userId?: number, userName?: string) {
       this.token = token
       this.expiresAt = expiresAt
       this.userId = userId ?? null
       this.userName = userName ?? null
+      this.entitlements = getEntitlementsFromToken(token)
       this.sessionExpired = false
     },
 
@@ -63,6 +71,7 @@ export const useAuthStore = defineStore('auth', {
       this.expiresAt = null
       this.userId = null
       this.userName = null
+      this.entitlements = []
     },
 
     clearSessionExpired() {
@@ -108,6 +117,6 @@ export const useAuthStore = defineStore('auth', {
   // Excluded: refreshInProgress (would appear stuck if page closed mid-refresh),
   //           sessionExpired (should reset on page reload)
   persist: {
-    paths: ['token', 'expiresAt', 'userId', 'userName'],
+    paths: ['token', 'expiresAt', 'userId', 'userName', 'entitlements'],
   },
 })
