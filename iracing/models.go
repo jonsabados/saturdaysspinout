@@ -428,63 +428,133 @@ type TrackType struct {
 
 // TrackInfo contains full track information from the /data/track/get endpoint.
 type TrackInfo struct {
-	TrackID                  int64       `json:"track_id"`
-	TrackName                string      `json:"track_name"`
-	ConfigName               string      `json:"config_name"`
-	Category                 string      `json:"category"`
-	CategoryID               int         `json:"category_id"`
-	AIEnabled                bool        `json:"ai_enabled"`
-	AllowPitlaneCollisions   bool        `json:"allow_pitlane_collisions"`
-	AllowRollingStart        bool        `json:"allow_rolling_start"`
-	AllowStandingStart       bool        `json:"allow_standing_start"`
-	AwardExempt              bool        `json:"award_exempt"`
-	Closes                   string      `json:"closes"`
-	CornersPerLap            int         `json:"corners_per_lap"`
-	Created                  time.Time   `json:"created"`
-	FirstSale                time.Time   `json:"first_sale"`
-	FreeWithSubscription     bool        `json:"free_with_subscription"`
-	FullyLit                 bool        `json:"fully_lit"`
-	GridStalls               int         `json:"grid_stalls"`
-	HasOptPath               bool        `json:"has_opt_path"`
-	HasShortParadeLap        bool        `json:"has_short_parade_lap"`
-	HasStartZone             bool        `json:"has_start_zone"`
-	HasSvgMap                bool        `json:"has_svg_map"`
-	IsDirt                   bool        `json:"is_dirt"`
-	IsOval                   bool        `json:"is_oval"`
-	IsPsPurchasable          bool        `json:"is_ps_purchasable"`
-	LapScoring               int         `json:"lap_scoring"`
-	Latitude                 float64     `json:"latitude"`
-	Location                 string      `json:"location"`
-	Longitude                float64     `json:"longitude"`
-	MaxCars                  int         `json:"max_cars"`
-	NightLighting            bool        `json:"night_lighting"`
-	NumberPitstalls          int         `json:"number_pitstalls"`
-	Opens                    string      `json:"opens"`
-	PackageID                int         `json:"package_id"`
-	PitRoadSpeedLimit        int         `json:"pit_road_speed_limit"`
-	Price                    float64     `json:"price"`
-	Priority                 int         `json:"priority"`
-	Purchasable              bool        `json:"purchasable"`
-	QualifyLaps              int         `json:"qualify_laps"`
-	RainEnabled              bool        `json:"rain_enabled"`
-	RestartOnLeft            bool        `json:"restart_on_left"`
-	Retired                  bool        `json:"retired"`
-	SearchFilters            string      `json:"search_filters"`
-	SiteURL                  string      `json:"site_url"`
-	Sku                      int         `json:"sku"`
-	SoloLaps                 int         `json:"solo_laps"`
-	StartOnLeft              bool        `json:"start_on_left"`
-	SupportsGripCompound     bool        `json:"supports_grip_compound"`
-	TechTrack                bool        `json:"tech_track"`
-	TimeZone                 string      `json:"time_zone"`
-	TrackConfigLength        float64     `json:"track_config_length"`
-	TrackDirpath             string      `json:"track_dirpath"`
-	TrackTypeID              int         `json:"track_type"`
-	TrackTypeText            string      `json:"track_type_text"`
-	TrackTypes               []TrackType `json:"track_types"`
-	Folder                   string      `json:"folder"`
-	Logo                     string      `json:"logo"`
-	SmallImage               string      `json:"small_image"`
+	TrackID                int64       `json:"track_id"`
+	TrackName              string      `json:"track_name"`
+	ConfigName             string      `json:"config_name"`
+	Category               string      `json:"category"`
+	CategoryID             int         `json:"category_id"`
+	AIEnabled              bool        `json:"ai_enabled"`
+	AllowPitlaneCollisions bool        `json:"allow_pitlane_collisions"`
+	AllowRollingStart      bool        `json:"allow_rolling_start"`
+	AllowStandingStart     bool        `json:"allow_standing_start"`
+	AwardExempt            bool        `json:"award_exempt"`
+	Closes                 string      `json:"closes"`
+	CornersPerLap          int         `json:"corners_per_lap"`
+	Created                time.Time   `json:"created"`
+	FirstSale              time.Time   `json:"first_sale"`
+	FreeWithSubscription   bool        `json:"free_with_subscription"`
+	FullyLit               bool        `json:"fully_lit"`
+	GridStalls             int         `json:"grid_stalls"`
+	HasOptPath             bool        `json:"has_opt_path"`
+	HasShortParadeLap      bool        `json:"has_short_parade_lap"`
+	HasStartZone           bool        `json:"has_start_zone"`
+	HasSvgMap              bool        `json:"has_svg_map"`
+	IsDirt                 bool        `json:"is_dirt"`
+	IsOval                 bool        `json:"is_oval"`
+	IsPsPurchasable        bool        `json:"is_ps_purchasable"`
+	LapScoring             int         `json:"lap_scoring"`
+	Latitude               float64     `json:"latitude"`
+	Location               string      `json:"location"`
+	Longitude              float64     `json:"longitude"`
+	MaxCars                int         `json:"max_cars"`
+	NightLighting          bool        `json:"night_lighting"`
+	NumberPitstalls        int         `json:"number_pitstalls"`
+	Opens                  string      `json:"opens"`
+	PackageID              int         `json:"package_id"`
+	PitRoadSpeedLimit      int         `json:"pit_road_speed_limit"`
+	Price                  float64     `json:"price"`
+	Priority               int         `json:"priority"`
+	Purchasable            bool        `json:"purchasable"`
+	QualifyLaps            int         `json:"qualify_laps"`
+	RainEnabled            bool        `json:"rain_enabled"`
+	RestartOnLeft          bool        `json:"restart_on_left"`
+	Retired                bool        `json:"retired"`
+	SearchFilters          string      `json:"search_filters"`
+	SiteURL                string      `json:"site_url"`
+	Sku                    int         `json:"sku"`
+	SoloLaps               int         `json:"solo_laps"`
+	StartOnLeft            bool        `json:"start_on_left"`
+	SupportsGripCompound   bool        `json:"supports_grip_compound"`
+	TechTrack              bool        `json:"tech_track"`
+	TimeZone               string      `json:"time_zone"`
+	TrackConfigLength      float64     `json:"track_config_length"`
+	TrackDirpath           string      `json:"track_dirpath"`
+	TrackTypeID            int         `json:"track_type"`
+	TrackTypeText          string      `json:"track_type_text"`
+	TrackTypes             []TrackType `json:"track_types"`
+	Folder                 string      `json:"folder"`
+	Logo                   string      `json:"logo"`
+	SmallImage             string      `json:"small_image"`
+}
+
+// CarInfo contains full car information from the /data/car/get endpoint.
+type CarInfo struct {
+	CarID                int64     `json:"car_id"`
+	CarName              string    `json:"car_name"`
+	CarNameAbbreviated   string    `json:"car_name_abbreviated"`
+	CarMake              string    `json:"car_make"`
+	CarModel             string    `json:"car_model"`
+	CarWeight            int       `json:"car_weight"`
+	HPUnderHood          int       `json:"hp_under_hood"`
+	HPActual             int       `json:"hp_actual"`
+	AiEnabled            bool      `json:"ai_enabled"`
+	AllowNumberColors    bool      `json:"allow_number_colors"`
+	AllowNumberFont      bool      `json:"allow_number_font"`
+	AllowSponsor1        bool      `json:"allow_sponsor1"`
+	AllowSponsor2        bool      `json:"allow_sponsor2"`
+	AllowWheelColor      bool      `json:"allow_wheel_color"`
+	AwardExempt          bool      `json:"award_exempt"`
+	CarDirpath           string    `json:"car_dirpath"`
+	CarTypes             []CarType `json:"car_types"`
+	Categories           []string  `json:"categories"`
+	Created              time.Time `json:"created"`
+	FirstSale            time.Time `json:"first_sale"`
+	ForumURL             string    `json:"forum_url"`
+	FreeWithSubscription bool      `json:"free_with_subscription"`
+	HasHeadlights        bool      `json:"has_headlights"`
+	HasMultipleDryTires  bool      `json:"has_multiple_dry_tire_types"`
+	HasRainCapable       bool      `json:"has_rain_capable_tire_types"`
+	IsPsPurchasable      bool      `json:"is_ps_purchasable"`
+	MaxPowerAdjustPct    float64   `json:"max_power_adjust_pct"`
+	MaxWeightPenaltyKg   int       `json:"max_weight_penalty_kg"`
+	MinPowerAdjustPct    float64   `json:"min_power_adjust_pct"`
+	PackageID            int       `json:"package_id"`
+	Patterns             int       `json:"patterns"`
+	Price                float64   `json:"price"`
+	PriceDisplay         string    `json:"price_display"`
+	RainEnabled          bool      `json:"rain_enabled"`
+	Retired              bool      `json:"retired"`
+	SearchFilters        string    `json:"search_filters"`
+	Sku                  int       `json:"sku"`
+	CarRules             []CarRule `json:"car_rules"`
+	SiteURL              string    `json:"site_url"`
+}
+
+// CarType represents a car type entry from the car_types array.
+type CarType struct {
+	CarType string `json:"car_type"`
+}
+
+// CarRule represents a car rule entry.
+type CarRule struct {
+	RuleCategory string `json:"rule_category"`
+	Text         string `json:"text"`
+}
+
+// CarAssets contains asset information from the /data/car/assets endpoint.
+type CarAssets struct {
+	CarID                  int64   `json:"car_id"`
+	DetailCopy             string  `json:"detail_copy"`
+	DetailScreenshotImages string  `json:"detail_screenshot_images"`
+	DetailTechspecsCopy    *string `json:"detail_techspecs_copy"`
+	Folder                 string  `json:"folder"`
+	GalleryImages          string  `json:"gallery_images"`
+	GalleryPrefix          *string `json:"gallery_prefix"`
+	LargeImage             string  `json:"large_image"`
+	Logo                   string  `json:"logo"`
+	SmallImage             string  `json:"small_image"`
+	SponsorLogo            *string `json:"sponsor_logo"`
+	TemplateRoot           *string `json:"template_root"`
 }
 
 // TrackMapLayers contains the SVG layer filenames for a track map.
@@ -499,19 +569,19 @@ type TrackMapLayers struct {
 
 // TrackAssets contains asset information from the /data/track/assets endpoint.
 type TrackAssets struct {
-	TrackID            int64          `json:"track_id"`
-	Coordinates        string         `json:"coordinates"`
-	DetailCopy         string         `json:"detail_copy"`
-	DetailTechspecsCopy *string       `json:"detail_techspecs_copy"`
-	DetailVideo        *string        `json:"detail_video"`
-	Folder             string         `json:"folder"`
-	GalleryImages      string         `json:"gallery_images"`
-	GalleryPrefix      string         `json:"gallery_prefix"`
-	LargeImage         string         `json:"large_image"`
-	Logo               string         `json:"logo"`
-	North              string         `json:"north"`
-	NumSvgImages       int            `json:"num_svg_images"`
-	SmallImage         string         `json:"small_image"`
-	TrackMap           string         `json:"track_map"`
-	TrackMapLayers     TrackMapLayers `json:"track_map_layers"`
+	TrackID             int64          `json:"track_id"`
+	Coordinates         string         `json:"coordinates"`
+	DetailCopy          string         `json:"detail_copy"`
+	DetailTechspecsCopy *string        `json:"detail_techspecs_copy"`
+	DetailVideo         *string        `json:"detail_video"`
+	Folder              string         `json:"folder"`
+	GalleryImages       string         `json:"gallery_images"`
+	GalleryPrefix       string         `json:"gallery_prefix"`
+	LargeImage          string         `json:"large_image"`
+	Logo                string         `json:"logo"`
+	North               string         `json:"north"`
+	NumSvgImages        int            `json:"num_svg_images"`
+	SmallImage          string         `json:"small_image"`
+	TrackMap            string         `json:"track_map"`
+	TrackMapLayers      TrackMapLayers `json:"track_map_layers"`
 }

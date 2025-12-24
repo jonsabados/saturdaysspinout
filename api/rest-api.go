@@ -21,6 +21,7 @@ type RootRouters struct {
 	IngestionRouter http.Handler
 	DriverRouter    http.Handler
 	TracksRouter    http.Handler
+	CarsRouter      http.Handler
 }
 
 func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGenerator, corsAllowedOrigins []string, routers RootRouters) http.Handler {
@@ -46,6 +47,7 @@ func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGene
 	r.Mount("/developer", routers.DeveloperRouter)
 	r.Mount("/driver", routers.DriverRouter)
 	r.Mount("/tracks", routers.TracksRouter)
+	r.Mount("/cars", routers.CarsRouter)
 
 	return xray.Handler(xray.NewFixedSegmentNamer("processHttpRequest"), r)
 }

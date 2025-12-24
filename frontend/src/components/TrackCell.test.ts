@@ -46,7 +46,8 @@ describe('TrackCell', () => {
       props: { trackId: 1 },
     })
 
-    expect(wrapper.text()).toBe('Daytona International Speedway - Oval')
+    expect(wrapper.find('.track-name').text()).toBe('Daytona International Speedway')
+    expect(wrapper.find('.track-config').text()).toBe('Oval')
     expect(wrapper.attributes('title')).toBe('Daytona International Speedway - Oval')
   })
 
@@ -57,7 +58,8 @@ describe('TrackCell', () => {
       props: { trackId: 1 },
     })
 
-    expect(wrapper.text()).toBe('Daytona International Speedway')
+    expect(wrapper.find('.track-name').text()).toBe('Daytona International Speedway')
+    expect(wrapper.find('.track-config').exists()).toBe(false)
   })
 
   it('displays fallback when track not found', () => {
@@ -67,7 +69,8 @@ describe('TrackCell', () => {
       props: { trackId: 999 },
     })
 
-    expect(wrapper.text()).toBe('Track 999')
+    expect(wrapper.find('.track-name').text()).toBe('Track 999')
+    expect(wrapper.find('.track-config').exists()).toBe(false)
     expect(wrapper.attributes('title')).toBe('Track 999')
   })
 

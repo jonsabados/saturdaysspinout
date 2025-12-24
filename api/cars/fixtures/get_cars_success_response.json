@@ -1,0 +1,25 @@
+{
+  "response": [
+    {
+      "id": 1,
+      "name": "Mazda MX-5 Miata",
+      "nameAbbreviated": "MX-5",
+      "make": "Mazda",
+      "model": "MX-5 Miata",
+      "description": "<p>The perfect starter car</p>",
+      "weight": 2332,
+      "hpUnderHood": 155,
+      "hpActual": 155,
+      "categories": ["road"],
+      "logoUrl": "https://images-static.iracing.com/logo.png",
+      "smallImageUrl": "https://images-static.iracing.com/small.jpg",
+      "largeImageUrl": "https://images-static.iracing.com/large.jpg",
+      "hasHeadlights": true,
+      "hasMultipleDryTires": false,
+      "rainEnabled": true,
+      "freeWithSubscription": true,
+      "retired": false
+    }
+  ],
+  "correlationId": "test-correlation-id"
+}

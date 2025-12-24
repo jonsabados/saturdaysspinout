@@ -18,6 +18,9 @@ import (
 // DataAPIBaseURL is the default base URL for the iRacing data API
 const DataAPIBaseURL = "https://members-ng.iracing.com"
 
+// ImageBaseURL is the base URL for iRacing static image assets
+const ImageBaseURL = "https://images-static.iracing.com"
+
 // iRacingTimeFormat is ISO-8601 with minute precision used by iRacing API
 const iRacingTimeFormat = "2006-01-02T15:04Z"
 
@@ -538,6 +541,53 @@ func (c *Client) GetTrackAssets(ctx context.Context, accessToken string) (map[in
 			continue // Skip invalid IDs
 		}
 		asset.TrackID = id
+		assets[id] = asset
+	}
+
+	return assets, nil
+}
+
+// GetCars fetches all car information from iRacing.
+func (c *Client) GetCars(ctx context.Context, accessToken string) ([]CarInfo, error) {
+	endpoint := c.baseURL + "/data/car/get"
+
+	data, err := c.fetchLinkedData(ctx, accessToken, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	var cars []CarInfo
+	if err := json.Unmarshal(data, &cars); err != nil {
+		return nil, fmt.Errorf("parsing cars response: %w", err)
+	}
+
+	return cars, nil
+}
+
+// GetCarAssets fetches car asset information (images, descriptions) from iRacing.
+// Returns a map keyed by car ID.
+func (c *Client) GetCarAssets(ctx context.Context, accessToken string) (map[int64]CarAssets, error) {
+	endpoint := c.baseURL + "/data/car/assets"
+
+	data, err := c.fetchLinkedData(ctx, accessToken, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	// API returns map with string keys (car IDs as strings)
+	var rawAssets map[string]CarAssets
+	if err := json.Unmarshal(data, &rawAssets); err != nil {
+		return nil, fmt.Errorf("parsing car assets response: %w", err)
+	}
+
+	// Convert to int64 keys for consistency
+	assets := make(map[int64]CarAssets, len(rawAssets))
+	for idStr, asset := range rawAssets {
+		id, err := strconv.ParseInt(idStr, 10, 64)
+		if err != nil {
+			continue // Skip invalid IDs
+		}
+		asset.CarID = id
 		assets[id] = asset
 	}
 

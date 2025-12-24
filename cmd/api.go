@@ -18,11 +18,13 @@ import (
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/google/uuid"
 	apiAuth "github.com/jonsabados/saturdaysspinout/api/auth"
+	apiCars "github.com/jonsabados/saturdaysspinout/api/cars"
 	"github.com/jonsabados/saturdaysspinout/api/developer"
 	"github.com/jonsabados/saturdaysspinout/api/driver"
 	"github.com/jonsabados/saturdaysspinout/api/health"
 	"github.com/jonsabados/saturdaysspinout/api/ingestion"
 	apiTracks "github.com/jonsabados/saturdaysspinout/api/tracks"
+	"github.com/jonsabados/saturdaysspinout/cars"
 	"github.com/jonsabados/saturdaysspinout/event"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
@@ -150,6 +152,7 @@ func CreateAPI() http.Handler {
 
 	authService := auth.NewService(iRacingOAuthClient, jwtService, iRacingClient, driverStore)
 	tracksService := tracks.NewService(iRacingClient)
+	carsService := cars.NewService(iRacingClient)
 
 	authMiddleware := api.AuthMiddleware(jwtService)
 
@@ -160,6 +163,7 @@ func CreateAPI() http.Handler {
 		IngestionRouter: ingestion.NewRouter(driverStore, raceIngestionDispatcher, authMiddleware),
 		DriverRouter:    driver.NewRouter(driverStore, authMiddleware),
 		TracksRouter:    apiTracks.NewRouter(tracksService, authMiddleware),
+		CarsRouter:      apiCars.NewRouter(carsService, authMiddleware),
 	}
 
 	return api.NewRestAPI(logger, uuid.NewString, cfg.CORSAllowedOrigins, routers)
