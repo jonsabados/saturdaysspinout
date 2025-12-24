@@ -1,5 +1,5 @@
 resource "aws_dynamodb_table" "application_store" {
-  name         = "${local.workspace_prefix}SaturdaysSpinoutAppData"
+  name         = "${local.workspace_prefix}AppStore"
   billing_mode = "PAY_PER_REQUEST"
 
   hash_key  = "partition_key"

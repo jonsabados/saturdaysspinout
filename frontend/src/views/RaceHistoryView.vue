@@ -8,7 +8,8 @@ import { useWebSocketStore } from '@/stores/websocket'
 import { useDriverStore } from '@/stores/driver'
 import GridPosition from '@/components/GridPosition.vue'
 import TrackCell from '@/components/TrackCell.vue'
-import CarCell from '@/components/CarCell.vue'
+import SessionCell from '@/components/SessionCell.vue'
+import LicenseCell from '@/components/LicenseCell.vue'
 
 const apiClient = useApiClient()
 const auth = useAuthStore()
@@ -142,19 +143,6 @@ function getIRatingDiffClass(oldRating: number, newRating: number): string {
   return ''
 }
 
-function formatCpiDiff(oldCpi: number, newCpi: number): string {
-  const diff = newCpi - oldCpi
-  const sign = diff > 0 ? '+' : ''
-  return `(${sign}${diff.toFixed(2)})`
-}
-
-function getCpiDiffClass(oldCpi: number, newCpi: number): string {
-  const diff = newCpi - oldCpi
-  if (diff > 0) return 'stat-gain'
-  if (diff < 0) return 'stat-loss'
-  return ''
-}
-
 function handleScroll() {
   userHasScrolled.value = true
   scrollContainerRef.value?.removeEventListener('scroll', handleScroll)
@@ -255,24 +243,24 @@ onUnmounted(() => {
         <thead>
           <tr>
             <th>Date</th>
-            <th>Car</th>
+            <th>Session</th>
             <th>Track</th>
             <th>Start</th>
             <th>Finish</th>
             <th>Incidents</th>
-            <th title="Corners Per Incident">CPI</th>
+            <th>License</th>
             <th>iRating</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="race in sortedRaces" :key="race.id">
             <td>{{ formatDate(race.startTime) }}</td>
-            <td><CarCell :car-id="race.carId" /></td>
+            <td><SessionCell :series-name="race.seriesName" :car-id="race.carId" /></td>
             <td><TrackCell :track-id="race.trackId" /></td>
             <td><GridPosition :position="race.startPosition" :position-in-class="race.startPositionInClass" /></td>
             <td><GridPosition :position="race.finishPosition" :position-in-class="race.finishPositionInClass" /></td>
             <td>{{ race.incidents }}</td>
-            <td>{{ race.newCpi.toFixed(2) }} <span :class="getCpiDiffClass(race.oldCpi, race.newCpi)">{{ formatCpiDiff(race.oldCpi, race.newCpi) }}</span></td>
+            <td><LicenseCell :old-license-level="race.oldLicenseLevel" :new-license-level="race.newLicenseLevel" :old-sub-level="race.oldSubLevel" :new-sub-level="race.newSubLevel" :old-cpi="race.oldCpi" :new-cpi="race.newCpi" /></td>
             <td>{{ race.newIrating }} <span :class="getIRatingDiffClass(race.oldIrating, race.newIrating)">{{ formatIRatingDiff(race.oldIrating, race.newIrating) }}</span></td>
           </tr>
         </tbody>

@@ -12,6 +12,8 @@ export interface Race {
   id: number
   subsessionId: number
   trackId: number
+  seriesId: number
+  seriesName: string
   carId: number
   startTime: string
   startPosition: number
@@ -23,6 +25,10 @@ export interface Race {
   newCpi: number
   oldIrating: number
   newIrating: number
+  oldLicenseLevel: number
+  newLicenseLevel: number
+  oldSubLevel: number
+  newSubLevel: number
   reasonOut: string
 }
 

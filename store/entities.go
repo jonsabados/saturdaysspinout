@@ -36,6 +36,8 @@ type DriverSession struct {
 	SubsessionID          int64
 	TrackID               int64
 	CarID                 int64
+	SeriesID              int64
+	SeriesName            string
 	StartTime             time.Time
 	StartPosition         int
 	StartPositionInClass  int
@@ -46,14 +48,21 @@ type DriverSession struct {
 	NewCPI                float64
 	OldIRating            int
 	NewIRating            int
+	OldLicenseLevel       int
+	NewLicenseLevel       int
+	OldSubLevel           int
+	NewSubLevel           int
 	ReasonOut             string
 }
 
 type Session struct {
-	SubsessionID int64
-	TrackID      int64
-	StartTime    time.Time
-	CarClasses   []SessionCarClass
+	SubsessionID    int64
+	TrackID         int64
+	SeriesID        int64
+	SeriesName      string
+	LicenseCategory string
+	StartTime       time.Time
+	CarClasses      []SessionCarClass
 }
 
 type SessionCarClass struct {
@@ -83,6 +92,10 @@ type SessionDriver struct {
 	NewCPI                float64
 	OldIRating            int
 	NewIRating            int
+	OldLicenseLevel       int
+	NewLicenseLevel       int
+	OldSubLevel           int
+	NewSubLevel           int
 	ReasonOut             string
 	AI                    bool
 }

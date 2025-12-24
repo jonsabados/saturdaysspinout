@@ -152,7 +152,7 @@ The persistence layer uses DynamoDB with a single-table design.
 | `info` | Driver record | driver_name, member_since, races_ingested_to, first_login, last_login, login_count, session_count, entitlements                                                                                  |
 | `ingestion_lock` | Distributed lock for race ingestion | locked_until, ttl                                                                                                                                                                                  |
 | `ws#<connectionId>` | WebSocket connection | connected_at, ttl                                                                                                                                                                                  |
-| `session#<timestamp>` | Race participation (list view) | subsession_id, track_id, car_id, start_time, start_position, start_position_in_class, finish_position, finish_position_in_class, incidents, old_cpi, new_cpi, old_irating, new_irating, reason_out |
+| `session#<timestamp>` | Race participation (list view) | subsession_id, track_id, series_id, series_name, car_id, start_time, start_position, start_position_in_class, finish_position, finish_position_in_class, incidents, old_cpi, new_cpi, old_irating, new_irating, old_license_level, new_license_level, old_sub_level, new_sub_level, reason_out |
 
 #### `websocket#<id>` partition
 
@@ -166,10 +166,10 @@ Note, this is basically just indexing websockets -> driver, could be a GSI but s
 
 | Sort Key                                | Description | Attributes                                                                                                                                                                |
 |-----------------------------------------|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `info`                                  | Race metadata | subsession_id, track_id, start_time                                                                                                                                       |
+| `info`                                  | Race metadata | subsession_id, track_id, series_id, series_name, license_category, start_time                                                                                             |
 | `car_class#<car_class_id>`              | Car class in session | subsession_id, strength_of_field, num_entries                                                                                                                             |
 | `car_class#<car_class_id>#car#<car_id>` | Car in class | subsession_id, car_id                                                                                                                                                     |
-| `drivers#driver#<driver_id>`            | Driver's result | subsession_id, driver_id, car_id, start_position, start_position_in_class, finish_position, finish_position_in_class, old_cpi, new_cpi, incidents, old_irating, new_irating, reason_out, ai |
+| `drivers#driver#<driver_id>`            | Driver's result | subsession_id, driver_id, car_id, start_position, start_position_in_class, finish_position, finish_position_in_class, old_cpi, new_cpi, incidents, old_irating, new_irating, old_license_level, new_license_level, old_sub_level, new_sub_level, reason_out, ai |
 | `laps#driver#<driver_id>#lap#<lap>`     | Lap data | subsession_id, driver_id, lap_number, lap_time, flags, incident, lap_events                                                                                               |
 
 Expected access patterns: 

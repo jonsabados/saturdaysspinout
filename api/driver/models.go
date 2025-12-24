@@ -43,6 +43,8 @@ type Race struct {
 	ID                    int64     `json:"id"`
 	SubsessionID          int64     `json:"subsessionId"`
 	TrackID               int64     `json:"trackId"`
+	SeriesID              int64     `json:"seriesId"`
+	SeriesName            string    `json:"seriesName"`
 	CarID                 int64     `json:"carId"`
 	StartTime             time.Time `json:"startTime"`
 	StartPosition         int       `json:"startPosition"`
@@ -54,6 +56,10 @@ type Race struct {
 	NewCPI                float64   `json:"newCpi"`
 	OldIRating            int       `json:"oldIrating"`
 	NewIRating            int       `json:"newIrating"`
+	OldLicenseLevel       int       `json:"oldLicenseLevel"`
+	NewLicenseLevel       int       `json:"newLicenseLevel"`
+	OldSubLevel           int       `json:"oldSubLevel"`
+	NewSubLevel           int       `json:"newSubLevel"`
 	ReasonOut             string    `json:"reasonOut"`
 }
 
@@ -62,6 +68,8 @@ func raceFromDriverSession(session store.DriverSession) Race {
 		ID:                    session.StartTime.Unix(),
 		SubsessionID:          session.SubsessionID,
 		TrackID:               session.TrackID,
+		SeriesID:              session.SeriesID,
+		SeriesName:            session.SeriesName,
 		CarID:                 session.CarID,
 		StartTime:             session.StartTime.UTC(),
 		StartPosition:         session.StartPosition,
@@ -73,6 +81,10 @@ func raceFromDriverSession(session store.DriverSession) Race {
 		NewCPI:                session.NewCPI,
 		OldIRating:            session.OldIRating,
 		NewIRating:            session.NewIRating,
+		OldLicenseLevel:       session.OldLicenseLevel,
+		NewLicenseLevel:       session.NewLicenseLevel,
+		OldSubLevel:           session.OldSubLevel,
+		NewSubLevel:           session.NewSubLevel,
 		ReasonOut:             session.ReasonOut,
 	}
 }

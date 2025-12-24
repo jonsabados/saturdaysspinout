@@ -157,9 +157,12 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				{
 					subsessionID: subsessionID,
 					result: &store.Session{
-						SubsessionID: subsessionID,
-						TrackID:      123,
-						StartTime:    sessionStartTime,
+						SubsessionID:    subsessionID,
+						TrackID:         123,
+						SeriesID:        42,
+						SeriesName:      "Test Series",
+						LicenseCategory: "Road",
+						StartTime:       sessionStartTime,
 					},
 				},
 			},
@@ -190,6 +193,10 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 							Incidents:             2,
 							OldIRating:            1400,
 							NewIRating:            1450,
+							OldLicenseLevel:       17,
+							NewLicenseLevel:       18,
+							OldSubLevel:           381,
+							NewSubLevel:           399,
 						},
 						{
 							SubsessionID: subsessionID,
@@ -213,12 +220,18 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 						assert.Equal(t, driverID, ds.DriverID)
 						assert.Equal(t, subsessionID, ds.SubsessionID)
 						assert.Equal(t, int64(123), ds.TrackID)
+						assert.Equal(t, int64(42), ds.SeriesID)
+						assert.Equal(t, "Test Series", ds.SeriesName)
 						assert.Equal(t, int64(10), ds.CarID)
 						assert.Equal(t, 5, ds.StartPosition)
 						assert.Equal(t, 3, ds.FinishPosition)
 						assert.Equal(t, 2, ds.Incidents)
 						assert.Equal(t, 1400, ds.OldIRating)
 						assert.Equal(t, 1450, ds.NewIRating)
+						assert.Equal(t, 17, ds.OldLicenseLevel)
+						assert.Equal(t, 18, ds.NewLicenseLevel)
+						assert.Equal(t, 381, ds.OldSubLevel)
+						assert.Equal(t, 399, ds.NewSubLevel)
 					},
 				},
 			},
@@ -353,9 +366,12 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				{
 					subsessionID: subsessionID,
 					result: &iracing.SessionResult{
-						SubsessionID: subsessionID,
-						Track:        iracing.Track{TrackID: 123},
-						StartTime:    sessionStartTime,
+						SubsessionID:    subsessionID,
+						SeriesID:        42,
+						SeriesName:      "Test Series",
+						LicenseCategory: "Road",
+						Track:           iracing.Track{TrackID: 123},
+						StartTime:       sessionStartTime,
 						CarClasses: []iracing.CarClass{
 							{
 								CarClassID:      1,
@@ -378,6 +394,10 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 										Incidents:               2,
 										OldIRating:              1400,
 										NewIRating:              1450,
+										OldLicenseLevel:         17,
+										NewLicenseLevel:         18,
+										OldSubLevel:             381,
+										NewSubLevel:             399,
 									},
 								},
 							},
@@ -408,17 +428,33 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				{
 					validate: func(t *testing.T, data store.SessionDataInsertion) {
 						require.Len(t, data.SessionEntries, 1)
-						assert.Equal(t, subsessionID, data.SessionEntries[0].SubsessionID)
-						assert.Equal(t, int64(123), data.SessionEntries[0].TrackID)
+						session := data.SessionEntries[0]
+						assert.Equal(t, subsessionID, session.SubsessionID)
+						assert.Equal(t, int64(123), session.TrackID)
+						assert.Equal(t, int64(42), session.SeriesID)
+						assert.Equal(t, "Test Series", session.SeriesName)
+						assert.Equal(t, "Road", session.LicenseCategory)
 
 						require.Len(t, data.SessionDriverEntries, 1)
-						assert.Equal(t, driverID, data.SessionDriverEntries[0].DriverID)
-						assert.Equal(t, int64(10), data.SessionDriverEntries[0].CarID)
+						sd := data.SessionDriverEntries[0]
+						assert.Equal(t, driverID, sd.DriverID)
+						assert.Equal(t, int64(10), sd.CarID)
+						assert.Equal(t, 17, sd.OldLicenseLevel)
+						assert.Equal(t, 18, sd.NewLicenseLevel)
+						assert.Equal(t, 381, sd.OldSubLevel)
+						assert.Equal(t, 399, sd.NewSubLevel)
 
 						require.Len(t, data.DriverSessionEntries, 1)
-						assert.Equal(t, driverID, data.DriverSessionEntries[0].DriverID)
-						assert.Equal(t, 5, data.DriverSessionEntries[0].StartPosition)
-						assert.Equal(t, 3, data.DriverSessionEntries[0].FinishPosition)
+						ds := data.DriverSessionEntries[0]
+						assert.Equal(t, driverID, ds.DriverID)
+						assert.Equal(t, 5, ds.StartPosition)
+						assert.Equal(t, 3, ds.FinishPosition)
+						assert.Equal(t, int64(42), ds.SeriesID)
+						assert.Equal(t, "Test Series", ds.SeriesName)
+						assert.Equal(t, 17, ds.OldLicenseLevel)
+						assert.Equal(t, 18, ds.NewLicenseLevel)
+						assert.Equal(t, 381, ds.OldSubLevel)
+						assert.Equal(t, 399, ds.NewSubLevel)
 
 						require.Len(t, data.SessionDriverLapEntries, 2)
 					},
