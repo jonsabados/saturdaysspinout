@@ -24,13 +24,19 @@ type RootRouters struct {
 	CarsRouter      http.Handler
 }
 
-func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGenerator, corsAllowedOrigins []string, routers RootRouters) http.Handler {
+type RestAPIConfig struct {
+	CORSAllowedOrigins []string
+	// DeadlineBuffer is subtracted from existing context deadlines to leave room for cleanup.
+	DeadlineBuffer time.Duration
+}
+
+func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGenerator, routers RootRouters, cfg RestAPIConfig) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
 	r.Use(middleware.RealIP)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   corsAllowedOrigins,
+		AllowedOrigins:   cfg.CORSAllowedOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Correlation-ID"},
 		ExposedHeaders:   []string{"X-Correlation-ID"},
@@ -39,6 +45,7 @@ func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGene
 	}))
 	r.Use(ZerologLogAttachMiddleware(logger))
 	r.Use(correlation.Middleware(correlationIDGenerator))
+	r.Use(ReduceDeadlineMiddleware(cfg.DeadlineBuffer))
 	r.Use(RequestLoggingMiddleware())
 
 	r.Mount("/health", routers.HealthRouter)
@@ -77,6 +84,33 @@ func RequestLoggingMiddleware() func(next http.Handler) http.Handler {
 			}()
 
 			next.ServeHTTP(ww, request)
+		})
+	}
+}
+
+// ReduceDeadlineMiddleware reduces existing context deadlines by the specified buffer.
+// If no deadline exists, the context is passed through unchanged.
+func ReduceDeadlineMiddleware(buffer time.Duration) func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			ctx := request.Context()
+
+			deadline, ok := ctx.Deadline()
+			if !ok {
+				next.ServeHTTP(writer, request)
+				return
+			}
+
+			newDeadline := deadline.Add(-buffer)
+			zerolog.Ctx(ctx).Debug().
+				Time("original", deadline).
+				Time("new", newDeadline).
+				Msg("reducing context deadline")
+
+			ctx, cancel := context.WithDeadline(ctx, newDeadline)
+			defer cancel()
+
+			next.ServeHTTP(writer, request.WithContext(ctx))
 		})
 	}
 }

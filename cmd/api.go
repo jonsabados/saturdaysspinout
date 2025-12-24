@@ -167,5 +167,10 @@ func CreateAPI() http.Handler {
 		CarsRouter:      apiCars.NewRouter(carsService, authMiddleware),
 	}
 
-	return api.NewRestAPI(logger, uuid.NewString, cfg.CORSAllowedOrigins, routers)
+	apiCfg := api.RestAPIConfig{
+		CORSAllowedOrigins: cfg.CORSAllowedOrigins,
+		DeadlineBuffer:     250 * time.Millisecond,
+	}
+
+	return api.NewRestAPI(logger, uuid.NewString, routers, apiCfg)
 }

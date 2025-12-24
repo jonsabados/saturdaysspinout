@@ -145,7 +145,10 @@ func (s *DynamoStore) GetDriver(ctx context.Context, driverID int64) (*Driver, e
 	var lockedUntil *time.Time
 
 	for _, item := range result.Responses[s.table] {
-		sk, _ := getStringAttr(item, sortKeyName)
+		sk, err := getStringAttr(item, sortKeyName)
+		if err != nil {
+			return nil, fmt.Errorf("reading sort key from driver item: %w", err)
+		}
 		switch sk {
 		case defaultSortKey:
 			driver, err = driverFromAttributeMap(item)
@@ -870,7 +873,10 @@ func (s *DynamoStore) DeleteDriverRaces(ctx context.Context, driverID int64) err
 	// Collect keys to delete (everything except info)
 	var keysToDelete []map[string]types.AttributeValue
 	for _, item := range result.Items {
-		sk, _ := getStringAttr(item, sortKeyName)
+		sk, err := getStringAttr(item, sortKeyName)
+		if err != nil {
+			return fmt.Errorf("reading sort key from driver item: %w", err)
+		}
 		if sk != defaultSortKey {
 			keysToDelete = append(keysToDelete, map[string]types.AttributeValue{
 				partitionKeyName: item[partitionKeyName],
