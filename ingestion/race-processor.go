@@ -316,7 +316,7 @@ func (r *RaceProcessor) persistAndNotify(ctx context.Context, insertionMutex *sy
 		return nil
 	}
 
-	// do not defer the unlock of this - we don't want to hold the lock while were notifying browsers
+	// do not defer the unlock of this - we don't want to hold the lock while we're notifying browsers
 	insertionMutex.Lock()
 	if err := r.store.PersistSessionData(ctx, insertions); err != nil {
 		insertionMutex.Unlock()

@@ -12,6 +12,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
@@ -45,6 +46,7 @@ type appCfg struct {
 	JWTEncryptionKeySecret   string   `envconfig:"JWT_ENCRYPTION_KEY_SECRET" required:"true"`
 	DynamoDBTable            string   `envconfig:"DYNAMODB_TABLE" required:"true"`
 	RaceIngestionQueueURL    string   `envconfig:"RACE_INGESTION_QUEUE_URL" required:"true"`
+	IRacingCacheBucket       string   `envconfig:"IRACING_CACHE_BUCKET" required:"true"`
 }
 
 type iRacingCredentials struct {
@@ -147,12 +149,15 @@ func CreateAPI() http.Handler {
 	iRacingOAuthClient := iracing.NewOAuthClient(httpClient, iRacingCreds.OauthClientID, iRacingCreds.OauthClientSecret)
 	iRacingClient := iracing.NewClient(httpClient, metricsClient)
 
+	s3Client := s3.NewFromConfig(awsCfg)
+	cachingClient := iracing.NewGlobalInfoCachingClient(iRacingClient, s3Client, cfg.IRacingCacheBucket, 24*time.Hour)
+
 	sqsClient := sqs.NewFromConfig(awsCfg)
 	raceIngestionDispatcher := event.NewSQSEventDispatcher(sqsClient, cfg.RaceIngestionQueueURL)
 
 	authService := auth.NewService(iRacingOAuthClient, jwtService, iRacingClient, driverStore)
-	tracksService := tracks.NewService(iRacingClient)
-	carsService := cars.NewService(iRacingClient)
+	tracksService := tracks.NewService(cachingClient)
+	carsService := cars.NewService(cachingClient)
 
 	authMiddleware := api.AuthMiddleware(jwtService)
 	developerMiddleware := api.EntitlementMiddleware("developer")

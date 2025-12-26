@@ -107,6 +107,20 @@ data "aws_iam_policy_document" "race_ingestion_lambda" {
     ]
     resources = ["*"]
   }
+
+  statement {
+    sid    = "AllowIRacingCacheS3"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:ListBucket"
+    ]
+    resources = [
+      aws_s3_bucket.iracing_cache.arn,
+      "${aws_s3_bucket.iracing_cache.arn}/*"
+    ]
+  }
 }
 
 resource "aws_iam_role_policy" "race_ingestion_lambda" {
@@ -141,6 +155,7 @@ resource "aws_lambda_function" "race_ingestion_lambda" {
       LAP_CONSUMPTION_CONCURRENCY      = "4"
       INGESTION_QUEUE_URL              = aws_sqs_queue.race_ingestion_requests.url
       INGESTION_LOCK_DURATION_SECONDS  = "900"
+      IRACING_CACHE_BUCKET             = aws_s3_bucket.iracing_cache.bucket
     }
   }
 }

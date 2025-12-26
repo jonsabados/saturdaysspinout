@@ -11,6 +11,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/apigatewaymanagementapi"
 	"github.com/aws/aws-sdk-go-v2/service/cloudwatch"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
@@ -34,6 +35,7 @@ type appCfg struct {
 	LapConsumptionConcurrency    int    `envconfig:"LAP_CONSUMPTION_CONCURRENCY" required:"true"`
 	IngestionQueueURL            string `envconfig:"INGESTION_QUEUE_URL" required:"true"`
 	IngestionLockDurationSeconds int    `envconfig:"INGESTION_LOCK_DURATION_SECONDS" required:"true"`
+	IRacingCacheBucket           string `envconfig:"IRACING_CACHE_BUCKET" required:"true"`
 }
 
 func main() {
@@ -85,10 +87,13 @@ func main() {
 	sqsClient := sqs.NewFromConfig(awsCfg)
 	eventDispatcher := event.NewSQSEventDispatcher(sqsClient, cfg.IngestionQueueURL)
 
+	s3Client := s3.NewFromConfig(awsCfg)
+
 	iracingClient := iracing.NewClient(httpClient, metricsClient)
+	cachingClient := iracing.NewGlobalInfoCachingClient(iracingClient, s3Client, cfg.IRacingCacheBucket, 24*time.Hour)
 
 	lockDuration := time.Duration(cfg.IngestionLockDurationSeconds) * time.Second
-	processor := ingestion.NewRaceProcessor(driverStore, iracingClient, pusher, eventDispatcher, lockDuration,
+	processor := ingestion.NewRaceProcessor(driverStore, cachingClient, pusher, eventDispatcher, lockDuration,
 		ingestion.WithSearchWindowInDays(cfg.SearchWindowInDays),
 		ingestion.WithRaceConsumptionConcurrency(cfg.RaceConsumptionConcurrency),
 		ingestion.WithLapConsumptionConcurrency(cfg.LapConsumptionConcurrency),

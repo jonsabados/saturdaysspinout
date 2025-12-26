@@ -256,6 +256,7 @@ All AWS infrastructure is defined in Terraform with workspace support for multip
 | [`terraform/website.tf`](terraform/website.tf) | S3 bucket, CloudFront for static site |
 | [`terraform/store.tf`](terraform/store.tf) | DynamoDB table (with TTL for WebSocket connections) |
 | [`terraform/secrets.tf`](terraform/secrets.tf) | Secrets Manager secrets (iRacing credentials, JWT signing/encryption keys) |
+| [`terraform/iracing-cache.tf`](terraform/iracing-cache.tf) | S3 bucket for caching iRacing global data (tracks, cars) |
 | [`terraform/backend.tf`](terraform/backend.tf) | S3 backend for Terraform state |
 
 ## CI/CD
@@ -452,6 +453,7 @@ These are managed in `terraform/api.tf` as `local.app_env_vars` and automaticall
 | `IRACING_CREDENTIALS_SECRET` | ARN of Secrets Manager secret containing iRacing OAuth credentials |
 | `JWT_SIGNING_KEY_SECRET` | ARN of Secrets Manager secret containing ECDSA P-256 private key (PEM) |
 | `JWT_ENCRYPTION_KEY_SECRET` | ARN of Secrets Manager secret containing AES-256 key (base64) |
+| `IRACING_CACHE_BUCKET` | S3 bucket name for caching iRacing global data (tracks, cars) |
 
 ### Race Ingestion Lambda
 
@@ -461,6 +463,7 @@ These are managed in `terraform/api.tf` as `local.app_env_vars` and automaticall
 | `DYNAMODB_TABLE` | DynamoDB table name |
 | `SEARCH_WINDOW_IN_DAYS` | Days to search per invocation (default: 10) |
 | `INGESTION_LOCK_DURATION_SECONDS` | Duration of the distributed lock to prevent concurrent ingestion (default: 900) |
+| `IRACING_CACHE_BUCKET` | S3 bucket name for caching iRacing global data (tracks, cars) |
 
 ### Frontend
 
