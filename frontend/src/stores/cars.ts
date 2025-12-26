@@ -1,10 +1,10 @@
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
-import { useSessionStore } from './session'
+import { useAuthStore } from './auth'
 import { useApiClient, type Car } from '@/api/client'
 
 export const useCarsStore = defineStore('cars', () => {
-  const sessionStore = useSessionStore()
+  const authStore = useAuthStore()
 
   const cars = ref<Map<number, Car>>(new Map())
   const loading = ref(false)
@@ -44,17 +44,7 @@ export const useCarsStore = defineStore('cars', () => {
   }
 
   watch(
-    () => sessionStore.isReady,
-    (isReady) => {
-      if (isReady && !isLoaded.value) {
-        fetchCars()
-      }
-    },
-    { immediate: true }
-  )
-
-  watch(
-    () => sessionStore.isLoggedIn,
+    () => authStore.isLoggedIn,
     (isLoggedIn) => {
       if (!isLoggedIn) {
         clear()

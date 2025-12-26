@@ -84,7 +84,7 @@ export const useWebSocketStore = defineStore('websocket', () => {
     }
   }
 
-  function handleAuthResponse(response: AuthResponse) {
+  async function handleAuthResponse(response: AuthResponse) {
     if (response.success && response.userId && response.connectionId) {
       console.log('[WS] Authenticated as user:', response.userId, 'connection:', response.connectionId)
       status.value = 'connected'
@@ -94,8 +94,18 @@ export const useWebSocketStore = defineStore('websocket', () => {
       startHeartbeat()
     } else {
       console.error('[WS] Auth failed:', response.error)
-      status.value = 'error'
-      error.value = response.error || 'Authentication failed'
+      // Try to refresh the token - if that fails, it will trigger logout
+      const authStore = useAuthStore()
+      const refreshed = await authStore.refreshToken()
+      if (refreshed) {
+        // Token refreshed, reconnect will happen via token watcher
+        console.log('[WS] Token refreshed after auth failure, reconnecting...')
+      } else {
+        // Refresh failed - authStore.refreshToken already sets sessionExpired and logs out
+        console.log('[WS] Token refresh failed, user will be logged out')
+        status.value = 'error'
+        error.value = response.error || 'Authentication failed'
+      }
     }
   }
 

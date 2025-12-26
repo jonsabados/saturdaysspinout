@@ -1,10 +1,10 @@
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
-import { useSessionStore } from './session'
+import { useAuthStore } from './auth'
 import { useApiClient, type Track } from '@/api/client'
 
 export const useTracksStore = defineStore('tracks', () => {
-  const sessionStore = useSessionStore()
+  const authStore = useAuthStore()
 
   const tracks = ref<Map<number, Track>>(new Map())
   const loading = ref(false)
@@ -44,17 +44,7 @@ export const useTracksStore = defineStore('tracks', () => {
   }
 
   watch(
-    () => sessionStore.isReady,
-    (isReady) => {
-      if (isReady && !isLoaded.value) {
-        fetchTracks()
-      }
-    },
-    { immediate: true }
-  )
-
-  watch(
-    () => sessionStore.isLoggedIn,
+    () => authStore.isLoggedIn,
     (isLoggedIn) => {
       if (!isLoggedIn) {
         clear()
