@@ -3,6 +3,7 @@ import { RouterView } from 'vue-router'
 import NavBar from '@/components/NavBar.vue'
 import StatusBar from '@/components/StatusBar.vue'
 import SessionExpiredModal from '@/components/SessionExpiredModal.vue'
+import LoadingModal from '@/components/LoadingModal.vue'
 </script>
 
 <template>
@@ -13,6 +14,7 @@ import SessionExpiredModal from '@/components/SessionExpiredModal.vue'
       <RouterView />
     </main>
     <SessionExpiredModal />
+    <LoadingModal />
   </div>
 </template>
 

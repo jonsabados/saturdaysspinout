@@ -10,17 +10,12 @@ vi.mock('@/api/client', () => ({
   }),
 }))
 
-let mockSessionIsReady = false
-let mockSessionIsLoggedIn = true
-const sessionWatchers: Array<(value: boolean) => void> = []
+let mockIsLoggedIn = true
 
-vi.mock('./session', () => ({
-  useSessionStore: () => ({
-    get isReady() {
-      return mockSessionIsReady
-    },
+vi.mock('./auth', () => ({
+  useAuthStore: () => ({
     get isLoggedIn() {
-      return mockSessionIsLoggedIn
+      return mockIsLoggedIn
     },
   }),
 }))
@@ -74,9 +69,7 @@ describe('tracks store', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
-    mockSessionIsReady = false
-    mockSessionIsLoggedIn = true
-    sessionWatchers.length = 0
+    mockIsLoggedIn = true
   })
 
   describe('getTrack', () => {
