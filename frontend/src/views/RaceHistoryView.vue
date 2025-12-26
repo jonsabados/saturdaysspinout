@@ -2,6 +2,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
+import { useI18n } from 'vue-i18n'
 import { useApiClient, type Race } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useWebSocketStore } from '@/stores/websocket'
@@ -11,6 +12,7 @@ import TrackCell from '@/components/TrackCell.vue'
 import SessionCell from '@/components/SessionCell.vue'
 import LicenseCell from '@/components/LicenseCell.vue'
 
+const { t } = useI18n()
 const apiClient = useApiClient()
 const auth = useAuthStore()
 const wsStore = useWebSocketStore()
@@ -199,15 +201,15 @@ onUnmounted(() => {
 <template>
   <div class="race-history">
     <div class="page-header">
-      <h1>Race History</h1>
+      <h1>{{ t('raceHistory.title') }}</h1>
       <span v-if="driverStore.driver?.sessionCount" class="total-races">
-        {{ driverStore.driver.sessionCount }} races on file
+        {{ t('raceHistory.racesOnFile', { count: driverStore.driver.sessionCount }) }}
       </span>
     </div>
 
     <div class="filters">
       <div class="filter-group">
-        <label>From</label>
+        <label>{{ t('raceHistory.from') }}</label>
         <VueDatePicker
           v-model="fromDate"
           :disabled="loading"
@@ -218,7 +220,7 @@ onUnmounted(() => {
         />
       </div>
       <div class="filter-group">
-        <label>To</label>
+        <label>{{ t('raceHistory.to') }}</label>
         <VueDatePicker
           v-model="toDate"
           :disabled="loading"
@@ -231,25 +233,25 @@ onUnmounted(() => {
     </div>
 
     <div v-if="loading" class="loading-state">
-      Loading races...
+      {{ t('raceHistory.loadingRaces') }}
     </div>
 
     <div v-else-if="sortedRaces.length === 0" class="empty-state">
-      No races yet. Races will appear here as they are ingested.
+      {{ t('raceHistory.noRaces') }}
     </div>
 
     <div v-else ref="scrollContainerRef" class="table-container">
       <table class="races-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Session</th>
-            <th>Track</th>
-            <th>Start</th>
-            <th>Finish</th>
-            <th>Incidents</th>
-            <th>License</th>
-            <th>iRating</th>
+            <th>{{ t('raceHistory.columns.date') }}</th>
+            <th>{{ t('raceHistory.columns.session') }}</th>
+            <th>{{ t('raceHistory.columns.track') }}</th>
+            <th>{{ t('raceHistory.columns.start') }}</th>
+            <th>{{ t('raceHistory.columns.finish') }}</th>
+            <th>{{ t('raceHistory.columns.incidents') }}</th>
+            <th>{{ t('raceHistory.columns.license') }}</th>
+            <th>{{ t('raceHistory.columns.irating') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -267,12 +269,12 @@ onUnmounted(() => {
       </table>
 
       <div v-if="hasMorePages || loadingMore" ref="sentinelRef" class="scroll-sentinel">
-        <span v-if="loadingMore" class="loading-more">Loading more...</span>
+        <span v-if="loadingMore" class="loading-more">{{ t('raceHistory.loadingMore') }}</span>
       </div>
     </div>
 
     <div v-if="sortedRaces.length > 0" class="table-footer">
-      Showing {{ sortedRaces.length }} of {{ totalMatching }} matching races
+      {{ t('raceHistory.showingRaces', { shown: sortedRaces.length, total: totalMatching }) }}
     </div>
   </div>
 </template>

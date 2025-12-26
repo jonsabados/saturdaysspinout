@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useApiClient } from '@/api/client'
+
+const { t } = useI18n()
 
 interface Parameter {
   type: string
@@ -109,17 +112,17 @@ onMounted(loadDocs)
 <template>
   <div class="api-explorer">
     <header class="explorer-header">
-      <h1>iRacing API Explorer</h1>
-      <p class="subtitle">Browse the iRacing Data API endpoints</p>
+      <h1>{{ t('apiExplorer.title') }}</h1>
+      <p class="subtitle">{{ t('apiExplorer.subtitle') }}</p>
     </header>
 
     <div v-if="loading" class="loading">
-      Loading API documentation...
+      {{ t('apiExplorer.loadingDocs') }}
     </div>
 
     <div v-else-if="error" class="error">
       <p>{{ error }}</p>
-      <button @click="loadDocs">Retry</button>
+      <button @click="loadDocs">{{ t('common.retry') }}</button>
     </div>
 
     <div v-else class="explorer-layout">
@@ -127,7 +130,7 @@ onMounted(loadDocs)
         <input
           v-model="searchQuery"
           type="text"
-          placeholder="Search endpoints..."
+          :placeholder="t('apiExplorer.searchPlaceholder')"
           class="search-input"
         />
 
@@ -163,29 +166,29 @@ onMounted(loadDocs)
 
       <main class="detail-panel">
         <div v-if="!selectedEndpoint" class="empty-state">
-          <p>Select an endpoint from the sidebar to view details</p>
+          <p>{{ t('apiExplorer.selectEndpoint') }}</p>
         </div>
 
         <div v-else class="endpoint-detail">
           <h2>{{ selectedEndpoint.category }} / {{ selectedEndpoint.name }}</h2>
 
           <div v-if="detailLoading" class="detail-loading">
-            Loading detailed documentation...
+            {{ t('apiExplorer.loadingDetails') }}
           </div>
 
           <div v-else-if="detailError" class="detail-error">
             <p>{{ detailError }}</p>
-            <p class="fallback-note">Showing basic documentation:</p>
+            <p class="fallback-note">{{ t('apiExplorer.showingBasicDocs') }}</p>
           </div>
 
           <template v-if="effectiveEndpoint">
             <section class="detail-section">
-              <h3>Endpoint</h3>
+              <h3>{{ t('apiExplorer.endpoint') }}</h3>
               <code class="endpoint-url">{{ effectiveEndpoint.link }}</code>
             </section>
 
             <section v-if="formatNote(effectiveEndpoint.note).length" class="detail-section">
-              <h3>Notes</h3>
+              <h3>{{ t('apiExplorer.notes') }}</h3>
               <ul class="notes-list">
                 <li v-for="(note, i) in formatNote(effectiveEndpoint.note)" :key="i">
                   {{ note }}
@@ -194,7 +197,7 @@ onMounted(loadDocs)
             </section>
 
             <section v-if="effectiveEndpoint.parameters" class="detail-section">
-              <h3>Parameters</h3>
+              <h3>{{ t('apiExplorer.parameters') }}</h3>
               <div class="params-table">
                 <div
                   v-for="(param, paramName) in effectiveEndpoint.parameters"
@@ -204,7 +207,7 @@ onMounted(loadDocs)
                   <div class="param-header">
                     <code class="param-name">{{ paramName }}</code>
                     <span class="param-type">{{ param.type }}</span>
-                    <span v-if="param.required" class="param-required">required</span>
+                    <span v-if="param.required" class="param-required">{{ t('apiExplorer.required') }}</span>
                   </div>
                   <p v-if="param.note" class="param-note">{{ param.note }}</p>
                 </div>
@@ -212,14 +215,14 @@ onMounted(loadDocs)
             </section>
 
             <section class="detail-section">
-              <h3>Cache</h3>
+              <h3>{{ t('apiExplorer.cache') }}</h3>
               <p class="cache-info">
-                Results cached for {{ effectiveEndpoint.expirationSeconds }} seconds
+                {{ t('apiExplorer.cacheInfo', { seconds: effectiveEndpoint.expirationSeconds }) }}
               </p>
             </section>
 
             <section v-if="detailedDocs" class="detail-section">
-              <h3>Raw Response</h3>
+              <h3>{{ t('apiExplorer.rawResponse') }}</h3>
               <pre class="raw-json">{{ JSON.stringify(detailedDocs, null, 2) }}</pre>
             </section>
           </template>

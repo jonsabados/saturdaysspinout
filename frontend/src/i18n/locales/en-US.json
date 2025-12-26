@@ -1,0 +1,99 @@
+{
+  "common": {
+    "appName": "Saturday's Spinout",
+    "loading": "Loading...",
+    "retry": "Retry",
+    "dismiss": "Dismiss",
+    "login": "Log In",
+    "logout": "Logout",
+    "backToHome": "Back to Home"
+  },
+  "nav": {
+    "raceHistory": "Race History",
+    "tools": "Tools",
+    "apiExplorer": "iRacing API Explorer",
+    "copyBearerToken": "Copy Bearer Token",
+    "copyIracingToken": "Copy iRacing Token",
+    "purgeRaceHistory": "Purge Race History",
+    "loginWithIracing": "Login with iRacing",
+    "toggleMenu": "Toggle menu"
+  },
+  "toast": {
+    "bearerTokenCopied": "Bearer token copied!",
+    "iracingTokenCopied": "iRacing token copied!",
+    "failedToCopy": "Failed to copy",
+    "raceHistoryPurged": "Race history purged!",
+    "failedToPurge": "Failed to purge"
+  },
+  "confirm": {
+    "purgeRaceHistory": "This will delete all your race history and reset your sync state. You will need to re-sync to see your races again.\n\nAre you sure you want to continue?"
+  },
+  "sessionExpired": {
+    "title": "Session Expired",
+    "message": "You've been logged out. Your session has expired and couldn't be refreshed."
+  },
+  "loading": {
+    "title": "Getting things ready...",
+    "connectingToServer": "Connecting to server",
+    "loadingTracks": "Loading tracks",
+    "loadingCars": "Loading cars"
+  },
+  "home": {
+    "tagline": "Race logging and analysis for iRacing",
+    "welcomeBack": "Welcome back, {name}!",
+    "viewRaceHistory": "View Race History",
+    "exploreApi": "Explore iRacing API",
+    "signInPrompt": "Sign in with your iRacing account to get started"
+  },
+  "sync": {
+    "syncedTo": "Synced to {date}",
+    "notSynced": "Not synced",
+    "cooldownMessage": "Sync on cooldown - available in ~{minutes} minute | Sync on cooldown - available in ~{minutes} minutes",
+    "syncRaceHistory": "Sync race history",
+    "sync": "Sync",
+    "getStarted": "Sync your race history to get started"
+  },
+  "raceHistory": {
+    "title": "Race History",
+    "racesOnFile": "{count} race on file | {count} races on file",
+    "from": "From",
+    "to": "To",
+    "loadingRaces": "Loading races...",
+    "noRaces": "No races yet. Races will appear here as they are ingested.",
+    "showingRaces": "Showing {shown} of {total} matching races",
+    "loadingMore": "Loading more...",
+    "columns": {
+      "date": "Date",
+      "session": "Session",
+      "track": "Track",
+      "start": "Start",
+      "finish": "Finish",
+      "incidents": "Incidents",
+      "license": "License",
+      "irating": "iRating"
+    }
+  },
+  "auth": {
+    "loggingIn": "Logging in...",
+    "pleaseWait": "Please wait while we complete your login.",
+    "loginFailed": "Login Failed",
+    "noAuthCode": "No authorization code received",
+    "noCodeVerifier": "No code verifier found - please try logging in again"
+  },
+  "apiExplorer": {
+    "title": "iRacing API Explorer",
+    "subtitle": "Browse the iRacing Data API endpoints",
+    "loadingDocs": "Loading API documentation...",
+    "searchPlaceholder": "Search endpoints...",
+    "selectEndpoint": "Select an endpoint from the sidebar to view details",
+    "loadingDetails": "Loading detailed documentation...",
+    "showingBasicDocs": "Showing basic documentation:",
+    "endpoint": "Endpoint",
+    "notes": "Notes",
+    "parameters": "Parameters",
+    "required": "required",
+    "cache": "Cache",
+    "cacheInfo": "Results cached for {seconds} seconds",
+    "rawResponse": "Raw Response"
+  }
+}

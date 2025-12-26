@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { retrieveCodeVerifier, clearCodeVerifier } from '@/auth/pkce'
 import { useAuthStore } from '@/stores/auth'
 
+const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 const status = ref<'processing' | 'error'>('processing')
@@ -37,14 +39,14 @@ onMounted(async () => {
 
   if (!code) {
     status.value = 'error'
-    errorMessage.value = 'No authorization code received'
+    errorMessage.value = t('auth.noAuthCode')
     return
   }
 
   const codeVerifier = retrieveCodeVerifier()
   if (!codeVerifier) {
     status.value = 'error'
-    errorMessage.value = 'No code verifier found - please try logging in again'
+    errorMessage.value = t('auth.noCodeVerifier')
     return
   }
 
@@ -85,13 +87,13 @@ onMounted(async () => {
 <template>
   <main>
     <div v-if="status === 'processing'">
-      <h1>Logging in...</h1>
-      <p>Please wait while we complete your login.</p>
+      <h1>{{ t('auth.loggingIn') }}</h1>
+      <p>{{ t('auth.pleaseWait') }}</p>
     </div>
     <div v-else-if="status === 'error'">
-      <h1>Login Failed</h1>
+      <h1>{{ t('auth.loginFailed') }}</h1>
       <p class="error">{{ errorMessage }}</p>
-      <button @click="router.push('/')">Back to Home</button>
+      <button @click="router.push('/')">{{ t('common.backToHome') }}</button>
     </div>
   </main>
 </template>

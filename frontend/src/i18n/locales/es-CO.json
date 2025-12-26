@@ -1,0 +1,99 @@
+{
+  "common": {
+    "appName": "Saturday's Spinout",
+    "loading": "Cargando...",
+    "retry": "Reintentar",
+    "dismiss": "Cerrar",
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",
+    "backToHome": "Volver al inicio"
+  },
+  "nav": {
+    "raceHistory": "Historial de carreras",
+    "tools": "Herramientas",
+    "apiExplorer": "Explorador de API de iRacing",
+    "copyBearerToken": "Copiar token de autenticación",
+    "copyIracingToken": "Copiar token de iRacing",
+    "purgeRaceHistory": "Eliminar historial de carreras",
+    "loginWithIracing": "Iniciar sesión con iRacing",
+    "toggleMenu": "Alternar menú"
+  },
+  "toast": {
+    "bearerTokenCopied": "Token de autenticación copiado",
+    "iracingTokenCopied": "Token de iRacing copiado",
+    "failedToCopy": "Error al copiar",
+    "raceHistoryPurged": "Historial de carreras eliminado",
+    "failedToPurge": "Error al eliminar"
+  },
+  "confirm": {
+    "purgeRaceHistory": "Esto eliminará todo tu historial de carreras y restablecerá el estado de sincronización. Tendrás que volver a sincronizar para ver tus carreras.\n\n¿Estás seguro de que deseas continuar?"
+  },
+  "sessionExpired": {
+    "title": "Sesión expirada",
+    "message": "Tu sesión ha expirado y no se pudo renovar."
+  },
+  "loading": {
+    "title": "Preparando todo...",
+    "connectingToServer": "Conectando al servidor",
+    "loadingTracks": "Cargando circuitos",
+    "loadingCars": "Cargando carros"
+  },
+  "home": {
+    "tagline": "Registro y análisis de carreras para iRacing",
+    "welcomeBack": "¡Bienvenido de nuevo, {name}!",
+    "viewRaceHistory": "Ver historial de carreras",
+    "exploreApi": "Explorar API de iRacing",
+    "signInPrompt": "Inicia sesión con tu cuenta de iRacing para comenzar"
+  },
+  "sync": {
+    "syncedTo": "Sincronizado hasta {date}",
+    "notSynced": "Sin sincronizar",
+    "cooldownMessage": "Sincronización en espera - disponible en ~{minutes} minuto | Sincronización en espera - disponible en ~{minutes} minutos",
+    "syncRaceHistory": "Sincronizar historial de carreras",
+    "sync": "Sincronizar",
+    "getStarted": "Sincroniza tu historial de carreras para comenzar"
+  },
+  "raceHistory": {
+    "title": "Historial de carreras",
+    "racesOnFile": "{count} carrera registrada | {count} carreras registradas",
+    "from": "Desde",
+    "to": "Hasta",
+    "loadingRaces": "Cargando carreras...",
+    "noRaces": "Aún no hay carreras. Las carreras aparecerán aquí a medida que se sincronicen.",
+    "showingRaces": "Mostrando {shown} de {total} carreras",
+    "loadingMore": "Cargando más...",
+    "columns": {
+      "date": "Fecha",
+      "session": "Sesión",
+      "track": "Circuito",
+      "start": "Inicio",
+      "finish": "Final",
+      "incidents": "Incidentes",
+      "license": "Licencia",
+      "irating": "iRating"
+    }
+  },
+  "auth": {
+    "loggingIn": "Iniciando sesión...",
+    "pleaseWait": "Por favor espera mientras completamos tu inicio de sesión.",
+    "loginFailed": "Error al iniciar sesión",
+    "noAuthCode": "No se recibió código de autorización",
+    "noCodeVerifier": "No se encontró el verificador de código - por favor intenta iniciar sesión de nuevo"
+  },
+  "apiExplorer": {
+    "title": "Explorador de API de iRacing",
+    "subtitle": "Explora los endpoints de la API de datos de iRacing",
+    "loadingDocs": "Cargando documentación de la API...",
+    "searchPlaceholder": "Buscar endpoints...",
+    "selectEndpoint": "Selecciona un endpoint de la barra lateral para ver detalles",
+    "loadingDetails": "Cargando documentación detallada...",
+    "showingBasicDocs": "Mostrando documentación básica:",
+    "endpoint": "Endpoint",
+    "notes": "Notas",
+    "parameters": "Parámetros",
+    "required": "requerido",
+    "cache": "Caché",
+    "cacheInfo": "Resultados almacenados en caché por {seconds} segundos",
+    "rawResponse": "Respuesta sin procesar"
+  }
+}

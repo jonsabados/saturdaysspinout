@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { initiateLogin } from '@/auth/iracing'
 import { useAuthStore } from '@/stores/auth'
 import Modal from './Modal.vue'
 
+const { t } = useI18n()
 const authStore = useAuthStore()
 
 async function handleLogin() {
@@ -20,17 +22,17 @@ function handleDismiss() {
 </script>
 
 <template>
-  <Modal v-if="authStore.sessionExpired" title="Session Expired" @close="handleDismiss">
+  <Modal v-if="authStore.sessionExpired" :title="t('sessionExpired.title')" @close="handleDismiss">
     <p class="message">
-      You've been logged out. Your session has expired and couldn't be refreshed.
+      {{ t('sessionExpired.message') }}
     </p>
 
     <template #actions>
       <button class="btn btn-secondary" @click="handleDismiss">
-        Dismiss
+        {{ t('common.dismiss') }}
       </button>
       <button class="btn btn-primary" @click="handleLogin">
-        Log In
+        {{ t('common.login') }}
       </button>
     </template>
   </Modal>

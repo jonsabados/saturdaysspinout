@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, onUnmounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRaceIngestionStore } from '@/stores/raceIngestion'
 import { useSessionStore } from '@/stores/session'
 import { useDriverStore } from '@/stores/driver'
+
+const { t } = useI18n()
 
 const COOLDOWN_MINUTES = 15
 const COOLDOWN_MS = COOLDOWN_MINUTES * 60 * 1000
@@ -33,9 +36,9 @@ const isDisabled = computed(() => !sessionStore.isReady || isLoading.value || is
 
 const syncStatusText = computed(() => {
   if (driverStore.syncedToFormatted) {
-    return `Synced to ${driverStore.syncedToFormatted}`
+    return t('sync.syncedTo', { date: driverStore.syncedToFormatted })
   }
-  return 'Not synced'
+  return t('sync.notSynced')
 })
 
 const showCta = computed(() => {
@@ -45,9 +48,9 @@ const showCta = computed(() => {
 const buttonTitle = computed(() => {
   if (isOnCooldown.value) {
     const minutes = Math.ceil(cooldownRemaining.value / 60000)
-    return `Sync on cooldown - available in ~${minutes} minute${minutes === 1 ? '' : 's'}`
+    return t('sync.cooldownMessage', { minutes })
   }
-  return 'Sync race history'
+  return t('sync.syncRaceHistory')
 })
 
 function handleClick() {
@@ -69,10 +72,10 @@ function handleClick() {
       :title="buttonTitle"
     >
       <span class="sync-icon" :class="{ spinning: isLoading }">&#x21bb;</span>
-      <span class="sync-label">Sync</span>
+      <span class="sync-label">{{ t('sync.sync') }}</span>
     </button>
     <span v-if="showCta" class="sync-cta">
-      Sync your race history to get started
+      {{ t('sync.getStarted') }}
     </span>
   </div>
 </template>
