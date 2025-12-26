@@ -10,6 +10,7 @@ locals {
     JWT_ENCRYPTION_KEY_SECRET  = aws_secretsmanager_secret.jwt_encryption_key.arn
     DYNAMODB_TABLE             = aws_dynamodb_table.application_store.name
     RACE_INGESTION_QUEUE_URL   = aws_sqs_queue.race_ingestion_requests.url
+    IRACING_CACHE_BUCKET       = aws_s3_bucket.iracing_cache.bucket
   }
 }
 
@@ -96,6 +97,20 @@ data "aws_iam_policy_document" "api_lambda" {
       "cloudwatch:PutMetricData"
     ]
     resources = ["*"]
+  }
+
+  statement {
+    sid    = "AllowIRacingCacheS3"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:ListBucket"
+    ]
+    resources = [
+      aws_s3_bucket.iracing_cache.arn,
+      "${aws_s3_bucket.iracing_cache.arn}/*"
+    ]
   }
 }
 
