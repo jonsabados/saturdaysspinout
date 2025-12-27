@@ -31,9 +31,6 @@ const sessionDriverLapSortKeyFormat = "laps#driver#%d#lap#%d"
 const globalCountersPartitionKey = "global"
 const globalCountersSortKey = "counters"
 const globalCountersAttributeDrivers = "drivers"
-const globalCountersAttributeNotes = "notes"
-const globalCountersAttributeSessions = "sessions"
-const globalCountersAttributeLaps = "laps"
 
 func globalCountersFromAttributeMap(item map[string]types.AttributeValue) (*GlobalCounters, error) {
 	counters := &GlobalCounters{}
@@ -44,30 +41,6 @@ func globalCountersFromAttributeMap(item map[string]types.AttributeValue) (*Glob
 			return nil, fmt.Errorf("invalid 'drivers' value: %w", err)
 		}
 		counters.Drivers = drivers
-	}
-
-	if notesAttr, ok := item[globalCountersAttributeNotes].(*types.AttributeValueMemberN); ok {
-		notes, err := strconv.ParseInt(notesAttr.Value, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid 'notes' value: %w", err)
-		}
-		counters.Notes = notes
-	}
-
-	if sessionsAttr, ok := item[globalCountersAttributeSessions].(*types.AttributeValueMemberN); ok {
-		sessions, err := strconv.ParseInt(sessionsAttr.Value, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid 'sessions' value: %w", err)
-		}
-		counters.Sessions = sessions
-	}
-
-	if lapsAttr, ok := item[globalCountersAttributeLaps].(*types.AttributeValueMemberN); ok {
-		laps, err := strconv.ParseInt(lapsAttr.Value, 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid 'laps' value: %w", err)
-		}
-		counters.Laps = laps
 	}
 
 	return counters, nil

@@ -37,3 +37,17 @@ func (e *CloudWatchEmitter) EmitGauge(ctx context.Context, name string, value fl
 	})
 	return err
 }
+
+func (e *CloudWatchEmitter) EmitCount(ctx context.Context, name string, count int) error {
+	_, err := e.client.PutMetricData(ctx, &cloudwatch.PutMetricDataInput{
+		Namespace: aws.String(e.namespace),
+		MetricData: []types.MetricDatum{
+			{
+				MetricName: aws.String(name),
+				Value:      aws.Float64(float64(count)),
+				Unit:       types.StandardUnitCount,
+			},
+		},
+	})
+	return err
+}

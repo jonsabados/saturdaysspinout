@@ -5,6 +5,7 @@ locals {
     JWT_ENCRYPTION_KEY_SECRET = aws_secretsmanager_secret.jwt_encryption_key.arn
     DYNAMODB_TABLE            = aws_dynamodb_table.application_store.name
     WS_MANAGEMENT_ENDPOINT    = "https://${aws_apigatewayv2_api.websockets.id}.execute-api.us-east-1.amazonaws.com/${aws_apigatewayv2_stage.ws.name}"
+    METRICS_NAMESPACE         = "${local.workspace_prefix}SaturdaysSpinout"
   }
 }
 

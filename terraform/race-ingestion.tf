@@ -78,6 +78,7 @@ data "aws_iam_policy_document" "race_ingestion_lambda" {
     actions = [
       "dynamodb:GetItem",
       "dynamodb:BatchGetItem",
+      "dynamodb:BatchWriteItem",
       "dynamodb:UpdateItem",
       "dynamodb:PutItem",
       "dynamodb:DeleteItem",
@@ -148,14 +149,15 @@ resource "aws_lambda_function" "race_ingestion_lambda" {
 
   environment {
     variables = {
-      LOG_LEVEL                        = "info"
-      DYNAMODB_TABLE                   = aws_dynamodb_table.application_store.name
-      WS_MANAGEMENT_ENDPOINT           = "https://${aws_apigatewayv2_api.websockets.id}.execute-api.us-east-1.amazonaws.com/${aws_apigatewayv2_stage.ws.name}"
-      RACE_CONSUMPTION_CONCURRENCY     = "3"
-      LAP_CONSUMPTION_CONCURRENCY      = "4"
-      INGESTION_QUEUE_URL              = aws_sqs_queue.race_ingestion_requests.url
-      INGESTION_LOCK_DURATION_SECONDS  = "900"
-      IRACING_CACHE_BUCKET             = aws_s3_bucket.iracing_cache.bucket
+      LOG_LEVEL                       = "info"
+      DYNAMODB_TABLE                  = aws_dynamodb_table.application_store.name
+      WS_MANAGEMENT_ENDPOINT          = "https://${aws_apigatewayv2_api.websockets.id}.execute-api.us-east-1.amazonaws.com/${aws_apigatewayv2_stage.ws.name}"
+      RACE_CONSUMPTION_CONCURRENCY    = "3"
+      LAP_CONSUMPTION_CONCURRENCY     = "4"
+      INGESTION_QUEUE_URL             = aws_sqs_queue.race_ingestion_requests.url
+      INGESTION_LOCK_DURATION_SECONDS = "900"
+      IRACING_CACHE_BUCKET            = aws_s3_bucket.iracing_cache.bucket
+      METRICS_NAMESPACE               = "${local.workspace_prefix}SaturdaysSpinout"
     }
   }
 }

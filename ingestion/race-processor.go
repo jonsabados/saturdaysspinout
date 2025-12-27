@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/jonsabados/saturdaysspinout/iracing"
+	"github.com/jonsabados/saturdaysspinout/metrics"
 	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/rs/zerolog"
 )
@@ -53,6 +54,10 @@ type EventDispatcher interface {
 	PublishEvent(ctx context.Context, event any) error
 }
 
+type MetricsClient interface {
+	EmitCount(ctx context.Context, name string, count int) error
+}
+
 type RaceProcessorOption func(*RaceProcessor)
 
 func WithSearchWindowInDays(days int) RaceProcessorOption {
@@ -79,18 +84,20 @@ type RaceProcessor struct {
 	searchWindowDuration       time.Duration
 	pusher                     Pusher
 	eventDispatcher            EventDispatcher
+	metricsClient              MetricsClient
 	raceConsumptionConcurrency int
 	lapConsumptionConcurrency  int
 	lockDuration               time.Duration
 	now                        func() time.Time
 }
 
-func NewRaceProcessor(store Store, iracingClient IRacingClient, pusher Pusher, eventDispatcher EventDispatcher, lockDuration time.Duration, opts ...RaceProcessorOption) *RaceProcessor {
+func NewRaceProcessor(store Store, iracingClient IRacingClient, pusher Pusher, eventDispatcher EventDispatcher, metricsClient MetricsClient, lockDuration time.Duration, opts ...RaceProcessorOption) *RaceProcessor {
 	r := &RaceProcessor{
 		store:                      store,
 		iracingClient:              iracingClient,
 		pusher:                     pusher,
 		eventDispatcher:            eventDispatcher,
+		metricsClient:              metricsClient,
 		searchWindowDuration:       time.Hour * 24 * 10,
 		raceConsumptionConcurrency: DefaultRaceConsumptionConcurrency,
 		lapConsumptionConcurrency:  DefaultLapConsumptionConcurrency,
@@ -324,6 +331,8 @@ func (r *RaceProcessor) persistAndNotify(ctx context.Context, insertionMutex *sy
 	}
 	insertionMutex.Unlock()
 
+	r.emitIngestionMetrics(ctx, insertions)
+
 	for _, driverSession := range insertions.DriverSessionEntries {
 		raceID := store.DriverRaceIDFromTime(driverSession.StartTime)
 		if err := r.pusher.Broadcast(ctx, driverSession.DriverID, "raceIngested", RaceReadyMsg{raceID}); err != nil {
@@ -331,6 +340,22 @@ func (r *RaceProcessor) persistAndNotify(ctx context.Context, insertionMutex *sy
 		}
 	}
 	return nil
+}
+
+func (r *RaceProcessor) emitIngestionMetrics(ctx context.Context, insertions store.SessionDataInsertion) {
+	logger := zerolog.Ctx(ctx)
+
+	if len(insertions.SessionEntries) > 0 {
+		if err := r.metricsClient.EmitCount(ctx, metrics.SessionsIngested, len(insertions.SessionEntries)); err != nil {
+			logger.Warn().Err(err).Msg("failed to emit sessions ingested metric")
+		}
+	}
+
+	if len(insertions.SessionDriverLapEntries) > 0 {
+		if err := r.metricsClient.EmitCount(ctx, metrics.LapsIngested, len(insertions.SessionDriverLapEntries)); err != nil {
+			logger.Warn().Err(err).Msg("failed to emit laps ingested metric")
+		}
+	}
 }
 
 func (r *RaceProcessor) processExistingSession(ctx context.Context, insertionMutex *sync.Mutex, existingSession *store.Session, driverID int64) error {

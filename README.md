@@ -179,9 +179,9 @@ Expected access patterns:
 
 #### `global` partition
 
-| Sort Key | Description | Attributes                           |
-|----------|-------------|--------------------------------------|
-| `counters` | Aggregate counts | drivers, notes, sessions, laps |
+| Sort Key | Description | Attributes |
+|----------|-------------|------------|
+| `counters` | Aggregate counts | drivers |
 
 | File | Purpose |
 |------|---------|

@@ -36,6 +36,7 @@ type appCfg struct {
 	IngestionQueueURL            string `envconfig:"INGESTION_QUEUE_URL" required:"true"`
 	IngestionLockDurationSeconds int    `envconfig:"INGESTION_LOCK_DURATION_SECONDS" required:"true"`
 	IRacingCacheBucket           string `envconfig:"IRACING_CACHE_BUCKET" required:"true"`
+	MetricsNamespace             string `envconfig:"METRICS_NAMESPACE" required:"true"`
 }
 
 func main() {
@@ -82,7 +83,7 @@ func main() {
 	pusher := ws.NewPusher(apiGWClient, driverStore)
 
 	cwClient := cloudwatch.NewFromConfig(awsCfg)
-	metricsClient := metrics.NewCloudWatchEmitter(cwClient, "SaturdaysSpinout")
+	metricsClient := metrics.NewCloudWatchEmitter(cwClient, cfg.MetricsNamespace)
 
 	sqsClient := sqs.NewFromConfig(awsCfg)
 	eventDispatcher := event.NewSQSEventDispatcher(sqsClient, cfg.IngestionQueueURL)
@@ -93,7 +94,7 @@ func main() {
 	cachingClient := iracing.NewGlobalInfoCachingClient(iracingClient, s3Client, cfg.IRacingCacheBucket, 24*time.Hour)
 
 	lockDuration := time.Duration(cfg.IngestionLockDurationSeconds) * time.Second
-	processor := ingestion.NewRaceProcessor(driverStore, cachingClient, pusher, eventDispatcher, lockDuration,
+	processor := ingestion.NewRaceProcessor(driverStore, cachingClient, pusher, eventDispatcher, metricsClient, lockDuration,
 		ingestion.WithSearchWindowInDays(cfg.SearchWindowInDays),
 		ingestion.WithRaceConsumptionConcurrency(cfg.RaceConsumptionConcurrency),
 		ingestion.WithLapConsumptionConcurrency(cfg.LapConsumptionConcurrency),
