@@ -119,5 +119,23 @@
     "miles": "{length} mi",
     "mph": "{speed} mph",
     "showBackground": "Show background"
+  },
+  "carDetails": {
+    "title": "Car Details",
+    "carNotFound": "Car not found",
+    "backToRaces": "Back to Race History",
+    "horsepowerUnderHood": "Horsepower (Rated)",
+    "horsepowerActual": "Horsepower (Actual)",
+    "weight": "Weight",
+    "categories": "Categories",
+    "features": "Features",
+    "description": "Description",
+    "hasHeadlights": "Headlights",
+    "multipleDryTires": "Multiple Dry Tire Types",
+    "rainEnabled": "Rain Enabled",
+    "freeWithSub": "Free with Subscription",
+    "paidContent": "Paid Content",
+    "retired": "Retired",
+    "lbs": "{weight} lbs"
   }
 }

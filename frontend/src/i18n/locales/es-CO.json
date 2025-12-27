@@ -119,5 +119,23 @@
     "miles": "{length} mi",
     "mph": "{speed} mph",
     "showBackground": "Mostrar fondo"
+  },
+  "carDetails": {
+    "title": "Detalles del auto",
+    "carNotFound": "Auto no encontrado",
+    "backToRaces": "Volver al historial de carreras",
+    "horsepowerUnderHood": "Caballos de fuerza (Nominal)",
+    "horsepowerActual": "Caballos de fuerza (Real)",
+    "weight": "Peso",
+    "categories": "Categorías",
+    "features": "Características",
+    "description": "Descripción",
+    "hasHeadlights": "Faros",
+    "multipleDryTires": "Múltiples tipos de llantas secas",
+    "rainEnabled": "Lluvia habilitada",
+    "freeWithSub": "Gratis con suscripción",
+    "paidContent": "Contenido pago",
+    "retired": "Retirado",
+    "lbs": "{weight} lbs"
   }
 }
