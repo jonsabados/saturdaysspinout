@@ -46,7 +46,7 @@ const fullName = computed(() => {
 }
 
 .track-cell:hover .track-name {
-  color: var(--color-accent);
+  text-decoration: underline;
 }
 
 .track-text-full {
@@ -56,10 +56,12 @@ const fullName = computed(() => {
 
 .track-text-abbrev {
   display: none;
+  color: var(--color-accent);
 }
 
 .track-name {
   display: block;
+  color: var(--color-accent);
 }
 
 .track-config {

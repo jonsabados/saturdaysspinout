@@ -11,7 +11,11 @@ import LoadingModal from '@/components/LoadingModal.vue'
     <NavBar />
     <StatusBar />
     <main class="main-content">
-      <RouterView />
+      <RouterView v-slot="{ Component }">
+        <KeepAlive include="RaceHistoryView">
+          <component :is="Component" />
+        </KeepAlive>
+      </RouterView>
     </main>
     <SessionExpiredModal />
     <LoadingModal />

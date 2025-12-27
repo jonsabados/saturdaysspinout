@@ -34,7 +34,6 @@
   },
   "loading": {
     "title": "Getting things ready...",
-    "connectingToServer": "Connecting to server",
     "loadingTracks": "Loading tracks",
     "loadingCars": "Loading cars"
   },

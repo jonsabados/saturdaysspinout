@@ -30,7 +30,7 @@ const router = createRouter({
       path: '/race-history',
       name: 'race-history',
       component: RaceHistoryView,
-      meta: { requiresAuth: true },
+      meta: { requiresAuth: true, keepAlive: true },
     },
     {
       path: '/tracks/:id',

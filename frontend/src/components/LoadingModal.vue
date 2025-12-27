@@ -9,7 +9,6 @@ const sessionStore = useSessionStore()
 const shouldShow = computed(() => sessionStore.isLoggedIn && !sessionStore.isReady)
 
 const labelKeys: Record<string, string> = {
-  ws: 'loading.connectingToServer',
   tracks: 'loading.loadingTracks',
   cars: 'loading.loadingCars',
 }
