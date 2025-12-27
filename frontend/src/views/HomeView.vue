@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth'
 
+const { t } = useI18n()
 const authStore = useAuthStore()
 const hasDeveloperAccess = computed(() => authStore.hasEntitlement('developer'))
 </script>
@@ -10,21 +12,21 @@ const hasDeveloperAccess = computed(() => authStore.hasEntitlement('developer'))
 <template>
   <div class="home">
     <div class="hero">
-      <h1>Saturday's Spinout</h1>
-      <p class="tagline">Race logging and analysis for iRacing</p>
+      <h1>{{ t('common.appName') }}</h1>
+      <p class="tagline">{{ t('home.tagline') }}</p>
 
       <div v-if="authStore.isLoggedIn" class="welcome">
-        <p>Welcome back, {{ authStore.userName }}!</p>
+        <p>{{ t('home.welcomeBack', { name: authStore.userName }) }}</p>
         <RouterLink to="/race-history" class="cta-button">
-          View Race History
+          {{ t('home.viewRaceHistory') }}
         </RouterLink>
         <RouterLink v-if="hasDeveloperAccess" to="/iracing-api" class="cta-button secondary">
-          Explore iRacing API
+          {{ t('home.exploreApi') }}
         </RouterLink>
       </div>
 
       <div v-else class="guest">
-        <p>Sign in with your iRacing account to get started</p>
+        <p>{{ t('home.signInPrompt') }}</p>
       </div>
     </div>
   </div>

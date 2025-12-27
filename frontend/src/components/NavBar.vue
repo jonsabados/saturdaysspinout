@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { initiateLogin } from '@/auth/iracing'
 import { useSessionStore } from '@/stores/session'
 import { useAuthStore } from '@/stores/auth'
 import { useDriverStore } from '@/stores/driver'
 import { useApiClient } from '@/api/client'
 
+const { t } = useI18n()
 const session = useSessionStore()
 const auth = useAuthStore()
 const driverStore = useDriverStore()
@@ -26,9 +28,9 @@ async function copyBearerToken() {
   if (!auth.token) return
   try {
     await navigator.clipboard.writeText(auth.token)
-    showCopyStatus('Bearer token copied!')
+    showCopyStatus(t('toast.bearerTokenCopied'))
   } catch {
-    showCopyStatus('Failed to copy')
+    showCopyStatus(t('toast.failedToCopy'))
   }
   closeMenu()
 }
@@ -46,9 +48,9 @@ async function copyIRacingToken() {
     }
     const data = await response.json()
     await navigator.clipboard.writeText(data.response.access_token)
-    showCopyStatus('iRacing token copied!')
+    showCopyStatus(t('toast.iracingTokenCopied'))
   } catch {
-    showCopyStatus('Failed to copy')
+    showCopyStatus(t('toast.failedToCopy'))
   }
   closeMenu()
 }
@@ -56,9 +58,7 @@ async function copyIRacingToken() {
 async function purgeRaceHistory() {
   if (!auth.userId) return
 
-  const confirmed = window.confirm(
-    'This will delete all your race history and reset your sync state. You will need to re-sync to see your races again.\n\nAre you sure you want to continue?'
-  )
+  const confirmed = window.confirm(t('confirm.purgeRaceHistory'))
   if (!confirmed) {
     closeMenu()
     return
@@ -67,9 +67,9 @@ async function purgeRaceHistory() {
   try {
     await apiClient.deleteDriverRaces(auth.userId)
     await driverStore.refresh()
-    showCopyStatus('Race history purged!')
+    showCopyStatus(t('toast.raceHistoryPurged'))
   } catch {
-    showCopyStatus('Failed to purge')
+    showCopyStatus(t('toast.failedToPurge'))
   }
   closeMenu()
 }
@@ -126,13 +126,13 @@ router.afterEach(() => {
 
 <template>
   <nav class="navbar">
-    <RouterLink to="/" class="brand">Saturday's Spinout</RouterLink>
+    <RouterLink to="/" class="brand">{{ t('common.appName') }}</RouterLink>
 
     <button
       class="menu-toggle"
       :class="{ open: menuOpen }"
       @click="menuOpen = !menuOpen"
-      aria-label="Toggle menu"
+      :aria-label="t('nav.toggleMenu')"
     >
       <span></span>
       <span></span>
@@ -141,30 +141,30 @@ router.afterEach(() => {
 
     <div class="nav-links" :class="{ open: menuOpen }">
       <template v-if="session.isLoggedIn">
-        <RouterLink to="/race-history" class="nav-link" @click="closeMenu">Race History</RouterLink>
+        <RouterLink to="/race-history" class="nav-link" @click="closeMenu">{{ t('nav.raceHistory') }}</RouterLink>
 
         <!-- Desktop "More" dropdown - only show if user has access to any tools -->
         <div v-if="hasAnyTools" ref="moreDropdown" class="more-dropdown desktop-only">
           <button class="nav-link more-toggle" @click.stop="toggleMore" :class="{ active: moreOpen }">
-            Tools
+            {{ t('nav.tools') }}
             <span class="more-arrow" :class="{ open: moreOpen }">▾</span>
           </button>
           <div class="more-menu" v-show="moreOpen">
-            <RouterLink v-if="hasDeveloperAccess" to="/iracing-api" class="more-item" @click="closeMenu">iRacing API Explorer</RouterLink>
-            <button v-if="hasDeveloperAccess" class="more-item" @click="copyBearerToken">Copy Bearer Token</button>
-            <button v-if="hasDeveloperAccess" class="more-item" @click="copyIRacingToken">Copy iRacing Token</button>
-            <button v-if="hasDeveloperAccess" class="more-item" @click="purgeRaceHistory">Purge Race History</button>
+            <RouterLink v-if="hasDeveloperAccess" to="/iracing-api" class="more-item" @click="closeMenu">{{ t('nav.apiExplorer') }}</RouterLink>
+            <button v-if="hasDeveloperAccess" class="more-item" @click="copyBearerToken">{{ t('nav.copyBearerToken') }}</button>
+            <button v-if="hasDeveloperAccess" class="more-item" @click="copyIRacingToken">{{ t('nav.copyIracingToken') }}</button>
+            <button v-if="hasDeveloperAccess" class="more-item" @click="purgeRaceHistory">{{ t('nav.purgeRaceHistory') }}</button>
           </div>
         </div>
 
         <!-- Mobile tools section - only show if user has access to any tools -->
         <div v-if="hasAnyTools" class="mobile-tools mobile-only">
           <div class="tools-divider"></div>
-          <span class="tools-header">Tools</span>
-          <RouterLink v-if="hasDeveloperAccess" to="/iracing-api" class="nav-link" @click="closeMenu">iRacing API Explorer</RouterLink>
-          <button v-if="hasDeveloperAccess" class="nav-link tool-button" @click="copyBearerToken">Copy Bearer Token</button>
-          <button v-if="hasDeveloperAccess" class="nav-link tool-button" @click="copyIRacingToken">Copy iRacing Token</button>
-          <button v-if="hasDeveloperAccess" class="nav-link tool-button" @click="purgeRaceHistory">Purge Race History</button>
+          <span class="tools-header">{{ t('nav.tools') }}</span>
+          <RouterLink v-if="hasDeveloperAccess" to="/iracing-api" class="nav-link" @click="closeMenu">{{ t('nav.apiExplorer') }}</RouterLink>
+          <button v-if="hasDeveloperAccess" class="nav-link tool-button" @click="copyBearerToken">{{ t('nav.copyBearerToken') }}</button>
+          <button v-if="hasDeveloperAccess" class="nav-link tool-button" @click="copyIRacingToken">{{ t('nav.copyIracingToken') }}</button>
+          <button v-if="hasDeveloperAccess" class="nav-link tool-button" @click="purgeRaceHistory">{{ t('nav.purgeRaceHistory') }}</button>
         </div>
 
         <!-- Copy status toast -->
@@ -173,10 +173,10 @@ router.afterEach(() => {
         </Transition>
 
         <span class="user-name">{{ session.userName }}</span>
-        <button @click="handleLogout" class="nav-button">Logout</button>
+        <button @click="handleLogout" class="nav-button">{{ t('common.logout') }}</button>
       </template>
       <template v-else>
-        <button @click="handleLogin" class="nav-button primary">Login with iRacing</button>
+        <button @click="handleLogin" class="nav-button primary">{{ t('nav.loginWithIracing') }}</button>
       </template>
     </div>
   </nav>

@@ -1,19 +1,22 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useSessionStore } from '@/stores/session'
 
+const { t } = useI18n()
 const sessionStore = useSessionStore()
 
 const shouldShow = computed(() => sessionStore.isLoggedIn && !sessionStore.isReady)
 
-const labels: Record<string, string> = {
-  ws: 'Connecting to server',
-  tracks: 'Loading tracks',
-  cars: 'Loading cars',
+const labelKeys: Record<string, string> = {
+  ws: 'loading.connectingToServer',
+  tracks: 'loading.loadingTracks',
+  cars: 'loading.loadingCars',
 }
 
 function getLabel(id: string): string {
-  return labels[id] ?? id
+  const key = labelKeys[id]
+  return key ? t(key) : id
 }
 </script>
 
@@ -21,7 +24,7 @@ function getLabel(id: string): string {
   <Teleport to="body">
     <div v-if="shouldShow" class="loading-backdrop">
       <div class="loading-modal" role="dialog" aria-modal="true" aria-label="Loading">
-        <h2 class="loading-title">Getting things ready...</h2>
+        <h2 class="loading-title">{{ t('loading.title') }}</h2>
         <ul class="loading-list">
           <li
             v-for="state in sessionStore.loadingStates"
