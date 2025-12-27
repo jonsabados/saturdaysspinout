@@ -36,7 +36,7 @@
     "title": "Preparando todo...",
     "connectingToServer": "Conectando al servidor",
     "loadingTracks": "Cargando circuitos",
-    "loadingCars": "Cargando carros"
+    "loadingCars": "Cargando autos"
   },
   "home": {
     "tagline": "Registro y análisis de carreras para iRacing",
@@ -95,5 +95,30 @@
     "cache": "Caché",
     "cacheInfo": "Resultados almacenados en caché por {seconds} segundos",
     "rawResponse": "Respuesta sin procesar"
+  },
+  "trackDetails": {
+    "title": "Detalles del circuito",
+    "trackNotFound": "Circuito no encontrado",
+    "backToRaces": "Volver al historial de carreras",
+    "location": "Ubicación",
+    "type": "Tipo",
+    "category": "Categoría",
+    "length": "Longitud",
+    "corners": "Curvas",
+    "pitSpeed": "Límite de velocidad en pits",
+    "features": "Características",
+    "description": "Descripción",
+    "oval": "Óvalo",
+    "roadCourse": "Circuito",
+    "dirt": "Tierra",
+    "paved": "Pavimentado",
+    "nightLighting": "Iluminación nocturna",
+    "rainEnabled": "Lluvia habilitada",
+    "freeWithSub": "Gratis con suscripción",
+    "paidContent": "Contenido pago",
+    "retired": "Retirado",
+    "miles": "{length} mi",
+    "mph": "{speed} mph",
+    "showBackground": "Mostrar fondo"
   }
 }

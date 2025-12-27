@@ -11,6 +11,15 @@ type IRacingClient interface {
 	GetTrackAssets(ctx context.Context, accessToken string) (map[int64]iracing.TrackAssets, error)
 }
 
+type TrackMapLayers struct {
+	Background  string
+	Inactive    string
+	Active      string
+	Pitroad     string
+	StartFinish string
+	Turns       string
+}
+
 type Track struct {
 	ID                int64
 	Name              string
@@ -24,6 +33,7 @@ type Track struct {
 	SmallImageURL     string
 	LargeImageURL     string
 	TrackMapURL       string
+	TrackMapLayers    TrackMapLayers
 	IsDirt            bool
 	IsOval            bool
 	HasNightLighting  bool
@@ -75,6 +85,14 @@ func (s *Service) GetAll(ctx context.Context, accessToken string) ([]Track, erro
 		if asset, ok := assets[info.TrackID]; ok {
 			track.Description = asset.DetailCopy
 			track.TrackMapURL = asset.TrackMap
+			track.TrackMapLayers = TrackMapLayers{
+				Background:  asset.TrackMapLayers.Background,
+				Inactive:    asset.TrackMapLayers.Inactive,
+				Active:      asset.TrackMapLayers.Active,
+				Pitroad:     asset.TrackMapLayers.Pitroad,
+				StartFinish: asset.TrackMapLayers.StartFinish,
+				Turns:       asset.TrackMapLayers.Turns,
+			}
 
 			if asset.Logo != "" {
 				track.LogoURL = iracing.ImageBaseURL + asset.Logo
