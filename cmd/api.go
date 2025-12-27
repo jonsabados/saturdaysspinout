@@ -47,6 +47,7 @@ type appCfg struct {
 	DynamoDBTable            string   `envconfig:"DYNAMODB_TABLE" required:"true"`
 	RaceIngestionQueueURL    string   `envconfig:"RACE_INGESTION_QUEUE_URL" required:"true"`
 	IRacingCacheBucket       string   `envconfig:"IRACING_CACHE_BUCKET" required:"true"`
+	MetricsNamespace         string   `envconfig:"METRICS_NAMESPACE" required:"true"`
 }
 
 type iRacingCredentials struct {
@@ -144,7 +145,7 @@ func CreateAPI() http.Handler {
 	driverStore := store.NewDynamoStore(dynamoClient, cfg.DynamoDBTable)
 
 	cwClient := cloudwatch.NewFromConfig(awsCfg)
-	metricsClient := metrics.NewCloudWatchEmitter(cwClient, "SaturdaysSpinout")
+	metricsClient := metrics.NewCloudWatchEmitter(cwClient, cfg.MetricsNamespace)
 
 	iRacingOAuthClient := iracing.NewOAuthClient(httpClient, iRacingCreds.OauthClientID, iRacingCreds.OauthClientSecret)
 	iRacingClient := iracing.NewClient(httpClient, metricsClient)

@@ -119,32 +119,6 @@ func TestGetDriverNotes_DifferentDriversIsolated(t *testing.T) {
 	assert.Equal(t, note1, got[0])
 }
 
-func TestGetGlobalCounters_IncludesNotes(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	require.NoError(t, s.AddDriverNote(ctx, DriverNote{
-		DriverID:  1,
-		Timestamp: time.Unix(1000, 0),
-		SessionID: 1,
-		LapNumber: 1,
-		Category:  "test",
-		Notes:     "test note",
-	}))
-	require.NoError(t, s.AddDriverNote(ctx, DriverNote{
-		DriverID:  1,
-		Timestamp: time.Unix(2000, 0),
-		SessionID: 1,
-		LapNumber: 2,
-		Category:  "test",
-		Notes:     "another note",
-	}))
-
-	counters, err := s.GetGlobalCounters(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, int64(2), counters.Notes)
-}
-
 func TestGetDriver_NotFound(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
@@ -994,15 +968,9 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 			ReasonOut:             "Running",
 		},
 	}, driverSessions)
-
-	// Verify global counters
-	counters, err := s.GetGlobalCounters(ctx)
-	require.NoError(t, err)
-	assert.Equal(t, int64(1), counters.Sessions)
-	assert.Equal(t, int64(5), counters.Laps)
 }
 
-func TestPersistSessionData_DuplicateSessionReturnsError(t *testing.T) {
+func TestPersistSessionData_DuplicateSessionIsIdempotent(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
@@ -1019,9 +987,15 @@ func TestPersistSessionData_DuplicateSessionReturnsError(t *testing.T) {
 	err := s.PersistSessionData(ctx, data)
 	require.NoError(t, err)
 
-	// Try to insert again - should fail on session record
+	// Inserting the same data again should succeed (idempotent overwrite)
 	err = s.PersistSessionData(ctx, data)
-	assert.ErrorIs(t, err, ErrEntityAlreadyExists)
+	require.NoError(t, err)
+
+	// Verify only one session exists
+	session, err := s.GetSession(ctx, 12345)
+	require.NoError(t, err)
+	require.NotNil(t, session)
+	assert.Equal(t, int64(12345), session.SubsessionID)
 }
 
 func TestGetSession_NotFound(t *testing.T) {

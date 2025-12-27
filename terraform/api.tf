@@ -11,6 +11,7 @@ locals {
     DYNAMODB_TABLE             = aws_dynamodb_table.application_store.name
     RACE_INGESTION_QUEUE_URL   = aws_sqs_queue.race_ingestion_requests.url
     IRACING_CACHE_BUCKET       = aws_s3_bucket.iracing_cache.bucket
+    METRICS_NAMESPACE          = "${local.workspace_prefix}SaturdaysSpinout"
   }
 }
 

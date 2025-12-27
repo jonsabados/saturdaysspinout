@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jonsabados/saturdaysspinout/iracing"
+	"github.com/jonsabados/saturdaysspinout/metrics"
 	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
@@ -88,6 +89,12 @@ type publishEventCall struct {
 	err   error
 }
 
+type emitCountCall struct {
+	name  string
+	count int
+	err   error
+}
+
 type acquireIngestionLockCall struct {
 	driverID int64
 	acquired bool
@@ -123,6 +130,7 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 		getDriverSessionCalls           []getDriverSessionCall
 		getLapDataCalls                 []getLapDataCall
 		persistSessionDataCalls         []persistSessionDataCall
+		emitCountCalls                  []emitCountCall
 		pushCalls                       []pushCall
 		broadcastCalls                  []broadcastCall
 		updateDriverRacesIngestedToCall *updateDriverRacesIngestedToCall
@@ -460,6 +468,10 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					},
 				},
 			},
+			emitCountCalls: []emitCountCall{
+				{name: metrics.SessionsIngested, count: 1},
+				{name: metrics.LapsIngested, count: 2},
+			},
 			broadcastCalls: []broadcastCall{
 				{
 					driverID:   driverID,
@@ -540,6 +552,7 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 			mockIRacing := NewMockIRacingClient(t)
 			mockPusher := NewMockPusher(t)
 			mockEventDispatcher := NewMockEventDispatcher(t)
+			mockMetricsClient := NewMockMetricsClient(t)
 
 			// Setup AcquireIngestionLock
 			mockStore.EXPECT().AcquireIngestionLock(mock.Anything, tc.acquireIngestionLockCall.driverID, lockDuration).
@@ -644,7 +657,13 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					Return(tc.publishEventCall.err)
 			}
 
-			processor := NewRaceProcessor(mockStore, mockIRacing, mockPusher, mockEventDispatcher, lockDuration)
+			// Setup EmitCount calls
+			for _, call := range tc.emitCountCalls {
+				mockMetricsClient.EXPECT().EmitCount(mock.Anything, call.name, call.count).
+					Return(call.err)
+			}
+
+			processor := NewRaceProcessor(mockStore, mockIRacing, mockPusher, mockEventDispatcher, mockMetricsClient, lockDuration)
 			processor.now = func() time.Time { return now }
 
 			err := processor.IngestRaces(ctx, tc.request)

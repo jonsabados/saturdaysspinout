@@ -5,6 +5,7 @@
 - Craft-focused: exploring techniques without org overhead
 - Budget-conscious: serverless/usage-based billing, but don't over-optimize for pennies
 - Have fun with it
+- **Important**: "Toy project" means freedom to over-engineer, NOT permission to cut corners on quality. Tests, error handling, and correctness are never optional.
 
 ## Code Style
 

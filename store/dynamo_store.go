@@ -97,7 +97,6 @@ func (s *DynamoStore) AddDriverNote(ctx context.Context, note DriverNote) error 
 					},
 				},
 			},
-			s.incrementCounter(globalCountersAttributeNotes),
 		},
 	})
 	return mapTransactionError(err)
@@ -613,14 +612,13 @@ func (s *DynamoStore) GetDriverSessions(ctx context.Context, driverID int64, fro
 // PersistSessionData writes session data in three phases to support resumable ingestion.
 //
 // Phase ordering rationale:
-//  1. Sub-items first (laps, drivers, car classes): These have no key checks so they can be
-//     safely overwritten on retry. If ingestion fails later, these orphaned records are harmless
-//     since nothing references them until the session record exists.
-//  2. Session records: These have key checks and serve as the "commit point". If a session
-//     already exists, we know that session was fully ingested. The session counter increment
-//     is included here so it's protected by the same key check (won't double-count on retry).
-//  3. DriverSession records last: These are the driver's view of their race history and depend
-//     on the session existing. No key checks so retries can overwrite safely.
+//  1. Sub-items first (laps, drivers, car classes): These can be safely overwritten on retry.
+//     If ingestion fails later, these orphaned records are harmless since nothing references
+//     them until the session record exists.
+//  2. Session records: Written as simple puts. The data is immutable at the source (iRacing),
+//     so idempotent overwrites are safe.
+//  3. DriverSession records last: These are the driver's view of their race history. Key checks
+//     prevent duplicates, and driver session counts are incremented atomically.
 func (s *DynamoStore) PersistSessionData(ctx context.Context, data SessionDataInsertion) error {
 	if err := s.writeSessionSubItems(ctx, data); err != nil {
 		return fmt.Errorf("writing session sub-items: %w", err)
@@ -638,29 +636,29 @@ func (s *DynamoStore) PersistSessionData(ctx context.Context, data SessionDataIn
 }
 
 func (s *DynamoStore) writeSessionSubItems(ctx context.Context, data SessionDataInsertion) error {
-	var items []types.TransactWriteItem
+	var items []map[string]types.AttributeValue
 
 	for _, session := range data.SessionEntries {
 		for _, carClass := range session.CarClasses {
-			items = append(items, s.put(sessionCarClassModel{
+			items = append(items, sessionCarClassModel{
 				subsessionID:    carClass.SubsessionID,
 				carClassID:      carClass.CarClassID,
 				strengthOfField: carClass.StrengthOfField,
 				numberOfEntries: carClass.NumberOfEntries,
-			}.toAttributeMap()))
+			}.toAttributeMap())
 
 			for _, car := range carClass.Cars {
-				items = append(items, s.put(sessionCarClassCarModel{
+				items = append(items, sessionCarClassCarModel{
 					subsessionID: car.SubsessionID,
 					carClassID:   car.CarClassID,
 					carID:        car.CarID,
-				}.toAttributeMap()))
+				}.toAttributeMap())
 			}
 		}
 	}
 
 	for _, driver := range data.SessionDriverEntries {
-		items = append(items, s.put(sessionDriverModel{
+		items = append(items, sessionDriverModel{
 			subsessionID:          driver.SubsessionID,
 			driverID:              driver.DriverID,
 			carID:                 driver.CarID,
@@ -679,11 +677,11 @@ func (s *DynamoStore) writeSessionSubItems(ctx context.Context, data SessionData
 			newSubLevel:           driver.NewSubLevel,
 			reasonOut:             driver.ReasonOut,
 			ai:                    driver.AI,
-		}.toAttributeMap()))
+		}.toAttributeMap())
 	}
 
 	for _, lap := range data.SessionDriverLapEntries {
-		items = append(items, s.put(sessionDriverLapModel{
+		items = append(items, sessionDriverLapModel{
 			subsessionID: lap.SubsessionID,
 			driverID:     lap.DriverID,
 			lapNumber:    lap.LapNumber,
@@ -691,10 +689,10 @@ func (s *DynamoStore) writeSessionSubItems(ctx context.Context, data SessionData
 			flags:        lap.Flags,
 			incident:     lap.Incident,
 			lapEvents:    lap.LapEvents,
-		}.toAttributeMap()))
+		}.toAttributeMap())
 	}
 
-	return s.executeBatchedTransact(ctx, items)
+	return s.executeBatchedPut(ctx, items)
 }
 
 func (s *DynamoStore) writeSessionRecords(ctx context.Context, data SessionDataInsertion) error {
@@ -702,22 +700,19 @@ func (s *DynamoStore) writeSessionRecords(ctx context.Context, data SessionDataI
 		return nil
 	}
 
-	var items []types.TransactWriteItem
+	var items []map[string]types.AttributeValue
 	for _, session := range data.SessionEntries {
-		items = append(items, s.putWithKeyCheck(sessionModel{
+		items = append(items, sessionModel{
 			subsessionID:    session.SubsessionID,
 			trackID:         session.TrackID,
 			seriesID:        session.SeriesID,
 			seriesName:      session.SeriesName,
 			licenseCategory: session.LicenseCategory,
 			startTime:       toUnixSeconds(session.StartTime),
-		}.toAttributeMap()))
+		}.toAttributeMap())
 	}
 
-	// Counter increments bundled with session writes - protected by the same key checks
-	items = append(items, s.incrementSessionDataCounters(len(data.SessionEntries), len(data.SessionDriverLapEntries)))
-
-	return s.executeBatchedTransact(ctx, items)
+	return s.executeBatchedPut(ctx, items)
 }
 
 func (s *DynamoStore) writeDriverSessionRecords(ctx context.Context, data SessionDataInsertion) error {
@@ -786,13 +781,47 @@ func (s *DynamoStore) executeBatchedTransact(ctx context.Context, items []types.
 	return nil
 }
 
-func (s *DynamoStore) put(item map[string]types.AttributeValue) types.TransactWriteItem {
-	return types.TransactWriteItem{
-		Put: &types.Put{
-			TableName: aws.String(s.table),
-			Item:      item,
-		},
+// executeBatchedPut writes items to DynamoDB using BatchWriteItem in chunks of 25 items.
+// Unlike executeBatchedTransact, this performs non-transactional writes suitable for idempotent bulk inserts.
+// Returns an error if any items are unprocessed (due to throttling, etc.) to allow caller retry
+// (in practice, this triggers SQS redelivery for the ingestion processor).
+func (s *DynamoStore) executeBatchedPut(ctx context.Context, items []map[string]types.AttributeValue) error {
+	if len(items) == 0 {
+		return nil
 	}
+
+	for i := 0; i < len(items); i += maxBatchWriteItems {
+		end := i + maxBatchWriteItems
+		if end > len(items) {
+			end = len(items)
+		}
+		batch := items[i:end]
+
+		writeRequests := make([]types.WriteRequest, len(batch))
+		for j, item := range batch {
+			writeRequests[j] = types.WriteRequest{
+				PutRequest: &types.PutRequest{Item: item},
+			}
+		}
+
+		result, err := s.client.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{
+			RequestItems: map[string][]types.WriteRequest{
+				s.table: writeRequests,
+			},
+		})
+		if err != nil {
+			batchNum := (i / maxBatchWriteItems) + 1
+			totalBatches := (len(items) + maxBatchWriteItems - 1) / maxBatchWriteItems
+			return fmt.Errorf("batch %d/%d failed: %w", batchNum, totalBatches, err)
+		}
+		if len(result.UnprocessedItems[s.table]) > 0 {
+			batchNum := (i / maxBatchWriteItems) + 1
+			totalBatches := (len(items) + maxBatchWriteItems - 1) / maxBatchWriteItems
+			return fmt.Errorf("batch %d/%d had %d unprocessed items", batchNum, totalBatches, len(result.UnprocessedItems[s.table]))
+		}
+	}
+
+	return nil
 }
 
 func (s *DynamoStore) putWithKeyCheck(item map[string]types.AttributeValue) types.TransactWriteItem {
@@ -803,27 +832,6 @@ func (s *DynamoStore) putWithKeyCheck(item map[string]types.AttributeValue) type
 			ConditionExpression: aws.String("attribute_not_exists(#pk)"),
 			ExpressionAttributeNames: map[string]string{
 				"#pk": partitionKeyName,
-			},
-		},
-	}
-}
-
-func (s *DynamoStore) incrementSessionDataCounters(sessions, laps int) types.TransactWriteItem {
-	return types.TransactWriteItem{
-		Update: &types.Update{
-			TableName: aws.String(s.table),
-			Key: map[string]types.AttributeValue{
-				partitionKeyName: &types.AttributeValueMemberS{Value: globalCountersPartitionKey},
-				sortKeyName:      &types.AttributeValueMemberS{Value: globalCountersSortKey},
-			},
-			UpdateExpression: aws.String("ADD #sessions :sessions, #laps :laps"),
-			ExpressionAttributeNames: map[string]string{
-				"#sessions": globalCountersAttributeSessions,
-				"#laps":     globalCountersAttributeLaps,
-			},
-			ExpressionAttributeValues: map[string]types.AttributeValue{
-				":sessions": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", sessions)},
-				":laps":     &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", laps)},
 			},
 		},
 	}

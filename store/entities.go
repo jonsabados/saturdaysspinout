@@ -111,10 +111,7 @@ type SessionDriverLap struct {
 }
 
 type GlobalCounters struct {
-	Drivers  int64
-	Notes    int64
-	Sessions int64
-	Laps     int64
+	Drivers int64
 }
 
 type WebSocketConnection struct {
