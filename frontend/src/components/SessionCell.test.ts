@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, RouterLinkStub } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import SessionCell from './SessionCell.vue'
 import type { Car } from '@/api/client'
@@ -43,6 +43,9 @@ describe('SessionCell', () => {
 
     const wrapper = mount(SessionCell, {
       props: { seriesName: 'Advanced Mazda MX-5 Cup Series', carId: 1 },
+      global: {
+        stubs: { RouterLink: RouterLinkStub },
+      },
     })
 
     expect(wrapper.find('.series-name').text()).toBe('Advanced Mazda MX-5 Cup Series')
@@ -56,6 +59,9 @@ describe('SessionCell', () => {
 
     const wrapper = mount(SessionCell, {
       props: { seriesName: 'Some Series', carId: 999 },
+      global: {
+        stubs: { RouterLink: RouterLinkStub },
+      },
     })
 
     expect(wrapper.find('.series-name').text()).toBe('Some Series')
@@ -69,8 +75,26 @@ describe('SessionCell', () => {
 
     mount(SessionCell, {
       props: { seriesName: 'Test Series', carId: 42 },
+      global: {
+        stubs: { RouterLink: RouterLinkStub },
+      },
     })
 
     expect(mockGetCar).toHaveBeenCalledWith(42)
+  })
+
+  it('links car name to car details page', () => {
+    mockGetCar.mockReturnValue(mockCar)
+
+    const wrapper = mount(SessionCell, {
+      props: { seriesName: 'Test Series', carId: 123 },
+      global: {
+        stubs: { RouterLink: RouterLinkStub },
+      },
+    })
+
+    const links = wrapper.findAllComponents(RouterLinkStub)
+    expect(links.length).toBe(2) // One for .car-name, one for .session-text-abbrev
+    expect(links[0].props('to')).toEqual({ name: 'car-details', params: { id: 123 } })
   })
 })

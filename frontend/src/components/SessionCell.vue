@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useCarsStore } from '@/stores/cars'
 
 const props = defineProps<{
@@ -30,9 +31,9 @@ const fullDescription = computed(() => {
   <span class="session-cell" :title="fullDescription">
     <span class="session-text-full">
       <span class="series-name">{{ seriesName }}</span>
-      <span class="car-name">{{ carName }}</span>
+      <RouterLink :to="{ name: 'car-details', params: { id: carId } }" class="car-name">{{ carName }}</RouterLink>
     </span>
-    <span class="session-text-abbrev">{{ carAbbreviated }}</span>
+    <RouterLink :to="{ name: 'car-details', params: { id: carId } }" class="session-text-abbrev">{{ carAbbreviated }}</RouterLink>
   </span>
 </template>
 
@@ -48,6 +49,12 @@ const fullDescription = computed(() => {
 
 .session-text-abbrev {
   display: none;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.session-text-abbrev:hover {
+  text-decoration: underline;
 }
 
 .series-name {
@@ -57,7 +64,12 @@ const fullDescription = computed(() => {
 .car-name {
   display: block;
   font-size: 0.75rem;
-  color: var(--color-text-muted);
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.car-name:hover {
+  text-decoration: underline;
 }
 
 @media (max-width: 768px) {
