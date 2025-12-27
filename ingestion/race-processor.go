@@ -279,6 +279,11 @@ func (r *RaceProcessor) ingestRace(ctx context.Context, insertionMutex *sync.Mut
 	logger := zerolog.Ctx(ctx)
 	logger.Trace().Interface("race", race).Msg("processing race")
 
+	if race.DriverChanges {
+		logger.Warn().Int64("subsessionID", race.SubsessionID).Msg("skipping team event - team event ingestion not yet supported")
+		return
+	}
+
 	collectorChan <- collectionResult{race: 1}
 
 	existingSession, err := r.store.GetSession(ctx, race.SubsessionID)
@@ -542,7 +547,7 @@ func (r *RaceProcessor) fetchDriverLaps(ctx context.Context, request RaceIngesti
 	logger := zerolog.Ctx(ctx)
 	var ret []store.SessionDriverLap
 
-	// note, team events are going to throw a wrinkle at things since you have to look up laps by team for those, but I only race solo so it is what it is for now
+	// note: team events require looking up laps by team_id instead of cust_id - this would need to change if we add team event support
 	var laps *iracing.LapDataResponse
 	err := xray.Capture(ctx, "FetchDriverLaps", func(lapCtx context.Context) error {
 		_ = xray.AddAnnotation(lapCtx, "driverID", driverResult.CustID)

@@ -542,6 +542,54 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 			},
 			expectedErr: "driver 12345 not found",
 		},
+		{
+			name: "team event - skipped without processing",
+			request: RaceIngestionRequest{
+				DriverID:           driverID,
+				IRacingAccessToken: "test-token",
+				NotifyConnectionID: "conn-123",
+			},
+			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
+			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID},
+			getDriverCall: &getDriverCall{
+				driverID: driverID,
+				result: &store.Driver{
+					DriverID:    driverID,
+					MemberSince: memberSince,
+				},
+			},
+			searchSeriesResultsCall: &searchSeriesResultsCall{
+				finishRangeBegin: memberSince,
+				finishRangeEnd:   rangeEnd,
+				result: []iracing.SeriesResult{
+					{SubsessionID: subsessionID, DriverChanges: true}, // team event
+				},
+			},
+			// No GetSession, GetSessionResults, GetLapData calls - team event is skipped
+			getSessionCalls:         []getSessionCall{},
+			getSessionResultsCalls:  []getSessionResultsCall{},
+			getLapDataCalls:         []getLapDataCall{},
+			persistSessionDataCalls: []persistSessionDataCall{},
+			// Should still broadcast chunk complete and update ingested-to marker
+			broadcastCalls: []broadcastCall{
+				{
+					driverID:   driverID,
+					actionType: "ingestionChunkComplete",
+					payload:    ChunkCompleteMsg{IngestedTo: rangeEnd},
+				},
+			},
+			updateDriverRacesIngestedToCall: &updateDriverRacesIngestedToCall{
+				driverID:        driverID,
+				racesIngestedTo: rangeEnd,
+			},
+			publishEventCall: &publishEventCall{
+				event: RaceIngestionRequest{
+					DriverID:           driverID,
+					IRacingAccessToken: "test-token",
+					NotifyConnectionID: "conn-123",
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
