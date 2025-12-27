@@ -34,7 +34,6 @@
   },
   "loading": {
     "title": "Preparando todo...",
-    "connectingToServer": "Conectando al servidor",
     "loadingTracks": "Cargando circuitos",
     "loadingCars": "Cargando autos"
   },

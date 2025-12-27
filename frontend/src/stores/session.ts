@@ -23,7 +23,6 @@ export const useSessionStore = defineStore('session', () => {
   )
 
   const loadingStates = computed<LoadingState[]>(() => [
-    { id: 'ws', done: isConnected.value },
     { id: 'tracks', done: tracksStore.isLoaded },
     { id: 'cars', done: carsStore.isLoaded },
   ])
@@ -36,11 +35,11 @@ export const useSessionStore = defineStore('session', () => {
   const userName = computed(() => auth.userName)
   const connectionId = computed(() => ws.connectionId)
 
-  // Load reference data when connection is established
+  // Load reference data when logged in
   watch(
-    isConnected,
-    (connected) => {
-      if (connected) {
+    isLoggedIn,
+    (loggedIn) => {
+      if (loggedIn) {
         tracksStore.fetchTracks().catch((err) => console.error('[Session] Failed to load tracks:', err))
         carsStore.fetchCars().catch((err) => console.error('[Session] Failed to load cars:', err))
       }

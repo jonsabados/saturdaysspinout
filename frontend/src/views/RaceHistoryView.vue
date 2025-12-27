@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+defineOptions({ name: 'RaceHistoryView' })
+
+import { ref, computed, watch, onMounted, onUnmounted, onActivated } from 'vue'
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 import { useI18n } from 'vue-i18n'
@@ -29,6 +31,8 @@ const sentinelRef = ref<HTMLElement | null>(null)
 const scrollContainerRef = ref<HTMLElement | null>(null)
 const observer = ref<IntersectionObserver | null>(null)
 const userHasScrolled = ref(false)
+const savedScrollTop = ref(0)
+const lastScrollSave = ref(0)
 
 // Date filters
 const fromDate = ref<Date | null>(null)
@@ -145,9 +149,16 @@ function getIRatingDiffClass(oldRating: number, newRating: number): string {
   return ''
 }
 
+// Note: Unlike the original implementation, we keep this listener attached (not removed after first scroll)
+// because we need continuous scroll position saves for restoration after navigation.
+// Throttling mitigates the performance impact.
 function handleScroll() {
   userHasScrolled.value = true
-  scrollContainerRef.value?.removeEventListener('scroll', handleScroll)
+  const now = Date.now()
+  if (now - lastScrollSave.value > 100 && scrollContainerRef.value) {
+    savedScrollTop.value = scrollContainerRef.value.scrollTop
+    lastScrollSave.value = now
+  }
 }
 
 function setupObserver() {
@@ -195,6 +206,14 @@ onUnmounted(() => {
     observer.value.disconnect()
     observer.value = null
   }
+})
+
+onActivated(() => {
+  requestAnimationFrame(() => {
+    if (scrollContainerRef.value && savedScrollTop.value > 0) {
+      scrollContainerRef.value.scrollTop = savedScrollTop.value
+    }
+  })
 })
 </script>
 
