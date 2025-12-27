@@ -95,5 +95,30 @@
     "cache": "Cache",
     "cacheInfo": "Results cached for {seconds} seconds",
     "rawResponse": "Raw Response"
+  },
+  "trackDetails": {
+    "title": "Track Details",
+    "trackNotFound": "Track not found",
+    "backToRaces": "Back to Race History",
+    "location": "Location",
+    "type": "Type",
+    "category": "Category",
+    "length": "Length",
+    "corners": "Corners",
+    "pitSpeed": "Pit Speed Limit",
+    "features": "Features",
+    "description": "Description",
+    "oval": "Oval",
+    "roadCourse": "Road Course",
+    "dirt": "Dirt",
+    "paved": "Paved",
+    "nightLighting": "Night Lighting",
+    "rainEnabled": "Rain Enabled",
+    "freeWithSub": "Free with Subscription",
+    "paidContent": "Paid Content",
+    "retired": "Retired",
+    "miles": "{length} mi",
+    "mph": "{speed} mph",
+    "showBackground": "Show background"
   }
 }

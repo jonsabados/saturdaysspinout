@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, RouterLinkStub } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import TrackCell from './TrackCell.vue'
 import type { Track } from '@/api/client'
@@ -16,7 +16,15 @@ const mockTrack: Track = {
   logoUrl: 'https://example.com/logo.png',
   smallImageUrl: 'https://example.com/small.png',
   largeImageUrl: 'https://example.com/large.png',
-  trackMapUrl: 'https://example.com/map.png',
+  trackMapUrl: 'https://example.com/map/',
+  trackMapLayers: {
+    background: 'background.svg',
+    inactive: 'inactive.svg',
+    active: 'active.svg',
+    pitroad: 'pitroad.svg',
+    startFinish: 'start-finish.svg',
+    turns: 'turns.svg',
+  },
   isDirt: false,
   isOval: true,
   hasNightLighting: true,
@@ -44,6 +52,9 @@ describe('TrackCell', () => {
 
     const wrapper = mount(TrackCell, {
       props: { trackId: 1 },
+      global: {
+        stubs: { RouterLink: RouterLinkStub },
+      },
     })
 
     expect(wrapper.find('.track-name').text()).toBe('Daytona International Speedway')
@@ -56,6 +67,9 @@ describe('TrackCell', () => {
 
     const wrapper = mount(TrackCell, {
       props: { trackId: 1 },
+      global: {
+        stubs: { RouterLink: RouterLinkStub },
+      },
     })
 
     expect(wrapper.find('.track-name').text()).toBe('Daytona International Speedway')
@@ -67,6 +81,9 @@ describe('TrackCell', () => {
 
     const wrapper = mount(TrackCell, {
       props: { trackId: 999 },
+      global: {
+        stubs: { RouterLink: RouterLinkStub },
+      },
     })
 
     expect(wrapper.find('.track-name').text()).toBe('Track 999')
@@ -79,8 +96,25 @@ describe('TrackCell', () => {
 
     mount(TrackCell, {
       props: { trackId: 42 },
+      global: {
+        stubs: { RouterLink: RouterLinkStub },
+      },
     })
 
     expect(mockGetTrack).toHaveBeenCalledWith(42)
+  })
+
+  it('links to track details page with correct id', () => {
+    mockGetTrack.mockReturnValue(mockTrack)
+
+    const wrapper = mount(TrackCell, {
+      props: { trackId: 123 },
+      global: {
+        stubs: { RouterLink: RouterLinkStub },
+      },
+    })
+
+    const link = wrapper.findComponent(RouterLinkStub)
+    expect(link.props('to')).toEqual({ name: 'track-details', params: { id: 123 } })
   })
 })

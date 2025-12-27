@@ -67,6 +67,15 @@ export interface DriverResponse {
   correlationId: string
 }
 
+export interface TrackMapLayers {
+  background: string
+  inactive: string
+  active: string
+  pitroad: string
+  startFinish: string
+  turns: string
+}
+
 export interface Track {
   id: number
   name: string
@@ -80,6 +89,7 @@ export interface Track {
   smallImageUrl: string
   largeImageUrl: string
   trackMapUrl: string
+  trackMapLayers: TrackMapLayers
   isDirt: boolean
   isOval: boolean
   hasNightLighting: boolean

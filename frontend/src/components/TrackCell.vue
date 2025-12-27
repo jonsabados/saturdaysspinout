@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { RouterLink } from 'vue-router'
 import { useTracksStore } from '@/stores/tracks'
 
 const props = defineProps<{
@@ -27,18 +28,25 @@ const fullName = computed(() => {
 </script>
 
 <template>
-  <span class="track-cell" :title="fullName">
+  <RouterLink :to="{ name: 'track-details', params: { id: trackId } }" class="track-cell" :title="fullName">
     <span class="track-text-full">
       <span class="track-name">{{ trackName }}</span>
       <span v-if="configName" class="track-config">{{ configName }}</span>
     </span>
     <span class="track-text-abbrev">{{ trackName }}</span>
-  </span>
+  </RouterLink>
 </template>
 
 <style scoped>
 .track-cell {
   display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.15s;
+}
+
+.track-cell:hover .track-name {
+  color: var(--color-accent);
 }
 
 .track-text-full {

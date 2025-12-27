@@ -12,7 +12,15 @@
       "logoUrl": "https://images-static.iracing.com/logo.png",
       "smallImageUrl": "https://images-static.iracing.com/small.jpg",
       "largeImageUrl": "https://images-static.iracing.com/large.jpg",
-      "trackMapUrl": "https://example.com/map",
+      "trackMapUrl": "https://members-assets.iracing.com/public/track-maps/limerock/",
+      "trackMapLayers": {
+        "background": "background.svg",
+        "inactive": "inactive.svg",
+        "active": "active.svg",
+        "pitroad": "pitroad.svg",
+        "startFinish": "start-finish.svg",
+        "turns": "turns.svg"
+      },
       "isDirt": false,
       "isOval": false,
       "hasNightLighting": false,
