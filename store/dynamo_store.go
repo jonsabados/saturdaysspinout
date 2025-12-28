@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -431,136 +430,6 @@ func (s *DynamoStore) GetConnection(ctx context.Context, driverID int64, connect
 	return wsConnectionFromAttributeMap(result.Item)
 }
 
-func (s *DynamoStore) GetSession(ctx context.Context, subsessionID int64) (*Session, error) {
-	pk := fmt.Sprintf(sessionPartitionKeyFormat, subsessionID)
-
-	infoResult, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
-		TableName: aws.String(s.table),
-		Key: map[string]types.AttributeValue{
-			partitionKeyName: &types.AttributeValueMemberS{Value: pk},
-			sortKeyName:      &types.AttributeValueMemberS{Value: defaultSortKey},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	if infoResult.Item == nil {
-		return nil, nil
-	}
-
-	session, err := sessionFromAttributeMap(infoResult.Item)
-	if err != nil {
-		return nil, err
-	}
-
-	carClassResult, err := s.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              aws.String(s.table),
-		KeyConditionExpression: aws.String("#pk = :pk AND begins_with(#sk, :sk_prefix)"),
-		ExpressionAttributeNames: map[string]string{
-			"#pk": partitionKeyName,
-			"#sk": sortKeyName,
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":pk":        &types.AttributeValueMemberS{Value: pk},
-			":sk_prefix": &types.AttributeValueMemberS{Value: "car_class#"},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	carClasses := make(map[int64]*SessionCarClass)
-	var cars []SessionCarClassCar
-
-	for _, item := range carClassResult.Items {
-		sk := item[sortKeyName].(*types.AttributeValueMemberS).Value
-
-		if strings.Contains(sk, "#car#") {
-			car, err := sessionCarClassCarFromAttributeMap(subsessionID, item)
-			if err != nil {
-				return nil, err
-			}
-			cars = append(cars, *car)
-		} else {
-			carClass, err := sessionCarClassFromAttributeMap(subsessionID, item)
-			if err != nil {
-				return nil, err
-			}
-			carClasses[carClass.CarClassID] = carClass
-		}
-	}
-
-	for _, car := range cars {
-		if carClass, ok := carClasses[car.CarClassID]; ok {
-			carClass.Cars = append(carClass.Cars, car)
-		}
-	}
-
-	for _, carClass := range carClasses {
-		session.CarClasses = append(session.CarClasses, *carClass)
-	}
-
-	return session, nil
-}
-
-func (s *DynamoStore) GetSessionDrivers(ctx context.Context, subsessionID int64) ([]SessionDriver, error) {
-	result, err := s.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              aws.String(s.table),
-		KeyConditionExpression: aws.String("#pk = :pk AND begins_with(#sk, :sk_prefix)"),
-		ExpressionAttributeNames: map[string]string{
-			"#pk": partitionKeyName,
-			"#sk": sortKeyName,
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":pk":        &types.AttributeValueMemberS{Value: fmt.Sprintf(sessionPartitionKeyFormat, subsessionID)},
-			":sk_prefix": &types.AttributeValueMemberS{Value: "drivers#"},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	drivers := make([]SessionDriver, 0, len(result.Items))
-	for _, item := range result.Items {
-		driver, err := sessionDriverFromAttributeMap(item)
-		if err != nil {
-			return nil, err
-		}
-		drivers = append(drivers, *driver)
-	}
-
-	return drivers, nil
-}
-
-func (s *DynamoStore) GetSessionDriverLaps(ctx context.Context, subsessionID, driverID int64) ([]SessionDriverLap, error) {
-	result, err := s.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              aws.String(s.table),
-		KeyConditionExpression: aws.String("#pk = :pk AND begins_with(#sk, :sk_prefix)"),
-		ExpressionAttributeNames: map[string]string{
-			"#pk": partitionKeyName,
-			"#sk": sortKeyName,
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":pk":        &types.AttributeValueMemberS{Value: fmt.Sprintf(sessionPartitionKeyFormat, subsessionID)},
-			":sk_prefix": &types.AttributeValueMemberS{Value: fmt.Sprintf("laps#driver#%d#", driverID)},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	laps := make([]SessionDriverLap, 0, len(result.Items))
-	for _, item := range result.Items {
-		lap, err := sessionDriverLapFromAttributeMap(item)
-		if err != nil {
-			return nil, err
-		}
-		laps = append(laps, *lap)
-	}
-
-	return laps, nil
-}
-
 func (s *DynamoStore) GetDriverSession(ctx context.Context, driverID int64, startTime time.Time) (*DriverSession, error) {
 	result, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
 		TableName: aws.String(s.table),
@@ -609,142 +478,42 @@ func (s *DynamoStore) GetDriverSessions(ctx context.Context, driverID int64, fro
 	return sessions, nil
 }
 
-// PersistSessionData writes session data in three phases to support resumable ingestion.
-//
-// Phase ordering rationale:
-//  1. Sub-items first (laps, drivers, car classes): These can be safely overwritten on retry.
-//     If ingestion fails later, these orphaned records are harmless since nothing references
-//     them until the session record exists.
-//  2. Session records: Written as simple puts. The data is immutable at the source (iRacing),
-//     so idempotent overwrites are safe.
-//  3. DriverSession records last: These are the driver's view of their race history. Key checks
-//     prevent duplicates, and driver session counts are incremented atomically.
-func (s *DynamoStore) PersistSessionData(ctx context.Context, data SessionDataInsertion) error {
-	if err := s.writeSessionSubItems(ctx, data); err != nil {
-		return fmt.Errorf("writing session sub-items: %w", err)
-	}
-
-	if err := s.writeSessionRecords(ctx, data); err != nil {
-		return fmt.Errorf("writing sessions: %w", err)
-	}
-
-	if err := s.writeDriverSessionRecords(ctx, data); err != nil {
-		return fmt.Errorf("writing driver sessions: %w", err)
-	}
-
-	return nil
-}
-
-func (s *DynamoStore) writeSessionSubItems(ctx context.Context, data SessionDataInsertion) error {
-	var items []map[string]types.AttributeValue
-
-	for _, session := range data.SessionEntries {
-		for _, carClass := range session.CarClasses {
-			items = append(items, sessionCarClassModel{
-				subsessionID:    carClass.SubsessionID,
-				carClassID:      carClass.CarClassID,
-				strengthOfField: carClass.StrengthOfField,
-				numberOfEntries: carClass.NumberOfEntries,
-			}.toAttributeMap())
-
-			for _, car := range carClass.Cars {
-				items = append(items, sessionCarClassCarModel{
-					subsessionID: car.SubsessionID,
-					carClassID:   car.CarClassID,
-					carID:        car.CarID,
-				}.toAttributeMap())
-			}
-		}
-	}
-
-	for _, driver := range data.SessionDriverEntries {
-		items = append(items, sessionDriverModel{
-			subsessionID:          driver.SubsessionID,
-			driverID:              driver.DriverID,
-			carID:                 driver.CarID,
-			startPosition:         driver.StartPosition,
-			startPositionInClass:  driver.StartPositionInClass,
-			finishPosition:        driver.FinishPosition,
-			finishPositionInClass: driver.FinishPositionInClass,
-			incidents:             driver.Incidents,
-			oldCPI:                driver.OldCPI,
-			newCPI:                driver.NewCPI,
-			oldIRating:            driver.OldIRating,
-			newIRating:            driver.NewIRating,
-			oldLicenseLevel:       driver.OldLicenseLevel,
-			newLicenseLevel:       driver.NewLicenseLevel,
-			oldSubLevel:           driver.OldSubLevel,
-			newSubLevel:           driver.NewSubLevel,
-			reasonOut:             driver.ReasonOut,
-			ai:                    driver.AI,
-		}.toAttributeMap())
-	}
-
-	for _, lap := range data.SessionDriverLapEntries {
-		items = append(items, sessionDriverLapModel{
-			subsessionID: lap.SubsessionID,
-			driverID:     lap.DriverID,
-			lapNumber:    lap.LapNumber,
-			lapTime:      lap.LapTime.Nanoseconds(),
-			flags:        lap.Flags,
-			incident:     lap.Incident,
-			lapEvents:    lap.LapEvents,
-		}.toAttributeMap())
-	}
-
-	return s.executeBatchedPut(ctx, items)
-}
-
-func (s *DynamoStore) writeSessionRecords(ctx context.Context, data SessionDataInsertion) error {
-	if len(data.SessionEntries) == 0 {
+// SaveDriverSessions saves driver session records and increments session counts atomically.
+// Uses transactions to ensure duplicate prevention via key checks.
+func (s *DynamoStore) SaveDriverSessions(ctx context.Context, sessions []DriverSession) error {
+	if len(sessions) == 0 {
 		return nil
 	}
 
-	var items []map[string]types.AttributeValue
-	for _, session := range data.SessionEntries {
-		items = append(items, sessionModel{
-			subsessionID:    session.SubsessionID,
-			trackID:         session.TrackID,
-			seriesID:        session.SeriesID,
-			seriesName:      session.SeriesName,
-			licenseCategory: session.LicenseCategory,
-			startTime:       toUnixSeconds(session.StartTime),
-		}.toAttributeMap())
-	}
-
-	return s.executeBatchedPut(ctx, items)
-}
-
-func (s *DynamoStore) writeDriverSessionRecords(ctx context.Context, data SessionDataInsertion) error {
 	var items []types.TransactWriteItem
 
 	// Track session counts per driver
 	driverSessionCounts := make(map[int64]int)
 
-	for _, driverSession := range data.DriverSessionEntries {
-		driverSessionCounts[driverSession.DriverID]++
+	for _, ds := range sessions {
+		driverSessionCounts[ds.DriverID]++
 		items = append(items, s.putWithKeyCheck(driverSessionModel{
-			driverID:              driverSession.DriverID,
-			subsessionID:          driverSession.SubsessionID,
-			trackID:               driverSession.TrackID,
-			carID:                 driverSession.CarID,
-			seriesID:              driverSession.SeriesID,
-			seriesName:            driverSession.SeriesName,
-			startTime:             toUnixSeconds(driverSession.StartTime),
-			startPosition:         driverSession.StartPosition,
-			startPositionInClass:  driverSession.StartPositionInClass,
-			finishPosition:        driverSession.FinishPosition,
-			finishPositionInClass: driverSession.FinishPositionInClass,
-			incidents:             driverSession.Incidents,
-			oldCPI:                driverSession.OldCPI,
-			newCPI:                driverSession.NewCPI,
-			oldIRating:            driverSession.OldIRating,
-			newIRating:            driverSession.NewIRating,
-			oldLicenseLevel:       driverSession.OldLicenseLevel,
-			newLicenseLevel:       driverSession.NewLicenseLevel,
-			oldSubLevel:           driverSession.OldSubLevel,
-			newSubLevel:           driverSession.NewSubLevel,
-			reasonOut:             driverSession.ReasonOut,
+			driverID:              ds.DriverID,
+			subsessionID:          ds.SubsessionID,
+			trackID:               ds.TrackID,
+			carID:                 ds.CarID,
+			seriesID:              ds.SeriesID,
+			seriesName:            ds.SeriesName,
+			startTime:             toUnixSeconds(ds.StartTime),
+			startPosition:         ds.StartPosition,
+			startPositionInClass:  ds.StartPositionInClass,
+			finishPosition:        ds.FinishPosition,
+			finishPositionInClass: ds.FinishPositionInClass,
+			incidents:             ds.Incidents,
+			oldCPI:                ds.OldCPI,
+			newCPI:                ds.NewCPI,
+			oldIRating:            ds.OldIRating,
+			newIRating:            ds.NewIRating,
+			oldLicenseLevel:       ds.OldLicenseLevel,
+			newLicenseLevel:       ds.NewLicenseLevel,
+			oldSubLevel:           ds.OldSubLevel,
+			newSubLevel:           ds.NewSubLevel,
+			reasonOut:             ds.ReasonOut,
 		}.toAttributeMap()))
 	}
 
@@ -775,49 +544,6 @@ func (s *DynamoStore) executeBatchedTransact(ctx context.Context, items []types.
 			batchNum := (i / maxTransactWriteItems) + 1
 			totalBatches := (len(items) + maxTransactWriteItems - 1) / maxTransactWriteItems
 			return fmt.Errorf("batch %d/%d failed: %w", batchNum, totalBatches, mapTransactionError(err))
-		}
-	}
-
-	return nil
-}
-
-// executeBatchedPut writes items to DynamoDB using BatchWriteItem in chunks of 25 items.
-// Unlike executeBatchedTransact, this performs non-transactional writes suitable for idempotent bulk inserts.
-// Returns an error if any items are unprocessed (due to throttling, etc.) to allow caller retry
-// (in practice, this triggers SQS redelivery for the ingestion processor).
-func (s *DynamoStore) executeBatchedPut(ctx context.Context, items []map[string]types.AttributeValue) error {
-	if len(items) == 0 {
-		return nil
-	}
-
-	for i := 0; i < len(items); i += maxBatchWriteItems {
-		end := i + maxBatchWriteItems
-		if end > len(items) {
-			end = len(items)
-		}
-		batch := items[i:end]
-
-		writeRequests := make([]types.WriteRequest, len(batch))
-		for j, item := range batch {
-			writeRequests[j] = types.WriteRequest{
-				PutRequest: &types.PutRequest{Item: item},
-			}
-		}
-
-		result, err := s.client.BatchWriteItem(ctx, &dynamodb.BatchWriteItemInput{
-			RequestItems: map[string][]types.WriteRequest{
-				s.table: writeRequests,
-			},
-		})
-		if err != nil {
-			batchNum := (i / maxBatchWriteItems) + 1
-			totalBatches := (len(items) + maxBatchWriteItems - 1) / maxBatchWriteItems
-			return fmt.Errorf("batch %d/%d failed: %w", batchNum, totalBatches, err)
-		}
-		if len(result.UnprocessedItems[s.table]) > 0 {
-			batchNum := (i / maxBatchWriteItems) + 1
-			totalBatches := (len(items) + maxBatchWriteItems - 1) / maxBatchWriteItems
-			return fmt.Errorf("batch %d/%d had %d unprocessed items", batchNum, totalBatches, len(result.UnprocessedItems[s.table]))
 		}
 	}
 

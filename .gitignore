@@ -5,3 +5,5 @@
 dist/
 
 aws_account_prep/terraform.tfvars
+
+PLAN*

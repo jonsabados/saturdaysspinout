@@ -253,199 +253,6 @@ func (_c *MockStore_GetDriverSession_Call) RunAndReturn(run func(ctx context.Con
 	return _c
 }
 
-// GetSession provides a mock function for the type MockStore
-func (_mock *MockStore) GetSession(ctx context.Context, subsessionID int64) (*store.Session, error) {
-	ret := _mock.Called(ctx, subsessionID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetSession")
-	}
-
-	var r0 *store.Session
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int64) (*store.Session, error)); ok {
-		return returnFunc(ctx, subsessionID)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int64) *store.Session); ok {
-		r0 = returnFunc(ctx, subsessionID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*store.Session)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int64) error); ok {
-		r1 = returnFunc(ctx, subsessionID)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockStore_GetSession_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSession'
-type MockStore_GetSession_Call struct {
-	*mock.Call
-}
-
-// GetSession is a helper method to define mock.On call
-//   - ctx context.Context
-//   - subsessionID int64
-func (_e *MockStore_Expecter) GetSession(ctx interface{}, subsessionID interface{}) *MockStore_GetSession_Call {
-	return &MockStore_GetSession_Call{Call: _e.mock.On("GetSession", ctx, subsessionID)}
-}
-
-func (_c *MockStore_GetSession_Call) Run(run func(ctx context.Context, subsessionID int64)) *MockStore_GetSession_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 int64
-		if args[1] != nil {
-			arg1 = args[1].(int64)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockStore_GetSession_Call) Return(session *store.Session, err error) *MockStore_GetSession_Call {
-	_c.Call.Return(session, err)
-	return _c
-}
-
-func (_c *MockStore_GetSession_Call) RunAndReturn(run func(ctx context.Context, subsessionID int64) (*store.Session, error)) *MockStore_GetSession_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// GetSessionDrivers provides a mock function for the type MockStore
-func (_mock *MockStore) GetSessionDrivers(ctx context.Context, subsessionID int64) ([]store.SessionDriver, error) {
-	ret := _mock.Called(ctx, subsessionID)
-
-	if len(ret) == 0 {
-		panic("no return value specified for GetSessionDrivers")
-	}
-
-	var r0 []store.SessionDriver
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int64) ([]store.SessionDriver, error)); ok {
-		return returnFunc(ctx, subsessionID)
-	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int64) []store.SessionDriver); ok {
-		r0 = returnFunc(ctx, subsessionID)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]store.SessionDriver)
-		}
-	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int64) error); ok {
-		r1 = returnFunc(ctx, subsessionID)
-	} else {
-		r1 = ret.Error(1)
-	}
-	return r0, r1
-}
-
-// MockStore_GetSessionDrivers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSessionDrivers'
-type MockStore_GetSessionDrivers_Call struct {
-	*mock.Call
-}
-
-// GetSessionDrivers is a helper method to define mock.On call
-//   - ctx context.Context
-//   - subsessionID int64
-func (_e *MockStore_Expecter) GetSessionDrivers(ctx interface{}, subsessionID interface{}) *MockStore_GetSessionDrivers_Call {
-	return &MockStore_GetSessionDrivers_Call{Call: _e.mock.On("GetSessionDrivers", ctx, subsessionID)}
-}
-
-func (_c *MockStore_GetSessionDrivers_Call) Run(run func(ctx context.Context, subsessionID int64)) *MockStore_GetSessionDrivers_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 int64
-		if args[1] != nil {
-			arg1 = args[1].(int64)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockStore_GetSessionDrivers_Call) Return(sessionDrivers []store.SessionDriver, err error) *MockStore_GetSessionDrivers_Call {
-	_c.Call.Return(sessionDrivers, err)
-	return _c
-}
-
-func (_c *MockStore_GetSessionDrivers_Call) RunAndReturn(run func(ctx context.Context, subsessionID int64) ([]store.SessionDriver, error)) *MockStore_GetSessionDrivers_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// PersistSessionData provides a mock function for the type MockStore
-func (_mock *MockStore) PersistSessionData(ctx context.Context, data store.SessionDataInsertion) error {
-	ret := _mock.Called(ctx, data)
-
-	if len(ret) == 0 {
-		panic("no return value specified for PersistSessionData")
-	}
-
-	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, store.SessionDataInsertion) error); ok {
-		r0 = returnFunc(ctx, data)
-	} else {
-		r0 = ret.Error(0)
-	}
-	return r0
-}
-
-// MockStore_PersistSessionData_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'PersistSessionData'
-type MockStore_PersistSessionData_Call struct {
-	*mock.Call
-}
-
-// PersistSessionData is a helper method to define mock.On call
-//   - ctx context.Context
-//   - data store.SessionDataInsertion
-func (_e *MockStore_Expecter) PersistSessionData(ctx interface{}, data interface{}) *MockStore_PersistSessionData_Call {
-	return &MockStore_PersistSessionData_Call{Call: _e.mock.On("PersistSessionData", ctx, data)}
-}
-
-func (_c *MockStore_PersistSessionData_Call) Run(run func(ctx context.Context, data store.SessionDataInsertion)) *MockStore_PersistSessionData_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		var arg0 context.Context
-		if args[0] != nil {
-			arg0 = args[0].(context.Context)
-		}
-		var arg1 store.SessionDataInsertion
-		if args[1] != nil {
-			arg1 = args[1].(store.SessionDataInsertion)
-		}
-		run(
-			arg0,
-			arg1,
-		)
-	})
-	return _c
-}
-
-func (_c *MockStore_PersistSessionData_Call) Return(err error) *MockStore_PersistSessionData_Call {
-	_c.Call.Return(err)
-	return _c
-}
-
-func (_c *MockStore_PersistSessionData_Call) RunAndReturn(run func(ctx context.Context, data store.SessionDataInsertion) error) *MockStore_PersistSessionData_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // ReleaseIngestionLock provides a mock function for the type MockStore
 func (_mock *MockStore) ReleaseIngestionLock(ctx context.Context, driverID int64) error {
 	ret := _mock.Called(ctx, driverID)
@@ -499,6 +306,63 @@ func (_c *MockStore_ReleaseIngestionLock_Call) Return(err error) *MockStore_Rele
 }
 
 func (_c *MockStore_ReleaseIngestionLock_Call) RunAndReturn(run func(ctx context.Context, driverID int64) error) *MockStore_ReleaseIngestionLock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SaveDriverSessions provides a mock function for the type MockStore
+func (_mock *MockStore) SaveDriverSessions(ctx context.Context, sessions []store.DriverSession) error {
+	ret := _mock.Called(ctx, sessions)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveDriverSessions")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []store.DriverSession) error); ok {
+		r0 = returnFunc(ctx, sessions)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockStore_SaveDriverSessions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveDriverSessions'
+type MockStore_SaveDriverSessions_Call struct {
+	*mock.Call
+}
+
+// SaveDriverSessions is a helper method to define mock.On call
+//   - ctx context.Context
+//   - sessions []store.DriverSession
+func (_e *MockStore_Expecter) SaveDriverSessions(ctx interface{}, sessions interface{}) *MockStore_SaveDriverSessions_Call {
+	return &MockStore_SaveDriverSessions_Call{Call: _e.mock.On("SaveDriverSessions", ctx, sessions)}
+}
+
+func (_c *MockStore_SaveDriverSessions_Call) Run(run func(ctx context.Context, sessions []store.DriverSession)) *MockStore_SaveDriverSessions_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []store.DriverSession
+		if args[1] != nil {
+			arg1 = args[1].([]store.DriverSession)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockStore_SaveDriverSessions_Call) Return(err error) *MockStore_SaveDriverSessions_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockStore_SaveDriverSessions_Call) RunAndReturn(run func(ctx context.Context, sessions []store.DriverSession) error) *MockStore_SaveDriverSessions_Call {
 	_c.Call.Return(run)
 	return _c
 }

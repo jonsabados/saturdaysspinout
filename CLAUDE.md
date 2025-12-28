@@ -1,11 +1,11 @@
 # Claude Code Instructions
 
 ## Project Philosophy
-- Toy project: no delivery timelines, over-engineering is welcome
+- No delivery timelines, over-engineering is welcome
 - Craft-focused: exploring techniques without org overhead
 - Budget-conscious: serverless/usage-based billing, but don't over-optimize for pennies
 - Have fun with it
-- **Important**: "Toy project" means freedom to over-engineer, NOT permission to cut corners on quality. Tests, error handling, and correctness are never optional.
+- Freedom to over-engineer does NOT mean permission to cut corners on quality. Tests, error handling, performance, and correctness are never optional.
 
 ## Code Style
 
@@ -37,13 +37,19 @@ Tests are a first-class concern, not an afterthought.
 - IntelliJ is configured to auto-optimize imports on save
 - When adding new imports, ensure they are used in the same edit - unused imports will be removed automatically
 
-## Platform-Specific (Windows)
-When running on Windows (platform: win32), always use complete absolute Windows paths with drive letters and backslashes for ALL file operations (e.g., `C:\Users\JonSa\Projects\...`). This works around a file modification detection bug in Claude Code.
+## Platform-Specific
+Check the platform in the environment info before applying platform-specific rules:
+- **Windows (platform: win32)**: Use complete absolute Windows paths with drive letters and backslashes for ALL file operations (e.g., `C:\Users\JonSa\Projects\...`). This works around a file modification detection bug in Claude Code.
+- **Linux/macOS**: Standard Unix paths work fine, no special handling needed.
 
 ## Task Delegation
 - Delegate simple verification tasks to the user rather than running them directly
 - Examples: "does it build?", "do tests pass?", "does `make lint` succeed?"
 - Ask the user to run these and report back if there are issues
+
+## Git Operations
+- **Never commit or create PRs**: Git commits and pull request creation are reserved for the human. Do not run `git commit`, `git push`, or `gh pr create` unless explicitly instructed to do so in that moment.
+- You may run read-only git commands (status, diff, log) to understand the current state.
 
 ## Your Role
 

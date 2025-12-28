@@ -15,7 +15,6 @@ import (
 )
 
 const DefaultRaceConsumptionConcurrency = 2
-const DefaultLapConsumptionConcurrency = 2 // note, this is per race consumption thread, so with 2 and 2 we could be making 4 simultaneous calls to iRacing
 
 const mainEventSessionNumber = 0
 const actionIngestionFailedStaleCredentials = "ingestionFailedStaleCredentials"
@@ -31,10 +30,8 @@ type ChunkCompleteMsg struct {
 type Store interface {
 	GetDriver(ctx context.Context, driverID int64) (*store.Driver, error)
 	GetDriverSession(ctx context.Context, driverID int64, startTime time.Time) (*store.DriverSession, error)
-	GetSession(ctx context.Context, subsessionID int64) (*store.Session, error)
-	GetSessionDrivers(ctx context.Context, subsessionID int64) ([]store.SessionDriver, error)
 	UpdateDriverRacesIngestedTo(ctx context.Context, driverID int64, racesIngestedTo time.Time) error
-	PersistSessionData(ctx context.Context, data store.SessionDataInsertion) error
+	SaveDriverSessions(ctx context.Context, sessions []store.DriverSession) error
 	AcquireIngestionLock(ctx context.Context, driverID int64, lockDuration time.Duration) (bool, error)
 	ReleaseIngestionLock(ctx context.Context, driverID int64) error
 }
@@ -42,7 +39,6 @@ type Store interface {
 type IRacingClient interface {
 	SearchSeriesResults(ctx context.Context, accessToken string, finishRangeBegin, finishRangeEnd time.Time, opts ...iracing.SearchOption) ([]iracing.SeriesResult, error)
 	GetSessionResults(ctx context.Context, accessToken string, subsessionID int64, opts ...iracing.GetSessionResultsOption) (*iracing.SessionResult, error)
-	GetLapData(ctx context.Context, accessToken string, subsessionID int64, simsessionNumber int, opts ...iracing.GetLapDataOption) (*iracing.LapDataResponse, error)
 }
 
 type Pusher interface {
@@ -72,12 +68,6 @@ func WithRaceConsumptionConcurrency(n int) RaceProcessorOption {
 	}
 }
 
-func WithLapConsumptionConcurrency(n int) RaceProcessorOption {
-	return func(r *RaceProcessor) {
-		r.lapConsumptionConcurrency = n
-	}
-}
-
 type RaceProcessor struct {
 	store                      Store
 	iracingClient              IRacingClient
@@ -86,7 +76,6 @@ type RaceProcessor struct {
 	eventDispatcher            EventDispatcher
 	metricsClient              MetricsClient
 	raceConsumptionConcurrency int
-	lapConsumptionConcurrency  int
 	lockDuration               time.Duration
 	now                        func() time.Time
 }
@@ -100,7 +89,6 @@ func NewRaceProcessor(store Store, iracingClient IRacingClient, pusher Pusher, e
 		metricsClient:              metricsClient,
 		searchWindowDuration:       time.Hour * 24 * 10,
 		raceConsumptionConcurrency: DefaultRaceConsumptionConcurrency,
-		lapConsumptionConcurrency:  DefaultLapConsumptionConcurrency,
 		lockDuration:               lockDuration,
 		now:                        time.Now,
 	}
@@ -286,28 +274,89 @@ func (r *RaceProcessor) ingestRace(ctx context.Context, insertionMutex *sync.Mut
 
 	collectorChan <- collectionResult{race: 1}
 
-	existingSession, err := r.store.GetSession(ctx, race.SubsessionID)
+	// Fetch session results from iRacing to get this driver's detailed stats
+	sessionResult, err := r.iracingClient.GetSessionResults(ctx, request.IRacingAccessToken, race.SubsessionID, iracing.WithIncludeLicenses(true))
 	if err != nil {
 		segmentErr = err
-		collectorChan <- collectionResult{
-			err: fmt.Errorf("checking session record: %w", err),
-		}
+		collectorChan <- collectionResult{err: fmt.Errorf("pulling session results: %w", err)}
 		return
 	}
 
-	if existingSession != nil {
-		logger.Info().Int64("sessionID", race.SubsessionID).Msg("session already ingested")
-		if err := r.processExistingSession(ctx, insertionMutex, existingSession, driver.DriverID); err != nil {
-			segmentErr = err
-			collectorChan <- collectionResult{err: err}
-		}
+	// Check if we already have this driver's session record
+	existingDriverSession, err := r.store.GetDriverSession(ctx, driver.DriverID, sessionResult.StartTime)
+	if err != nil {
+		segmentErr = err
+		collectorChan <- collectionResult{err: fmt.Errorf("checking driver session: %w", err)}
+		return
+	}
+	if existingDriverSession != nil {
+		logger.Info().Int64("sessionID", race.SubsessionID).Msg("driver session already ingested")
 		return
 	}
 
 	collectorChan <- collectionResult{newRace: 1}
-	if err := r.processNewSession(ctx, insertionMutex, request, race.SubsessionID); err != nil {
+
+	raceSession := findRaceSession(sessionResult.SessionResults)
+	if raceSession == nil {
+		logger.Warn().Int64("subsessionID", race.SubsessionID).Msg("no race session found in session results")
+		return
+	}
+
+	// Find this driver's result
+	var driverResult *iracing.DriverResult
+	for i := range raceSession.Results {
+		if raceSession.Results[i].CustID == driver.DriverID {
+			driverResult = &raceSession.Results[i]
+			break
+		}
+	}
+	if driverResult == nil {
+		logger.Warn().Int64("subsessionID", race.SubsessionID).Int64("driverID", driver.DriverID).Msg("driver not found in session results")
+		return
+	}
+
+	driverSession := store.DriverSession{
+		DriverID:              driver.DriverID,
+		SubsessionID:          sessionResult.SubsessionID,
+		TrackID:               sessionResult.Track.TrackID,
+		SeriesID:              int64(sessionResult.SeriesID),
+		SeriesName:            sessionResult.SeriesName,
+		CarID:                 driverResult.CarID,
+		StartTime:             sessionResult.StartTime,
+		StartPosition:         driverResult.StartingPosition,
+		StartPositionInClass:  driverResult.StartingPositionInClass,
+		FinishPosition:        driverResult.FinishPosition,
+		FinishPositionInClass: driverResult.FinishPositionInClass,
+		Incidents:             driverResult.Incidents,
+		OldCPI:                driverResult.OldCPI,
+		NewCPI:                driverResult.NewCPI,
+		OldIRating:            driverResult.OldIRating,
+		NewIRating:            driverResult.NewIRating,
+		OldLicenseLevel:       driverResult.OldLicenseLevel,
+		NewLicenseLevel:       driverResult.NewLicenseLevel,
+		OldSubLevel:           driverResult.OldSubLevel,
+		NewSubLevel:           driverResult.NewSubLevel,
+		ReasonOut:             driverResult.ReasonOut,
+	}
+
+	insertionMutex.Lock()
+	if err := r.store.SaveDriverSessions(ctx, []store.DriverSession{driverSession}); err != nil {
+		insertionMutex.Unlock()
 		segmentErr = err
-		collectorChan <- collectionResult{err: err}
+		collectorChan <- collectionResult{err: fmt.Errorf("saving driver session: %w", err)}
+		return
+	}
+	insertionMutex.Unlock()
+
+	if err := r.metricsClient.EmitCount(ctx, metrics.DriverSessionsIngested, 1); err != nil {
+		logger.Warn().Err(err).Msg("failed to emit driver sessions ingested metric")
+	}
+
+	raceID := store.DriverRaceIDFromTime(driverSession.StartTime)
+	if err := r.pusher.Broadcast(ctx, driver.DriverID, "raceIngested", RaceReadyMsg{raceID}); err != nil {
+		segmentErr = err
+		collectorChan <- collectionResult{err: fmt.Errorf("broadcasting race ingested: %w", err)}
+		return
 	}
 }
 
@@ -323,101 +372,6 @@ func (r *RaceProcessor) notifyStaleCredentials(ctx context.Context, connectionID
 	}
 }
 
-func (r *RaceProcessor) persistAndNotify(ctx context.Context, insertionMutex *sync.Mutex, insertions store.SessionDataInsertion) error {
-	if !insertions.HasData() {
-		return nil
-	}
-
-	// do not defer the unlock of this - we don't want to hold the lock while we're notifying browsers
-	insertionMutex.Lock()
-	if err := r.store.PersistSessionData(ctx, insertions); err != nil {
-		insertionMutex.Unlock()
-		return fmt.Errorf("persisting data: %w", err)
-	}
-	insertionMutex.Unlock()
-
-	r.emitIngestionMetrics(ctx, insertions)
-
-	for _, driverSession := range insertions.DriverSessionEntries {
-		raceID := store.DriverRaceIDFromTime(driverSession.StartTime)
-		if err := r.pusher.Broadcast(ctx, driverSession.DriverID, "raceIngested", RaceReadyMsg{raceID}); err != nil {
-			return fmt.Errorf("broadcasting race ingested: %w", err)
-		}
-	}
-	return nil
-}
-
-func (r *RaceProcessor) emitIngestionMetrics(ctx context.Context, insertions store.SessionDataInsertion) {
-	logger := zerolog.Ctx(ctx)
-
-	if len(insertions.SessionEntries) > 0 {
-		if err := r.metricsClient.EmitCount(ctx, metrics.SessionsIngested, len(insertions.SessionEntries)); err != nil {
-			logger.Warn().Err(err).Msg("failed to emit sessions ingested metric")
-		}
-	}
-
-	if len(insertions.SessionDriverLapEntries) > 0 {
-		if err := r.metricsClient.EmitCount(ctx, metrics.LapsIngested, len(insertions.SessionDriverLapEntries)); err != nil {
-			logger.Warn().Err(err).Msg("failed to emit laps ingested metric")
-		}
-	}
-}
-
-func (r *RaceProcessor) processExistingSession(ctx context.Context, insertionMutex *sync.Mutex, existingSession *store.Session, driverID int64) error {
-	var err error
-	ctx, segment := xray.BeginSubsegment(ctx, "ProcessExistingSession")
-	defer func() { segment.Close(err) }()
-
-	logger := zerolog.Ctx(ctx)
-
-	existingDriverSession, err := r.store.GetDriverSession(ctx, driverID, existingSession.StartTime)
-	if err != nil {
-		return fmt.Errorf("checking if driver session already exists: %w", err)
-	}
-	if existingDriverSession != nil {
-		logger.Info().Int64("sessionID", existingSession.SubsessionID).Int64("driverID", driverID).Msg("driver session already ingested")
-		return nil
-	}
-
-	sessionDrivers, err := r.store.GetSessionDrivers(ctx, existingSession.SubsessionID)
-	if err != nil {
-		return fmt.Errorf("getting session drivers: %w", err)
-	}
-
-	var insertions store.SessionDataInsertion
-	for _, sd := range sessionDrivers {
-		if sd.DriverID == driverID {
-			insertions.DriverSessionEntries = append(insertions.DriverSessionEntries, store.DriverSession{
-				DriverID:              driverID,
-				SubsessionID:          existingSession.SubsessionID,
-				TrackID:               existingSession.TrackID,
-				SeriesID:              existingSession.SeriesID,
-				SeriesName:            existingSession.SeriesName,
-				CarID:                 sd.CarID,
-				StartTime:             existingSession.StartTime,
-				StartPosition:         sd.StartPosition,
-				StartPositionInClass:  sd.StartPositionInClass,
-				FinishPosition:        sd.FinishPosition,
-				FinishPositionInClass: sd.FinishPositionInClass,
-				Incidents:             sd.Incidents,
-				OldCPI:                sd.OldCPI,
-				NewCPI:                sd.NewCPI,
-				OldIRating:            sd.OldIRating,
-				NewIRating:            sd.NewIRating,
-				OldLicenseLevel:       sd.OldLicenseLevel,
-				NewLicenseLevel:       sd.NewLicenseLevel,
-				OldSubLevel:           sd.OldSubLevel,
-				NewSubLevel:           sd.NewSubLevel,
-				ReasonOut:             sd.ReasonOut,
-			})
-			break
-		}
-	}
-
-	err = r.persistAndNotify(ctx, insertionMutex, insertions)
-	return err
-}
-
 func findRaceSession(sessions []iracing.SimSessionResult) *iracing.SimSessionResult {
 	for i := range sessions {
 		if sessions[i].SimsessionNumber == mainEventSessionNumber {
@@ -427,241 +381,8 @@ func findRaceSession(sessions []iracing.SimSessionResult) *iracing.SimSessionRes
 	return nil
 }
 
-func (r *RaceProcessor) processNewSession(ctx context.Context, insertionMutex *sync.Mutex, request RaceIngestionRequest, subsessionID int64) error {
-	logger := zerolog.Ctx(ctx)
-
-	sessionResult, err := r.iracingClient.GetSessionResults(ctx, request.IRacingAccessToken, subsessionID, iracing.WithIncludeLicenses(true))
-	if err != nil {
-		return fmt.Errorf("pulling session results: %w", err)
-	}
-	logger.Trace().Interface("result", sessionResult).Msg("got session result")
-
-	raceSession := findRaceSession(sessionResult.SessionResults)
-	if raceSession == nil {
-		logger.Warn().Int64("subsessionID", subsessionID).Msg("no race session found in session results")
-		return nil
-	}
-
-	var insertions store.SessionDataInsertion
-
-	insertions.SessionEntries = append(insertions.SessionEntries, store.Session{
-		SubsessionID:    sessionResult.SubsessionID,
-		TrackID:         sessionResult.Track.TrackID,
-		SeriesID:        int64(sessionResult.SeriesID),
-		SeriesName:      sessionResult.SeriesName,
-		LicenseCategory: sessionResult.LicenseCategory,
-		StartTime:       sessionResult.StartTime,
-		CarClasses:      mapCarClasses(sessionResult.SubsessionID, sessionResult.CarClasses),
-	})
-
-	// first lets process the session level stats - these are all just in memory operations
-	for _, driverResult := range raceSession.Results {
-		err := r.processDriverSessionResults(ctx, subsessionID, request.DriverID, &insertions, sessionResult, driverResult)
-		if err != nil {
-			return err
-		}
-	}
-
-	// now laps, which is going to involve some concurrency
-	laps, err := r.processLaps(ctx, request, raceSession, sessionResult)
-	if err != nil {
-		return err
-	}
-	insertions.SessionDriverLapEntries = append(insertions.SessionDriverLapEntries, laps...)
-
-	return r.persistAndNotify(ctx, insertionMutex, insertions)
-}
-
-func (r *RaceProcessor) processLaps(ctx context.Context, request RaceIngestionRequest, raceSession *iracing.SimSessionResult, sessionResult *iracing.SessionResult) ([]store.SessionDriverLap, error) {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	var ret []store.SessionDriverLap
-	var errs []error
-
-	resultChan := make(chan lapCollectionResult)
-	collectorDone := sync.WaitGroup{}
-	collectorDone.Add(1)
-	go func() {
-		defer collectorDone.Done()
-		for result := range resultChan {
-			if result.err != nil {
-				cancel()
-				errs = append(errs, result.err)
-			} else {
-				ret = append(ret, result.laps...)
-			}
-		}
-	}()
-
-	workChan := make(chan iracing.DriverResult)
-	workersDone := sync.WaitGroup{}
-
-	for i := 0; i < r.lapConsumptionConcurrency; i++ {
-		workersDone.Add(1)
-		go func() {
-			defer workersDone.Done()
-			for {
-				select {
-				case driverResult, ok := <-workChan:
-					if !ok {
-						return
-					}
-					driversLaps, err := r.fetchDriverLaps(ctx, request, sessionResult.SubsessionID, raceSession.SimsessionNumber, driverResult)
-					resultChan <- lapCollectionResult{
-						laps: driversLaps,
-						err:  err,
-					}
-				case <-ctx.Done():
-					resultChan <- lapCollectionResult{err: ctx.Err()}
-					return
-				}
-			}
-		}()
-	}
-
-	running := true
-	for _, driverResult := range raceSession.Results {
-		if !running {
-			break
-		}
-		select {
-		case workChan <- driverResult:
-		case <-ctx.Done():
-			running = false
-		}
-	}
-	close(workChan)
-	workersDone.Wait()
-	close(resultChan)
-	collectorDone.Wait()
-
-	if len(errs) > 0 {
-		return nil, errors.Join(errs...)
-	}
-
-	return ret, nil
-}
-
-func (r *RaceProcessor) fetchDriverLaps(ctx context.Context, request RaceIngestionRequest, subsessionID int64, sessionNumber int, driverResult iracing.DriverResult) ([]store.SessionDriverLap, error) {
-	logger := zerolog.Ctx(ctx)
-	var ret []store.SessionDriverLap
-
-	// note: team events require looking up laps by team_id instead of cust_id - this would need to change if we add team event support
-	var laps *iracing.LapDataResponse
-	err := xray.Capture(ctx, "FetchDriverLaps", func(lapCtx context.Context) error {
-		_ = xray.AddAnnotation(lapCtx, "driverID", driverResult.CustID)
-		var lapErr error
-		laps, lapErr = r.iracingClient.GetLapData(lapCtx, request.IRacingAccessToken, subsessionID, sessionNumber, iracing.WithCustomerIDLap(driverResult.CustID))
-		return lapErr
-	})
-	if err != nil {
-		return nil, err
-	}
-	logger.Trace().Interface("lapData", laps).Msg("got laps result")
-
-	for _, lap := range laps.Laps {
-		ret = append(ret, store.SessionDriverLap{
-			SubsessionID: subsessionID,
-			DriverID:     driverResult.CustID,
-			LapNumber:    lap.LapNumber,
-			LapTime:      iracing.LapTimeToDuration(lap.LapTime),
-			Flags:        lap.Flags,
-			Incident:     lap.Incident,
-			LapEvents:    lap.LapEvents,
-		})
-	}
-	return ret, nil
-}
-
-func (r *RaceProcessor) processDriverSessionResults(ctx context.Context, subsessionID int64, driverID int64, insertions *store.SessionDataInsertion, sessionResult *iracing.SessionResult, driverResult iracing.DriverResult) error {
-	insertions.SessionDriverEntries = append(insertions.SessionDriverEntries, store.SessionDriver{
-		SubsessionID:          sessionResult.SubsessionID,
-		DriverID:              driverResult.CustID,
-		CarID:                 driverResult.CarID,
-		StartPosition:         driverResult.StartingPosition,
-		StartPositionInClass:  driverResult.StartingPositionInClass,
-		FinishPosition:        driverResult.FinishPosition,
-		FinishPositionInClass: driverResult.FinishPositionInClass,
-		Incidents:             driverResult.Incidents,
-		OldCPI:                driverResult.OldCPI,
-		NewCPI:                driverResult.NewCPI,
-		OldIRating:            driverResult.OldIRating,
-		NewIRating:            driverResult.NewIRating,
-		OldLicenseLevel:       driverResult.OldLicenseLevel,
-		NewLicenseLevel:       driverResult.NewLicenseLevel,
-		OldSubLevel:           driverResult.OldSubLevel,
-		NewSubLevel:           driverResult.NewSubLevel,
-		ReasonOut:             driverResult.ReasonOut,
-		AI:                    driverResult.AI,
-	})
-
-	if driverResult.CustID == driverID {
-		existingDriverSession, err := r.store.GetDriverSession(ctx, driverID, sessionResult.StartTime)
-		if err != nil {
-			return fmt.Errorf("checking if driver session already exists: %w", err)
-		}
-
-		if existingDriverSession != nil {
-			zerolog.Ctx(ctx).Info().Int64("sessionID", subsessionID).Int64("driverID", driverResult.CustID).Msg("driver session already ingested")
-		} else {
-			insertions.DriverSessionEntries = append(insertions.DriverSessionEntries, store.DriverSession{
-				DriverID:              driverID,
-				SubsessionID:          sessionResult.SubsessionID,
-				TrackID:               sessionResult.Track.TrackID,
-				SeriesID:              int64(sessionResult.SeriesID),
-				SeriesName:            sessionResult.SeriesName,
-				CarID:                 driverResult.CarID,
-				StartTime:             sessionResult.StartTime,
-				StartPosition:         driverResult.StartingPosition,
-				StartPositionInClass:  driverResult.StartingPositionInClass,
-				FinishPosition:        driverResult.FinishPosition,
-				FinishPositionInClass: driverResult.FinishPositionInClass,
-				Incidents:             driverResult.Incidents,
-				OldCPI:                driverResult.OldCPI,
-				NewCPI:                driverResult.NewCPI,
-				OldIRating:            driverResult.OldIRating,
-				NewIRating:            driverResult.NewIRating,
-				OldLicenseLevel:       driverResult.OldLicenseLevel,
-				NewLicenseLevel:       driverResult.NewLicenseLevel,
-				OldSubLevel:           driverResult.OldSubLevel,
-				NewSubLevel:           driverResult.NewSubLevel,
-				ReasonOut:             driverResult.ReasonOut,
-			})
-		}
-	}
-	return nil
-}
-
-func mapCarClasses(subsessionID int64, classes []iracing.CarClass) []store.SessionCarClass {
-	result := make([]store.SessionCarClass, len(classes))
-	for i, class := range classes {
-		cars := make([]store.SessionCarClassCar, len(class.CarsInClass))
-		for j, car := range class.CarsInClass {
-			cars[j] = store.SessionCarClassCar{
-				SubsessionID: subsessionID,
-				CarClassID:   int64(class.CarClassID),
-				CarID:        int64(car.CarID),
-			}
-		}
-		result[i] = store.SessionCarClass{
-			SubsessionID:    subsessionID,
-			CarClassID:      int64(class.CarClassID),
-			StrengthOfField: class.StrengthOfField,
-			NumberOfEntries: class.NumEntries,
-			Cars:            cars,
-		}
-	}
-	return result
-}
-
 type collectionResult struct {
 	newRace int
 	race    int
 	err     error
-}
-
-type lapCollectionResult struct {
-	laps []store.SessionDriverLap
-	err  error
 }
