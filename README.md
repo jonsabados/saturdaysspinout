@@ -162,21 +162,6 @@ The persistence layer uses DynamoDB with a single-table design.
 
 Note, this is basically just indexing websockets -> driver, could be a GSI but seems like less fuss just to explicitly write things
 
-#### `session#<id>` partition
-
-| Sort Key                                | Description | Attributes                                                                                                                                                                |
-|-----------------------------------------|-------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `info`                                  | Race metadata | subsession_id, track_id, series_id, series_name, license_category, start_time                                                                                             |
-| `car_class#<car_class_id>`              | Car class in session | subsession_id, strength_of_field, num_entries                                                                                                                             |
-| `car_class#<car_class_id>#car#<car_id>` | Car in class | subsession_id, car_id                                                                                                                                                     |
-| `drivers#driver#<driver_id>`            | Driver's result | subsession_id, driver_id, car_id, start_position, start_position_in_class, finish_position, finish_position_in_class, old_cpi, new_cpi, incidents, old_irating, new_irating, old_license_level, new_license_level, old_sub_level, new_sub_level, reason_out, ai |
-| `laps#driver#<driver_id>#lap#<lap>`     | Lap data | subsession_id, driver_id, lap_number, lap_time, flags, incident, lap_events                                                                                               |
-
-Expected access patterns: 
-* Retrieving high level session details (pulls info and car_class stuff in one go)
-* Pulling drivers by session
-* Pulling laps by driver and session
-
 #### `global` partition
 
 | Sort Key | Description | Attributes |
@@ -222,8 +207,8 @@ The `ingestion/` package handles asynchronous ingestion of race history from the
 4. Race Ingestion Lambda consumes message, acquires distributed lock (conditional write)
 5. If lock already held, logs warning and returns success (SQS message acknowledged)
 6. Queries iRacing `/data/results/search_series`, filters to races only (event_type=5)
-7. For each race, fetches full session results and lap data for all drivers
-8. Stores session info, car classes, driver results, and lap data in DynamoDB (skips if session already exists from another driver's ingestion)
+7. For each race, fetches session results to get the driver's detailed stats
+8. Stores driver's race participation record in DynamoDB (skips if already exists)
 9. Driver's `races_ingested_to` timestamp is updated for incremental sync
 10. Lock released before recursing; allowed to expire naturally when up-to-date (cooldown period)
 

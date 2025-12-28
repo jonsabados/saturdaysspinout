@@ -734,216 +734,13 @@ func TestGetDriver_ExpiredLockNotReturned(t *testing.T) {
 	assert.Nil(t, got.IngestionBlockedUntil)
 }
 
-func TestPersistSessionData_HappyPath(t *testing.T) {
+func TestSaveDriverSessions_HappyPath(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
 	sessionStartTime := time.Unix(1700000000, 0)
 
-	data := SessionDataInsertion{
-		SessionEntries: []Session{
-			{
-				SubsessionID:    12345,
-				TrackID:         100,
-				SeriesID:        42,
-				SeriesName:      "Advanced Mazda MX-5 Cup Series",
-				LicenseCategory: "Road",
-				StartTime:       sessionStartTime,
-				CarClasses: []SessionCarClass{
-					{
-						SubsessionID:    12345,
-						CarClassID:      1,
-						StrengthOfField: 2500,
-						NumberOfEntries: 20,
-						Cars: []SessionCarClassCar{
-							{SubsessionID: 12345, CarClassID: 1, CarID: 101},
-							{SubsessionID: 12345, CarClassID: 1, CarID: 102},
-						},
-					},
-					{
-						SubsessionID:    12345,
-						CarClassID:      2,
-						StrengthOfField: 1800,
-						NumberOfEntries: 10,
-						Cars: []SessionCarClassCar{
-							{SubsessionID: 12345, CarClassID: 2, CarID: 201},
-						},
-					},
-				},
-			},
-		},
-		SessionDriverEntries: []SessionDriver{
-			{
-				SubsessionID:          12345,
-				DriverID:              1001,
-				CarID:                 101,
-				StartPosition:         1,
-				StartPositionInClass:  1,
-				FinishPosition:        2,
-				FinishPositionInClass: 2,
-				Incidents:             3,
-				OldCPI:                0.5,
-				NewCPI:                0.6,
-				OldIRating:            2000,
-				NewIRating:            2050,
-				OldLicenseLevel:       17,
-				NewLicenseLevel:       18,
-				OldSubLevel:           381,
-				NewSubLevel:           399,
-				ReasonOut:             "Running",
-				AI:                    false,
-			},
-			{
-				SubsessionID:          12345,
-				DriverID:              1002,
-				CarID:                 102,
-				StartPosition:         2,
-				StartPositionInClass:  2,
-				FinishPosition:        1,
-				FinishPositionInClass: 1,
-				Incidents:             0,
-				OldCPI:                0.3,
-				NewCPI:                0.25,
-				OldIRating:            2100,
-				NewIRating:            2150,
-				OldLicenseLevel:       18,
-				NewLicenseLevel:       18,
-				OldSubLevel:           425,
-				NewSubLevel:           450,
-				ReasonOut:             "Running",
-				AI:                    false,
-			},
-		},
-		SessionDriverLapEntries: []SessionDriverLap{
-			{SubsessionID: 12345, DriverID: 1001, LapNumber: 1, LapTime: 90 * time.Second, Flags: 0, Incident: false, LapEvents: nil},
-			{SubsessionID: 12345, DriverID: 1001, LapNumber: 2, LapTime: 88 * time.Second, Flags: 0, Incident: true, LapEvents: []string{"off track"}},
-			{SubsessionID: 12345, DriverID: 1001, LapNumber: 3, LapTime: 87 * time.Second, Flags: 0, Incident: false, LapEvents: nil},
-			{SubsessionID: 12345, DriverID: 1002, LapNumber: 1, LapTime: 89 * time.Second, Flags: 0, Incident: false, LapEvents: nil},
-			{SubsessionID: 12345, DriverID: 1002, LapNumber: 2, LapTime: 86 * time.Second, Flags: 0, Incident: false, LapEvents: nil},
-		},
-		DriverSessionEntries: []DriverSession{
-			{
-				DriverID:              1001,
-				SubsessionID:          12345,
-				TrackID:               100,
-				CarID:                 101,
-				SeriesID:              42,
-				SeriesName:            "Advanced Mazda MX-5 Cup Series",
-				StartTime:             sessionStartTime,
-				StartPosition:         1,
-				StartPositionInClass:  1,
-				FinishPosition:        2,
-				FinishPositionInClass: 2,
-				Incidents:             3,
-				OldCPI:                0.5,
-				NewCPI:                0.6,
-				OldIRating:            2000,
-				NewIRating:            2050,
-				OldLicenseLevel:       17,
-				NewLicenseLevel:       18,
-				OldSubLevel:           381,
-				NewSubLevel:           399,
-				ReasonOut:             "Running",
-			},
-			{
-				DriverID:              1002,
-				SubsessionID:          12345,
-				TrackID:               100,
-				CarID:                 102,
-				SeriesID:              42,
-				SeriesName:            "Advanced Mazda MX-5 Cup Series",
-				StartTime:             sessionStartTime,
-				StartPosition:         2,
-				StartPositionInClass:  2,
-				FinishPosition:        1,
-				FinishPositionInClass: 1,
-				Incidents:             0,
-				OldCPI:                0.3,
-				NewCPI:                0.25,
-				OldIRating:            2100,
-				NewIRating:            2150,
-				OldLicenseLevel:       18,
-				NewLicenseLevel:       18,
-				OldSubLevel:           425,
-				NewSubLevel:           450,
-				ReasonOut:             "Running",
-			},
-		},
-	}
-
-	err := s.PersistSessionData(ctx, data)
-	require.NoError(t, err)
-
-	// Verify GetSession returns session with car classes
-	session, err := s.GetSession(ctx, 12345)
-	require.NoError(t, err)
-	require.NotNil(t, session)
-	assert.Equal(t, int64(12345), session.SubsessionID)
-	assert.Equal(t, int64(100), session.TrackID)
-	assert.Equal(t, int64(42), session.SeriesID)
-	assert.Equal(t, "Advanced Mazda MX-5 Cup Series", session.SeriesName)
-	assert.Equal(t, "Road", session.LicenseCategory)
-	assert.Equal(t, sessionStartTime, session.StartTime)
-	assert.Len(t, session.CarClasses, 2)
-
-	// Find car classes by ID for deterministic assertions
-	carClassByID := make(map[int64]SessionCarClass)
-	for _, cc := range session.CarClasses {
-		carClassByID[cc.CarClassID] = cc
-	}
-	assert.Equal(t, 2500, carClassByID[1].StrengthOfField)
-	assert.Equal(t, 20, carClassByID[1].NumberOfEntries)
-	assert.Len(t, carClassByID[1].Cars, 2)
-	assert.Equal(t, 1800, carClassByID[2].StrengthOfField)
-	assert.Len(t, carClassByID[2].Cars, 1)
-
-	// Verify GetSessionDrivers
-	drivers, err := s.GetSessionDrivers(ctx, 12345)
-	require.NoError(t, err)
-	assert.Len(t, drivers, 2)
-
-	driverByID := make(map[int64]SessionDriver)
-	for _, d := range drivers {
-		driverByID[d.DriverID] = d
-	}
-	assert.Equal(t, 2, driverByID[1001].FinishPosition)
-	assert.Equal(t, 2, driverByID[1001].FinishPositionInClass)
-	assert.Equal(t, 3, driverByID[1001].Incidents)
-	assert.Equal(t, 17, driverByID[1001].OldLicenseLevel)
-	assert.Equal(t, 18, driverByID[1001].NewLicenseLevel)
-	assert.Equal(t, 381, driverByID[1001].OldSubLevel)
-	assert.Equal(t, 399, driverByID[1001].NewSubLevel)
-	assert.Equal(t, 1, driverByID[1002].FinishPosition)
-	assert.Equal(t, 1, driverByID[1002].FinishPositionInClass)
-	assert.Equal(t, 18, driverByID[1002].OldLicenseLevel)
-	assert.Equal(t, 18, driverByID[1002].NewLicenseLevel)
-	assert.Equal(t, 425, driverByID[1002].OldSubLevel)
-	assert.Equal(t, 450, driverByID[1002].NewSubLevel)
-
-	// Verify GetSessionDriverLaps for driver 1001
-	laps1001, err := s.GetSessionDriverLaps(ctx, 12345, 1001)
-	require.NoError(t, err)
-	assert.Len(t, laps1001, 3)
-
-	lapByNumber := make(map[int]SessionDriverLap)
-	for _, l := range laps1001 {
-		lapByNumber[l.LapNumber] = l
-	}
-	assert.Equal(t, 90*time.Second, lapByNumber[1].LapTime)
-	assert.False(t, lapByNumber[1].Incident)
-	assert.Equal(t, 88*time.Second, lapByNumber[2].LapTime)
-	assert.True(t, lapByNumber[2].Incident)
-	assert.Equal(t, []string{"off track"}, lapByNumber[2].LapEvents)
-
-	// Verify GetSessionDriverLaps for driver 1002
-	laps1002, err := s.GetSessionDriverLaps(ctx, 12345, 1002)
-	require.NoError(t, err)
-	assert.Len(t, laps1002, 2)
-
-	// Verify GetDriverSessions
-	driverSessions, err := s.GetDriverSessions(ctx, 1001, sessionStartTime.Add(-time.Hour), sessionStartTime.Add(time.Hour))
-	require.NoError(t, err)
-	assert.Equal(t, []DriverSession{
+	sessions := []DriverSession{
 		{
 			DriverID:              1001,
 			SubsessionID:          12345,
@@ -967,62 +764,51 @@ func TestPersistSessionData_HappyPath(t *testing.T) {
 			NewSubLevel:           399,
 			ReasonOut:             "Running",
 		},
-	}, driverSessions)
-}
-
-func TestPersistSessionData_DuplicateSessionIsIdempotent(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	data := SessionDataInsertion{
-		SessionEntries: []Session{
-			{
-				SubsessionID: 12345,
-				TrackID:      100,
-				StartTime:    time.Unix(1700000000, 0),
-			},
+		{
+			DriverID:              1002,
+			SubsessionID:          12345,
+			TrackID:               100,
+			CarID:                 102,
+			SeriesID:              42,
+			SeriesName:            "Advanced Mazda MX-5 Cup Series",
+			StartTime:             sessionStartTime,
+			StartPosition:         2,
+			StartPositionInClass:  2,
+			FinishPosition:        1,
+			FinishPositionInClass: 1,
+			Incidents:             0,
+			OldCPI:                0.3,
+			NewCPI:                0.25,
+			OldIRating:            2100,
+			NewIRating:            2150,
+			OldLicenseLevel:       18,
+			NewLicenseLevel:       18,
+			OldSubLevel:           425,
+			NewSubLevel:           450,
+			ReasonOut:             "Running",
 		},
 	}
 
-	err := s.PersistSessionData(ctx, data)
+	err := s.SaveDriverSessions(ctx, sessions)
 	require.NoError(t, err)
 
-	// Inserting the same data again should succeed (idempotent overwrite)
-	err = s.PersistSessionData(ctx, data)
+	// Verify GetDriverSessions
+	driverSessions, err := s.GetDriverSessions(ctx, 1001, sessionStartTime.Add(-time.Hour), sessionStartTime.Add(time.Hour))
 	require.NoError(t, err)
+	assert.Equal(t, []DriverSession{sessions[0]}, driverSessions)
 
-	// Verify only one session exists
-	session, err := s.GetSession(ctx, 12345)
+	driverSessions, err = s.GetDriverSessions(ctx, 1002, sessionStartTime.Add(-time.Hour), sessionStartTime.Add(time.Hour))
 	require.NoError(t, err)
-	require.NotNil(t, session)
-	assert.Equal(t, int64(12345), session.SubsessionID)
+	assert.Equal(t, []DriverSession{sessions[1]}, driverSessions)
 }
 
-func TestGetSession_NotFound(t *testing.T) {
+func TestSaveDriverSessions_Empty(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	session, err := s.GetSession(ctx, 99999)
+	// Saving empty slice should succeed
+	err := s.SaveDriverSessions(ctx, []DriverSession{})
 	require.NoError(t, err)
-	assert.Nil(t, session)
-}
-
-func TestGetSessionDrivers_Empty(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	drivers, err := s.GetSessionDrivers(ctx, 99999)
-	require.NoError(t, err)
-	assert.Empty(t, drivers)
-}
-
-func TestGetSessionDriverLaps_Empty(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	laps, err := s.GetSessionDriverLaps(ctx, 99999, 1)
-	require.NoError(t, err)
-	assert.Empty(t, laps)
 }
 
 func TestGetDriverSession_Found(t *testing.T) {
@@ -1032,26 +818,19 @@ func TestGetDriverSession_Found(t *testing.T) {
 	targetStartTime := time.Unix(1700000000, 0)
 
 	// Insert multiple sessions for multiple drivers as noise
-	data := SessionDataInsertion{
-		SessionEntries: []Session{
-			{SubsessionID: 11111, TrackID: 100, StartTime: time.Unix(1699999000, 0)},
-			{SubsessionID: 12345, TrackID: 100, StartTime: targetStartTime},
-			{SubsessionID: 22222, TrackID: 100, StartTime: time.Unix(1700001000, 0)},
-		},
-		DriverSessionEntries: []DriverSession{
-			// Other driver, different session
-			{DriverID: 9999, SubsessionID: 11111, TrackID: 100, CarID: 101, StartTime: time.Unix(1699999000, 0), ReasonOut: "Running", FinishPosition: 5},
-			// Target driver, earlier session
-			{DriverID: 1001, SubsessionID: 11111, TrackID: 100, CarID: 101, StartTime: time.Unix(1699999000, 0), ReasonOut: "Running", FinishPosition: 10},
-			// Target driver, target session - this is the one we want
-			{DriverID: 1001, SubsessionID: 12345, TrackID: 100, CarID: 101, StartTime: targetStartTime, FinishPosition: 2, Incidents: 3, ReasonOut: "Running"},
-			// Target driver, later session
-			{DriverID: 1001, SubsessionID: 22222, TrackID: 100, CarID: 101, StartTime: time.Unix(1700001000, 0), ReasonOut: "Running", FinishPosition: 1},
-			// Other driver, same time as target
-			{DriverID: 8888, SubsessionID: 12345, TrackID: 100, CarID: 102, StartTime: targetStartTime, ReasonOut: "Running", FinishPosition: 7},
-		},
+	sessions := []DriverSession{
+		// Other driver, different session
+		{DriverID: 9999, SubsessionID: 11111, TrackID: 100, CarID: 101, StartTime: time.Unix(1699999000, 0), ReasonOut: "Running", FinishPosition: 5},
+		// Target driver, earlier session
+		{DriverID: 1001, SubsessionID: 11111, TrackID: 100, CarID: 101, StartTime: time.Unix(1699999000, 0), ReasonOut: "Running", FinishPosition: 10},
+		// Target driver, target session - this is the one we want
+		{DriverID: 1001, SubsessionID: 12345, TrackID: 100, CarID: 101, StartTime: targetStartTime, FinishPosition: 2, Incidents: 3, ReasonOut: "Running"},
+		// Target driver, later session
+		{DriverID: 1001, SubsessionID: 22222, TrackID: 100, CarID: 101, StartTime: time.Unix(1700001000, 0), ReasonOut: "Running", FinishPosition: 1},
+		// Other driver, same time as target
+		{DriverID: 8888, SubsessionID: 12345, TrackID: 100, CarID: 102, StartTime: targetStartTime, ReasonOut: "Running", FinishPosition: 7},
 	}
-	require.NoError(t, s.PersistSessionData(ctx, data))
+	require.NoError(t, s.SaveDriverSessions(ctx, sessions))
 
 	got, err := s.GetDriverSession(ctx, 1001, targetStartTime)
 	require.NoError(t, err)
@@ -1067,15 +846,10 @@ func TestGetDriverSession_NotFound(t *testing.T) {
 	ctx := context.Background()
 
 	// Add some data as noise
-	data := SessionDataInsertion{
-		SessionEntries: []Session{
-			{SubsessionID: 12345, TrackID: 100, StartTime: time.Unix(1700000000, 0)},
-		},
-		DriverSessionEntries: []DriverSession{
-			{DriverID: 1001, SubsessionID: 12345, TrackID: 100, CarID: 101, StartTime: time.Unix(1700000000, 0), ReasonOut: "Running"},
-		},
+	sessions := []DriverSession{
+		{DriverID: 1001, SubsessionID: 12345, TrackID: 100, CarID: 101, StartTime: time.Unix(1700000000, 0), ReasonOut: "Running"},
 	}
-	require.NoError(t, s.PersistSessionData(ctx, data))
+	require.NoError(t, s.SaveDriverSessions(ctx, sessions))
 
 	// Query for non-existent driver
 	got, err := s.GetDriverSession(ctx, 99999, time.Unix(1700000000, 0))
@@ -1110,26 +884,17 @@ func TestGetDriverSessions_DateRangeFiltering(t *testing.T) {
 	}
 
 	for i, startTime := range times {
-		data := SessionDataInsertion{
-			SessionEntries: []Session{
-				{
-					SubsessionID: int64(i + 1),
-					TrackID:      100,
-					StartTime:    startTime,
-				},
-			},
-			DriverSessionEntries: []DriverSession{
-				{
-					DriverID:     1001,
-					SubsessionID: int64(i + 1),
-					TrackID:      100,
-					CarID:        101,
-					StartTime:    startTime,
-					ReasonOut:    "Running",
-				},
+		sessions := []DriverSession{
+			{
+				DriverID:     1001,
+				SubsessionID: int64(i + 1),
+				TrackID:      100,
+				CarID:        101,
+				StartTime:    startTime,
+				ReasonOut:    "Running",
 			},
 		}
-		require.NoError(t, s.PersistSessionData(ctx, data))
+		require.NoError(t, s.SaveDriverSessions(ctx, sessions))
 	}
 
 	// Query middle range - expect newest first
@@ -1223,15 +988,10 @@ func TestDeleteDriverRaces_DeletesAllExceptInfo(t *testing.T) {
 
 	// Add session data for this driver
 	sessionStartTime := time.Unix(1700000000, 0)
-	data := SessionDataInsertion{
-		SessionEntries: []Session{
-			{SubsessionID: 12345, TrackID: 100, StartTime: sessionStartTime},
-		},
-		DriverSessionEntries: []DriverSession{
-			{DriverID: 12345, SubsessionID: 12345, TrackID: 100, CarID: 101, StartTime: sessionStartTime, ReasonOut: "Running"},
-		},
+	driverSessions := []DriverSession{
+		{DriverID: 12345, SubsessionID: 12345, TrackID: 100, CarID: 101, StartTime: sessionStartTime, ReasonOut: "Running"},
 	}
-	require.NoError(t, s.PersistSessionData(ctx, data))
+	require.NoError(t, s.SaveDriverSessions(ctx, driverSessions))
 
 	// Verify driver has sessions
 	sessions, err := s.GetDriverSessions(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
@@ -1360,15 +1120,10 @@ func TestDeleteDriverRaces_MultipleSessions(t *testing.T) {
 	// Add multiple sessions
 	for i := 0; i < 30; i++ { // More than maxBatchWriteItems (25) to test batching
 		startTime := time.Unix(int64(1700000000+i*1000), 0)
-		data := SessionDataInsertion{
-			SessionEntries: []Session{
-				{SubsessionID: int64(i + 1), TrackID: 100, StartTime: startTime},
-			},
-			DriverSessionEntries: []DriverSession{
-				{DriverID: 12345, SubsessionID: int64(i + 1), TrackID: 100, CarID: 101, StartTime: startTime, ReasonOut: "Running"},
-			},
+		driverSessions := []DriverSession{
+			{DriverID: 12345, SubsessionID: int64(i + 1), TrackID: 100, CarID: 101, StartTime: startTime, ReasonOut: "Running"},
 		}
-		require.NoError(t, s.PersistSessionData(ctx, data))
+		require.NoError(t, s.SaveDriverSessions(ctx, driverSessions))
 	}
 
 	// Verify driver has sessions
@@ -1404,16 +1159,11 @@ func TestDeleteDriverRaces_IsolatedByDriver(t *testing.T) {
 	require.NoError(t, s.InsertDriver(ctx, driver2))
 
 	// Add sessions for both drivers
-	data := SessionDataInsertion{
-		SessionEntries: []Session{
-			{SubsessionID: 1, TrackID: 100, StartTime: time.Unix(1700000000, 0)},
-		},
-		DriverSessionEntries: []DriverSession{
-			{DriverID: 111, SubsessionID: 1, TrackID: 100, CarID: 101, StartTime: time.Unix(1700000000, 0), ReasonOut: "Running"},
-			{DriverID: 222, SubsessionID: 1, TrackID: 100, CarID: 102, StartTime: time.Unix(1700000000, 0), ReasonOut: "Running"},
-		},
+	driverSessions := []DriverSession{
+		{DriverID: 111, SubsessionID: 1, TrackID: 100, CarID: 101, StartTime: time.Unix(1700000000, 0), ReasonOut: "Running"},
+		{DriverID: 222, SubsessionID: 1, TrackID: 100, CarID: 102, StartTime: time.Unix(1700000000, 0), ReasonOut: "Running"},
 	}
-	require.NoError(t, s.PersistSessionData(ctx, data))
+	require.NoError(t, s.SaveDriverSessions(ctx, driverSessions))
 
 	// Delete only driver 111's races
 	err := s.DeleteDriverRaces(ctx, 111)

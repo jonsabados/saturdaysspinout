@@ -27,18 +27,6 @@ type searchSeriesResultsCall struct {
 	err              error
 }
 
-type getSessionCall struct {
-	subsessionID int64
-	result       *store.Session
-	err          error
-}
-
-type getSessionDriversCall struct {
-	subsessionID int64
-	result       []store.SessionDriver
-	err          error
-}
-
 type getSessionResultsCall struct {
 	subsessionID int64
 	result       *iracing.SessionResult
@@ -52,15 +40,8 @@ type getDriverSessionCall struct {
 	err       error
 }
 
-type getLapDataCall struct {
-	subsessionID     int64
-	simsessionNumber int
-	result           *iracing.LapDataResponse
-	err              error
-}
-
-type persistSessionDataCall struct {
-	validate func(t *testing.T, data store.SessionDataInsertion)
+type saveDriverSessionsCall struct {
+	validate func(t *testing.T, sessions []store.DriverSession)
 	err      error
 }
 
@@ -124,12 +105,9 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 		releaseIngestionLockCall        *releaseIngestionLockCall
 		getDriverCall                   *getDriverCall
 		searchSeriesResultsCall         *searchSeriesResultsCall
-		getSessionCalls                 []getSessionCall
-		getSessionDriversCalls          []getSessionDriversCall
 		getSessionResultsCalls          []getSessionResultsCall
 		getDriverSessionCalls           []getDriverSessionCall
-		getLapDataCalls                 []getLapDataCall
-		persistSessionDataCalls         []persistSessionDataCall
+		saveDriverSessionsCalls         []saveDriverSessionsCall
 		emitCountCalls                  []emitCountCall
 		pushCalls                       []pushCall
 		broadcastCalls                  []broadcastCall
@@ -139,7 +117,7 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 		expectedErr string
 	}{
 		{
-			name: "session exists but driver session does not - uses stored data to create driver session",
+			name: "happy path - new driver session",
 			request: RaceIngestionRequest{
 				DriverID:           driverID,
 				IRacingAccessToken: "test-token",
@@ -161,70 +139,55 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					{SubsessionID: subsessionID},
 				},
 			},
-			getSessionCalls: []getSessionCall{
+			getSessionResultsCalls: []getSessionResultsCall{
 				{
 					subsessionID: subsessionID,
-					result: &store.Session{
+					result: &iracing.SessionResult{
 						SubsessionID:    subsessionID,
-						TrackID:         123,
 						SeriesID:        42,
 						SeriesName:      "Test Series",
 						LicenseCategory: "Road",
+						Track:           iracing.Track{TrackID: 123},
 						StartTime:       sessionStartTime,
+						SessionResults: []iracing.SimSessionResult{
+							{
+								SimsessionNumber: 0, // main event
+								Results: []iracing.DriverResult{
+									{
+										CustID:                  driverID,
+										DisplayName:             "Test Driver",
+										CarID:                   10,
+										StartingPosition:        5,
+										StartingPositionInClass: 5,
+										FinishPosition:          3,
+										FinishPositionInClass:   3,
+										Incidents:               2,
+										OldIRating:              1400,
+										NewIRating:              1450,
+										OldLicenseLevel:         17,
+										NewLicenseLevel:         18,
+										OldSubLevel:             381,
+										NewSubLevel:             399,
+										ReasonOut:               "Running",
+									},
+								},
+							},
+						},
 					},
 				},
 			},
-			// No iRacing API calls - use stored data instead
-			getSessionResultsCalls: []getSessionResultsCall{},
-			getLapDataCalls:        []getLapDataCall{},
-			// Check if driver session exists
 			getDriverSessionCalls: []getDriverSessionCall{
 				{
 					driverID:  driverID,
 					startTime: sessionStartTime,
-					result:    nil, // doesn't exist yet for this driver
+					result:    nil, // doesn't exist
 				},
 			},
-			// Query stored SessionDriver data to build DriverSession
-			getSessionDriversCalls: []getSessionDriversCall{
+			saveDriverSessionsCalls: []saveDriverSessionsCall{
 				{
-					subsessionID: subsessionID,
-					result: []store.SessionDriver{
-						{
-							SubsessionID:          subsessionID,
-							DriverID:              driverID,
-							CarID:                 10,
-							StartPosition:         5,
-							StartPositionInClass:  5,
-							FinishPosition:        3,
-							FinishPositionInClass: 3,
-							Incidents:             2,
-							OldIRating:            1400,
-							NewIRating:            1450,
-							OldLicenseLevel:       17,
-							NewLicenseLevel:       18,
-							OldSubLevel:           381,
-							NewSubLevel:           399,
-						},
-						{
-							SubsessionID: subsessionID,
-							DriverID:     99999, // another driver
-							CarID:        11,
-						},
-					},
-				},
-			},
-			// Should persist the new DriverSession
-			persistSessionDataCalls: []persistSessionDataCall{
-				{
-					validate: func(t *testing.T, data store.SessionDataInsertion) {
-						// Only DriverSession, no Session/SessionDriver/Laps
-						assert.Empty(t, data.SessionEntries)
-						assert.Empty(t, data.SessionDriverEntries)
-						assert.Empty(t, data.SessionDriverLapEntries)
-
-						require.Len(t, data.DriverSessionEntries, 1)
-						ds := data.DriverSessionEntries[0]
+					validate: func(t *testing.T, sessions []store.DriverSession) {
+						require.Len(t, sessions, 1)
+						ds := sessions[0]
 						assert.Equal(t, driverID, ds.DriverID)
 						assert.Equal(t, subsessionID, ds.SubsessionID)
 						assert.Equal(t, int64(123), ds.TrackID)
@@ -240,10 +203,13 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 						assert.Equal(t, 18, ds.NewLicenseLevel)
 						assert.Equal(t, 381, ds.OldSubLevel)
 						assert.Equal(t, 399, ds.NewSubLevel)
+						assert.Equal(t, "Running", ds.ReasonOut)
 					},
 				},
 			},
-			// Should broadcast to all driver's connections
+			emitCountCalls: []emitCountCall{
+				{name: metrics.DriverSessionsIngested, count: 1},
+			},
 			broadcastCalls: []broadcastCall{
 				{
 					driverID:   driverID,
@@ -269,7 +235,7 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 			},
 		},
 		{
-			name: "driver session already exists - should not persist or notify",
+			name: "driver session already exists - skips save and notify",
 			request: RaceIngestionRequest{
 				DriverID:           driverID,
 				IRacingAccessToken: "test-token",
@@ -291,20 +257,18 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					{SubsessionID: subsessionID},
 				},
 			},
-			getSessionCalls: []getSessionCall{
+			getSessionResultsCalls: []getSessionResultsCall{
 				{
 					subsessionID: subsessionID,
-					result: &store.Session{
+					result: &iracing.SessionResult{
 						SubsessionID: subsessionID,
-						TrackID:      123,
 						StartTime:    sessionStartTime,
+						SessionResults: []iracing.SimSessionResult{
+							{SimsessionNumber: 0, Results: []iracing.DriverResult{{CustID: driverID}}},
+						},
 					},
 				},
 			},
-			// Session exists, so no iRacing API calls
-			getSessionResultsCalls: []getSessionResultsCall{},
-			getLapDataCalls:        []getLapDataCall{},
-			// Driver session already exists
 			getDriverSessionCalls: []getDriverSessionCall{
 				{
 					driverID:  driverID,
@@ -316,168 +280,10 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					},
 				},
 			},
-			// No persist calls - nothing new to save
-			persistSessionDataCalls: []persistSessionDataCall{},
-			// No push calls - nothing new to notify
-			pushCalls: []pushCall{},
-			// Should still broadcast chunk complete
+			// No save calls - already exists
+			saveDriverSessionsCalls: []saveDriverSessionsCall{},
+			// No raceIngested broadcast - already exists
 			broadcastCalls: []broadcastCall{
-				{
-					driverID:   driverID,
-					actionType: "ingestionChunkComplete",
-					payload:    ChunkCompleteMsg{IngestedTo: rangeEnd},
-				},
-			},
-			// Should still update ingested-to marker
-			updateDriverRacesIngestedToCall: &updateDriverRacesIngestedToCall{
-				driverID:        driverID,
-				racesIngestedTo: rangeEnd,
-			},
-			publishEventCall: &publishEventCall{
-				event: RaceIngestionRequest{
-					DriverID:           driverID,
-					IRacingAccessToken: "test-token",
-					NotifyConnectionID: "conn-123",
-				},
-			},
-		},
-		{
-			name: "happy path - new session and driver session - calls all APIs and persists",
-			request: RaceIngestionRequest{
-				DriverID:           driverID,
-				IRacingAccessToken: "test-token",
-				NotifyConnectionID: "conn-123",
-			},
-			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
-			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID},
-			getDriverCall: &getDriverCall{
-				driverID: driverID,
-				result: &store.Driver{
-					DriverID:    driverID,
-					MemberSince: memberSince,
-				},
-			},
-			searchSeriesResultsCall: &searchSeriesResultsCall{
-				finishRangeBegin: memberSince,
-				finishRangeEnd:   rangeEnd,
-				result: []iracing.SeriesResult{
-					{SubsessionID: subsessionID},
-				},
-			},
-			getSessionCalls: []getSessionCall{
-				{
-					subsessionID: subsessionID,
-					result:       nil, // session doesn't exist
-				},
-			},
-			getSessionResultsCalls: []getSessionResultsCall{
-				{
-					subsessionID: subsessionID,
-					result: &iracing.SessionResult{
-						SubsessionID:    subsessionID,
-						SeriesID:        42,
-						SeriesName:      "Test Series",
-						LicenseCategory: "Road",
-						Track:           iracing.Track{TrackID: 123},
-						StartTime:       sessionStartTime,
-						CarClasses: []iracing.CarClass{
-							{
-								CarClassID:      1,
-								StrengthOfField: 1500,
-								NumEntries:      20,
-								CarsInClass:     []iracing.CarInClass{{CarID: 10}},
-							},
-						},
-						SessionResults: []iracing.SimSessionResult{
-							{
-								SimsessionNumber: 0, // main event
-								Results: []iracing.DriverResult{
-									{
-										CustID:                  driverID,
-										CarID:                   10,
-										StartingPosition:        5,
-										StartingPositionInClass: 5,
-										FinishPosition:          3,
-										FinishPositionInClass:   3,
-										Incidents:               2,
-										OldIRating:              1400,
-										NewIRating:              1450,
-										OldLicenseLevel:         17,
-										NewLicenseLevel:         18,
-										OldSubLevel:             381,
-										NewSubLevel:             399,
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-			getDriverSessionCalls: []getDriverSessionCall{
-				{
-					driverID:  driverID,
-					startTime: sessionStartTime,
-					result:    nil, // doesn't exist
-				},
-			},
-			getLapDataCalls: []getLapDataCall{
-				{
-					subsessionID:     subsessionID,
-					simsessionNumber: 0,
-					result: &iracing.LapDataResponse{
-						Laps: []iracing.Lap{
-							{LapNumber: 1, LapTime: 60000, Flags: 0},
-							{LapNumber: 2, LapTime: 59500, Flags: 0},
-						},
-					},
-				},
-			},
-			persistSessionDataCalls: []persistSessionDataCall{
-				{
-					validate: func(t *testing.T, data store.SessionDataInsertion) {
-						require.Len(t, data.SessionEntries, 1)
-						session := data.SessionEntries[0]
-						assert.Equal(t, subsessionID, session.SubsessionID)
-						assert.Equal(t, int64(123), session.TrackID)
-						assert.Equal(t, int64(42), session.SeriesID)
-						assert.Equal(t, "Test Series", session.SeriesName)
-						assert.Equal(t, "Road", session.LicenseCategory)
-
-						require.Len(t, data.SessionDriverEntries, 1)
-						sd := data.SessionDriverEntries[0]
-						assert.Equal(t, driverID, sd.DriverID)
-						assert.Equal(t, int64(10), sd.CarID)
-						assert.Equal(t, 17, sd.OldLicenseLevel)
-						assert.Equal(t, 18, sd.NewLicenseLevel)
-						assert.Equal(t, 381, sd.OldSubLevel)
-						assert.Equal(t, 399, sd.NewSubLevel)
-
-						require.Len(t, data.DriverSessionEntries, 1)
-						ds := data.DriverSessionEntries[0]
-						assert.Equal(t, driverID, ds.DriverID)
-						assert.Equal(t, 5, ds.StartPosition)
-						assert.Equal(t, 3, ds.FinishPosition)
-						assert.Equal(t, int64(42), ds.SeriesID)
-						assert.Equal(t, "Test Series", ds.SeriesName)
-						assert.Equal(t, 17, ds.OldLicenseLevel)
-						assert.Equal(t, 18, ds.NewLicenseLevel)
-						assert.Equal(t, 381, ds.OldSubLevel)
-						assert.Equal(t, 399, ds.NewSubLevel)
-
-						require.Len(t, data.SessionDriverLapEntries, 2)
-					},
-				},
-			},
-			emitCountCalls: []emitCountCall{
-				{name: metrics.SessionsIngested, count: 1},
-				{name: metrics.LapsIngested, count: 2},
-			},
-			broadcastCalls: []broadcastCall{
-				{
-					driverID:   driverID,
-					actionType: "raceIngested",
-					payload:    RaceReadyMsg{RaceID: sessionStartTime.Unix()},
-				},
 				{
 					driverID:   driverID,
 					actionType: "ingestionChunkComplete",
@@ -504,7 +310,7 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				NotifyConnectionID: "conn-123",
 			},
 			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
-			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID}, // Release so client can retry immediately
+			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID},
 			getDriverCall: &getDriverCall{
 				driverID: driverID,
 				result: &store.Driver{
@@ -525,7 +331,6 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					result:       true,
 				},
 			},
-			// No UpdateDriverRacesIngestedTo call when stale credentials
 		},
 		{
 			name: "driver not found - returns error",
@@ -535,10 +340,10 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				NotifyConnectionID: "conn-123",
 			},
 			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
-			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID}, // Release on error
+			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID},
 			getDriverCall: &getDriverCall{
 				driverID: driverID,
-				result:   nil, // driver not found
+				result:   nil,
 			},
 			expectedErr: "driver 12345 not found",
 		},
@@ -565,12 +370,87 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					{SubsessionID: subsessionID, DriverChanges: true}, // team event
 				},
 			},
-			// No GetSession, GetSessionResults, GetLapData calls - team event is skipped
-			getSessionCalls:         []getSessionCall{},
+			// No API calls or saves - team event is skipped
 			getSessionResultsCalls:  []getSessionResultsCall{},
-			getLapDataCalls:         []getLapDataCall{},
-			persistSessionDataCalls: []persistSessionDataCall{},
-			// Should still broadcast chunk complete and update ingested-to marker
+			saveDriverSessionsCalls: []saveDriverSessionsCall{},
+			broadcastCalls: []broadcastCall{
+				{
+					driverID:   driverID,
+					actionType: "ingestionChunkComplete",
+					payload:    ChunkCompleteMsg{IngestedTo: rangeEnd},
+				},
+			},
+			updateDriverRacesIngestedToCall: &updateDriverRacesIngestedToCall{
+				driverID:        driverID,
+				racesIngestedTo: rangeEnd,
+			},
+			publishEventCall: &publishEventCall{
+				event: RaceIngestionRequest{
+					DriverID:           driverID,
+					IRacingAccessToken: "test-token",
+					NotifyConnectionID: "conn-123",
+				},
+			},
+		},
+		{
+			name: "ingestion lock not acquired - skips processing",
+			request: RaceIngestionRequest{
+				DriverID:           driverID,
+				IRacingAccessToken: "test-token",
+				NotifyConnectionID: "conn-123",
+			},
+			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: false},
+			// No other calls - lock not acquired means skip
+		},
+		{
+			name: "driver not found in session results - logs warning and continues",
+			request: RaceIngestionRequest{
+				DriverID:           driverID,
+				IRacingAccessToken: "test-token",
+				NotifyConnectionID: "conn-123",
+			},
+			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
+			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID},
+			getDriverCall: &getDriverCall{
+				driverID: driverID,
+				result: &store.Driver{
+					DriverID:    driverID,
+					MemberSince: memberSince,
+				},
+			},
+			searchSeriesResultsCall: &searchSeriesResultsCall{
+				finishRangeBegin: memberSince,
+				finishRangeEnd:   rangeEnd,
+				result: []iracing.SeriesResult{
+					{SubsessionID: subsessionID},
+				},
+			},
+			getSessionResultsCalls: []getSessionResultsCall{
+				{
+					subsessionID: subsessionID,
+					result: &iracing.SessionResult{
+						SubsessionID: subsessionID,
+						StartTime:    sessionStartTime,
+						SessionResults: []iracing.SimSessionResult{
+							{
+								SimsessionNumber: 0,
+								Results: []iracing.DriverResult{
+									{CustID: 99999}, // different driver
+								},
+							},
+						},
+					},
+				},
+			},
+			getDriverSessionCalls: []getDriverSessionCall{
+				{
+					driverID:  driverID,
+					startTime: sessionStartTime,
+					result:    nil,
+				},
+			},
+			// No save - driver not in results
+			saveDriverSessionsCalls: []saveDriverSessionsCall{},
 			broadcastCalls: []broadcastCall{
 				{
 					driverID:   driverID,
@@ -629,18 +509,6 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 				).Return(tc.searchSeriesResultsCall.result, tc.searchSeriesResultsCall.err)
 			}
 
-			// Setup GetSession calls
-			for _, call := range tc.getSessionCalls {
-				mockStore.EXPECT().GetSession(mock.Anything, call.subsessionID).
-					Return(call.result, call.err)
-			}
-
-			// Setup GetSessionDrivers calls
-			for _, call := range tc.getSessionDriversCalls {
-				mockStore.EXPECT().GetSessionDrivers(mock.Anything, call.subsessionID).
-					Return(call.result, call.err)
-			}
-
 			// Setup GetSessionResults calls
 			for _, call := range tc.getSessionResultsCalls {
 				mockIRacing.EXPECT().GetSessionResults(
@@ -657,22 +525,11 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					Return(call.result, call.err)
 			}
 
-			// Setup GetLapData calls
-			for _, call := range tc.getLapDataCalls {
-				mockIRacing.EXPECT().GetLapData(
-					mock.Anything,
-					tc.request.IRacingAccessToken,
-					call.subsessionID,
-					call.simsessionNumber,
-					mock.Anything,
-				).Return(call.result, call.err)
-			}
-
-			// Setup PersistSessionData calls
-			for _, call := range tc.persistSessionDataCalls {
-				mockStore.EXPECT().PersistSessionData(mock.Anything, mock.MatchedBy(func(data store.SessionDataInsertion) bool {
+			// Setup SaveDriverSessions calls
+			for _, call := range tc.saveDriverSessionsCalls {
+				mockStore.EXPECT().SaveDriverSessions(mock.Anything, mock.MatchedBy(func(sessions []store.DriverSession) bool {
 					if call.validate != nil {
-						call.validate(t, data)
+						call.validate(t, sessions)
 					}
 					return true
 				})).Return(call.err)
