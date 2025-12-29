@@ -24,6 +24,7 @@ import (
 	"github.com/jonsabados/saturdaysspinout/api/driver"
 	"github.com/jonsabados/saturdaysspinout/api/health"
 	"github.com/jonsabados/saturdaysspinout/api/ingestion"
+	apiSession "github.com/jonsabados/saturdaysspinout/api/session"
 	apiTracks "github.com/jonsabados/saturdaysspinout/api/tracks"
 	"github.com/jonsabados/saturdaysspinout/cars"
 	"github.com/jonsabados/saturdaysspinout/event"
@@ -171,6 +172,7 @@ func CreateAPI() http.Handler {
 		DriverRouter:    driver.NewRouter(driverStore, authMiddleware, developerMiddleware),
 		TracksRouter:    apiTracks.NewRouter(tracksService, authMiddleware),
 		CarsRouter:      apiCars.NewRouter(carsService, authMiddleware),
+		SessionRouter:   apiSession.NewRouter(iRacingClient, authMiddleware),
 	}
 
 	apiCfg := api.RestAPIConfig{
