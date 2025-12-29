@@ -44,4 +44,15 @@ body {
   flex: 1;
   padding: 1.5rem;
 }
+
+/* Global link styles */
+a {
+  color: var(--color-accent);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+a:hover {
+  text-decoration: underline;
+}
 </style>

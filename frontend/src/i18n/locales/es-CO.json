@@ -6,7 +6,13 @@
     "dismiss": "Cerrar",
     "login": "Iniciar sesión",
     "logout": "Cerrar sesión",
+    "back": "Volver",
     "backToHome": "Volver al inicio"
+  },
+  "columns": {
+    "start": "Inicio",
+    "license": "Licencia",
+    "irating": "iRating"
   },
   "nav": {
     "raceHistory": "Historial de carreras",
@@ -61,15 +67,13 @@
     "noRaces": "Aún no hay carreras. Las carreras aparecerán aquí a medida que se sincronicen.",
     "showingRaces": "Mostrando {shown} de {total} carreras",
     "loadingMore": "Cargando más...",
+    "viewDetails": "Ver detalles de la carrera",
     "columns": {
       "date": "Fecha",
       "session": "Sesión",
       "track": "Circuito",
-      "start": "Inicio",
       "finish": "Final",
-      "incidents": "Incidentes",
-      "license": "Licencia",
-      "irating": "iRating"
+      "incidents": "Incidentes"
     }
   },
   "auth": {
@@ -98,7 +102,6 @@
   "trackDetails": {
     "title": "Detalles del circuito",
     "trackNotFound": "Circuito no encontrado",
-    "backToRaces": "Volver al historial de carreras",
     "location": "Ubicación",
     "type": "Tipo",
     "category": "Categoría",
@@ -123,7 +126,6 @@
   "carDetails": {
     "title": "Detalles del auto",
     "carNotFound": "Auto no encontrado",
-    "backToRaces": "Volver al historial de carreras",
     "horsepowerUnderHood": "Caballos de fuerza (Nominal)",
     "horsepowerActual": "Caballos de fuerza (Real)",
     "weight": "Peso",
@@ -137,5 +139,30 @@
     "paidContent": "Contenido pago",
     "retired": "Retirado",
     "lbs": "{weight} lbs"
+  },
+  "raceDetails": {
+    "invalidSubsessionId": "ID de sesión inválido",
+    "fetchError": "Error al cargar detalles de la carrera",
+    "sof": "SOF",
+    "drivers": "Pilotos",
+    "laps": "Vueltas",
+    "lapsAbbr": "vueltas",
+    "leadChanges": "Cambios de líder",
+    "cautions": "Banderas amarillas",
+    "weather": "Condiciones climáticas",
+    "temperature": "Temperatura",
+    "humidity": "Humedad",
+    "wind": "Viento",
+    "columns": {
+      "pos": "Pos",
+      "driver": "Piloto",
+      "car": "Auto",
+      "interval": "Intervalo",
+      "laps": "Vueltas",
+      "led": "Lideró",
+      "bestLap": "Mejor vuelta",
+      "avgLap": "Vuelta prom",
+      "incidents": "Inc"
+    }
   }
 }

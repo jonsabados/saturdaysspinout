@@ -30,14 +30,14 @@ const formattedWeight = computed(() => {
 })
 
 function goBack() {
-  router.push({ name: 'race-history' })
+  router.back()
 }
 </script>
 
 <template>
   <div class="car-details">
     <button class="back-button" @click="goBack">
-      &larr; {{ t('carDetails.backToRaces') }}
+      &larr; {{ t('common.back') }}
     </button>
 
     <div v-if="!car" class="not-found">

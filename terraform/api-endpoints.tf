@@ -127,6 +127,20 @@ resource "aws_api_gateway_resource" "cars" {
   path_part   = "cars"
 }
 
+# /session
+resource "aws_api_gateway_resource" "session" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_rest_api.api.root_resource_id
+  path_part   = "session"
+}
+
+# /session/{subsession_id}
+resource "aws_api_gateway_resource" "session_id" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.session.id
+  path_part   = "{subsession_id}"
+}
+
 # API Gateway Endpoints
 # =====================
 
@@ -326,6 +340,22 @@ module "cars_options" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id
   resource_id       = aws_api_gateway_resource.cars.id
+  http_method       = "OPTIONS"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "session_get" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.session_id.id
+  http_method       = "GET"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "session_options" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.session_id.id
   http_method       = "OPTIONS"
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }

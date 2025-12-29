@@ -52,7 +52,7 @@ func NewGetSessionEndpoint(client IRacingClient) http.Handler {
 			return
 		}
 
-		result, err := client.GetSessionResults(ctx, claims.IRacingAccessToken, subsessionID)
+		result, err := client.GetSessionResults(ctx, claims.IRacingAccessToken, subsessionID, iracing.WithIncludeLicenses(true))
 		if err != nil {
 			if errors.Is(err, iracing.ErrUpstreamUnauthorized) {
 				logger.Warn().Err(err).Msg("iRacing token expired while fetching session results")

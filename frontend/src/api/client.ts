@@ -130,6 +130,281 @@ export interface CarsResponse {
   correlationId: string
 }
 
+// Session/Race Details types
+export interface SessionAllowedLicense {
+  groupName: string
+  licenseGroup: number
+  maxLicenseLevel: number
+  minLicenseLevel: number
+  parentId: number
+}
+
+export interface SessionCarInClass {
+  carId: number
+}
+
+export interface SessionCarClass {
+  carClassId: number
+  shortName: string
+  name: string
+  strengthOfField: number
+  numEntries: number
+  carsInClass: SessionCarInClass[]
+}
+
+export interface SessionRaceSummary {
+  subsessionId: number
+  averageLap: number
+  lapsComplete: number
+  numCautions: number
+  numCautionLaps: number
+  numLeadChanges: number
+  fieldStrength: number
+  numOptLaps: number
+  hasOptPath: boolean
+  specialEventType: number
+  specialEventTypeText: string
+}
+
+export interface SessionHelmet {
+  pattern: number
+  color1: string
+  color2: string
+  color3: string
+  faceType: number
+  helmetType: number
+}
+
+export interface SessionLivery {
+  carId: number
+  pattern: number
+  color1: string
+  color2: string
+  color3: string
+  numberFont: number
+  numberColor1: string
+  numberColor2: string
+  numberColor3: string
+  numberSlant: number
+  sponsor1: number
+  sponsor2: number
+  carNumber: string
+  wheelColor: string | null
+  rimType: number
+}
+
+export interface SessionSuit {
+  pattern: number
+  color1: string
+  color2: string
+  color3: string
+}
+
+export interface SessionDriverResult {
+  custId: number
+  displayName: string
+  aggregateChampPoints: number
+  ai: boolean
+  averageLap: number
+  bestLapNum: number
+  bestLapTime: number
+  bestNlapsNum: number
+  bestNlapsTime: number
+  bestQualLapAt: string
+  bestQualLapNum: number
+  bestQualLapTime: number
+  carClassId: number
+  carClassName: string
+  carClassShortName: string
+  carId: number
+  carName: string
+  carCfg: number
+  champPoints: number
+  classInterval: number
+  countryCode: string
+  division: number
+  divisionName: string
+  dropRace: boolean
+  finishPosition: number
+  finishPositionInClass: number
+  flairId: number
+  flairName: string
+  flairShortname: string
+  friend: boolean
+  helmet: SessionHelmet
+  incidents: number
+  interval: number
+  lapsComplete: number
+  lapsLead: number
+  leagueAggPoints: number
+  leaguePoints: number
+  licenseChangeOval: number
+  licenseChangeRoad: number
+  livery: SessionLivery
+  maxPctFuelFill: number
+  newCpi: number
+  newLicenseLevel: number
+  newSubLevel: number
+  newTtrating: number
+  newIrating: number
+  oldCpi: number
+  oldLicenseLevel: number
+  oldSubLevel: number
+  oldTtrating: number
+  oldIrating: number
+  optLapsComplete: number
+  position: number
+  qualLapTime: number
+  reasonOut: string
+  reasonOutId: number
+  startingPosition: number
+  startingPositionInClass: number
+  suit: SessionSuit
+  watched: boolean
+  weightPenaltyKg: number
+}
+
+export interface SessionWeatherResult {
+  avgSkies: number
+  avgCloudCoverPct: number
+  minCloudCoverPct: number
+  maxCloudCoverPct: number
+  tempUnits: number
+  avgTemp: number
+  minTemp: number
+  maxTemp: number
+  avgRelHumidity: number
+  windUnits: number
+  avgWindSpeed: number
+  minWindSpeed: number
+  maxWindSpeed: number
+  avgWindDir: number
+  maxFog: number
+  fogTimePct: number
+  precipTimePct: number
+  precipMm: number
+  precipMm2hrBeforeSession: number
+  simulatedStartTime: string
+}
+
+export interface SessionSimResult {
+  simsessionNumber: number
+  simsessionName: string
+  simsessionType: number
+  simsessionTypeName: string
+  simsessionSubtype: number
+  weatherResult: SessionWeatherResult
+  results: SessionDriverResult[]
+}
+
+export interface SessionSplit {
+  subsessionId: number
+  eventStrengthOfField: number
+}
+
+export interface SessionTrack {
+  trackId: number
+  trackName: string
+  configName: string
+  category: string
+  categoryId: number
+}
+
+export interface SessionTrackState {
+  leaveMarbles: boolean
+  practiceRubber: number
+  qualifyRubber: number
+  raceRubber: number
+  warmupRubber: number
+}
+
+export interface SessionWeather {
+  allowFog: boolean
+  fog: number
+  precipMm2hrBeforeFinalSession: number
+  precipMmFinalSession: number
+  precipOption: number
+  precipTimePct: number
+  relHumidity: number
+  simulatedStartTime: string
+  skies: number
+  tempUnits: number
+  tempValue: number
+  timeOfDay: number
+  trackWater: number
+  type: number
+  version: number
+  weatherVarInitial: number
+  weatherVarOngoing: number
+  windDir: number
+  windUnits: number
+  windValue: number
+}
+
+export interface Session {
+  subsessionId: number
+  sessionId: number
+  allowedLicenses: SessionAllowedLicense[]
+  associatedSubsessionIds: number[]
+  canProtest: boolean
+  carClasses: SessionCarClass[]
+  cautionType: number
+  cooldownMinutes: number
+  cornersPerLap: number
+  damageModel: number
+  driverChangeParam1: number
+  driverChangeParam2: number
+  driverChangeRule: number
+  driverChanges: boolean
+  endTime: string
+  eventAverageLap: number
+  eventBestLapTime: number
+  eventLapsComplete: number
+  eventStrengthOfField: number
+  eventType: number
+  eventTypeName: string
+  heatInfoId: number
+  licenseCategory: string
+  licenseCategoryId: number
+  limitMinutes: number
+  maxTeamDrivers: number
+  maxWeeks: number
+  minTeamDrivers: number
+  numCautionLaps: number
+  numCautions: number
+  numDrivers: number
+  numLapsForQualAverage: number
+  numLapsForSoloAverage: number
+  numLeadChanges: number
+  officialSession: boolean
+  pointsType: string
+  privateSessionId: number
+  raceSummary: SessionRaceSummary
+  raceWeekNum: number
+  resultsRestricted: boolean
+  seasonId: number
+  seasonName: string
+  seasonQuarter: number
+  seasonShortName: string
+  seasonYear: number
+  seriesId: number
+  seriesLogo: string
+  seriesName: string
+  seriesShortName: string
+  sessionResults: SessionSimResult[]
+  sessionSplits: SessionSplit[]
+  specialEventType: number
+  startTime: string
+  track: SessionTrack
+  trackState: SessionTrackState
+  weather: SessionWeather
+}
+
+export interface SessionResponse {
+  response: Session
+  correlationId: string
+}
+
 export class ApiClient {
   private authStore: ReturnType<typeof useAuthStore>
   private sessionStore: ReturnType<typeof useSessionStore>
@@ -253,6 +528,10 @@ export class ApiClient {
 
   async getCars(): Promise<CarsResponse> {
     return this.fetch<CarsResponse>('/cars')
+  }
+
+  async getSession(subsessionId: number): Promise<SessionResponse> {
+    return this.fetch<SessionResponse>(`/session/${subsessionId}`)
   }
 
   async deleteDriverRaces(driverId: number): Promise<void> {

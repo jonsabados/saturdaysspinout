@@ -6,7 +6,13 @@
     "dismiss": "Dismiss",
     "login": "Log In",
     "logout": "Logout",
+    "back": "Back",
     "backToHome": "Back to Home"
+  },
+  "columns": {
+    "start": "Start",
+    "license": "Licence",
+    "irating": "iRating"
   },
   "nav": {
     "raceHistory": "Race History",
@@ -61,15 +67,38 @@
     "noRaces": "No races yet. Races will appear here as they are ingested.",
     "showingRaces": "Showing {shown} of {total} matching races",
     "loadingMore": "Loading more...",
+    "viewDetails": "View race details",
     "columns": {
       "date": "Date",
       "session": "Session",
       "track": "Track",
-      "start": "Start",
       "finish": "Finish",
-      "incidents": "Incidents",
-      "license": "Licence",
-      "irating": "iRating"
+      "incidents": "Incidents"
+    }
+  },
+  "raceDetails": {
+    "invalidSubsessionId": "Invalid session ID",
+    "fetchError": "Failed to load race details",
+    "sof": "SOF",
+    "drivers": "Drivers",
+    "laps": "Laps",
+    "lapsAbbr": "laps",
+    "leadChanges": "Lead Changes",
+    "cautions": "Cautions",
+    "weather": "Weather Conditions",
+    "temperature": "Temperature",
+    "humidity": "Humidity",
+    "wind": "Wind",
+    "columns": {
+      "pos": "Pos",
+      "driver": "Driver",
+      "car": "Car",
+      "interval": "Interval",
+      "laps": "Laps",
+      "led": "Led",
+      "bestLap": "Best Lap",
+      "avgLap": "Avg Lap",
+      "incidents": "Inc"
     }
   },
   "auth": {
@@ -98,7 +127,6 @@
   "trackDetails": {
     "title": "Track Details",
     "trackNotFound": "Track not found",
-    "backToRaces": "Back to Race History",
     "location": "Location",
     "type": "Type",
     "category": "Category",
@@ -123,7 +151,6 @@
   "carDetails": {
     "title": "Car Details",
     "carNotFound": "Car not found",
-    "backToRaces": "Back to Race History",
     "horsepowerUnderHood": "Horsepower (Rated)",
     "horsepowerActual": "Horsepower (Actual)",
     "weight": "Weight",
