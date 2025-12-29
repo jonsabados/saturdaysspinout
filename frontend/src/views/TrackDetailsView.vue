@@ -44,14 +44,14 @@ const displayImage = computed(() => {
 })
 
 function goBack() {
-  router.push({ name: 'race-history' })
+  router.back()
 }
 </script>
 
 <template>
   <div class="track-details">
     <button class="back-button" @click="goBack">
-      &larr; {{ t('trackDetails.backToRaces') }}
+      &larr; {{ t('common.back') }}
     </button>
 
     <div v-if="!track" class="not-found">

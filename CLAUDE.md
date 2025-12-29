@@ -107,3 +107,11 @@ See [README.md](README.md#data-store) for the full schema with attributes.
 
 ### Terraform
   - Tags are configured at the provider level - don't add `tags` blocks on individual resources
+
+### Adding New API Endpoints
+When creating a new REST endpoint, ensure all of these are completed:
+1. **Go code**: Create endpoint handler, router, models in `api/<domain>/`
+2. **Wire up**: Add router to `RootRouters` in `api/rest-api.go` and instantiate in `cmd/api.go`
+3. **API Gateway**: Add resource and method mappings in `terraform/api-endpoints.tf` (both GET/POST/etc and OPTIONS for CORS)
+4. **Tests**: Create test file with fixtures following existing patterns
+5. **Mocks**: Run `make generate-mocks` if new interfaces were added

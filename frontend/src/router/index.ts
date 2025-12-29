@@ -3,6 +3,7 @@ import HomeView from '../views/HomeView.vue'
 import AuthCallbackView from '../views/AuthCallbackView.vue'
 import ApiExplorerView from '../views/ApiExplorerView.vue'
 import RaceHistoryView from '../views/RaceHistoryView.vue'
+import RaceDetailsView from '../views/RaceDetailsView.vue'
 import TrackDetailsView from '../views/TrackDetailsView.vue'
 import CarDetailsView from '../views/CarDetailsView.vue'
 import { useSessionStore } from '@/stores/session'
@@ -32,6 +33,12 @@ const router = createRouter({
       name: 'race-history',
       component: RaceHistoryView,
       meta: { requiresAuth: true, keepAlive: true },
+    },
+    {
+      path: '/race/:subsessionId',
+      name: 'race-details',
+      component: RaceDetailsView,
+      meta: { requiresAuth: true },
     },
     {
       path: '/tracks/:id',

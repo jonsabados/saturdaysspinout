@@ -2,6 +2,7 @@
 defineOptions({ name: 'RaceHistoryView' })
 
 import { ref, computed, watch, onMounted, onUnmounted, onActivated } from 'vue'
+import { useRouter } from 'vue-router'
 import { VueDatePicker } from '@vuepic/vue-datepicker'
 import '@vuepic/vue-datepicker/dist/main.css'
 import { useI18n } from 'vue-i18n'
@@ -15,6 +16,7 @@ import SessionCell from '@/components/SessionCell.vue'
 import LicenseCell from '@/components/LicenseCell.vue'
 
 const { t } = useI18n()
+const router = useRouter()
 const apiClient = useApiClient()
 const auth = useAuthStore()
 const wsStore = useWebSocketStore()
@@ -149,6 +151,10 @@ function getIRatingDiffClass(oldRating: number, newRating: number): string {
   return ''
 }
 
+function viewRaceDetails(subsessionId: number) {
+  router.push({ name: 'race-details', params: { subsessionId } })
+}
+
 // Note: Unlike the original implementation, we keep this listener attached (not removed after first scroll)
 // because we need continuous scroll position saves for restoration after navigation.
 // Throttling mitigates the performance impact.
@@ -266,11 +272,12 @@ onActivated(() => {
             <th>{{ t('raceHistory.columns.date') }}</th>
             <th>{{ t('raceHistory.columns.session') }}</th>
             <th>{{ t('raceHistory.columns.track') }}</th>
-            <th>{{ t('raceHistory.columns.start') }}</th>
+            <th>{{ t('columns.start') }}</th>
             <th>{{ t('raceHistory.columns.finish') }}</th>
             <th>{{ t('raceHistory.columns.incidents') }}</th>
-            <th>{{ t('raceHistory.columns.license') }}</th>
-            <th>{{ t('raceHistory.columns.irating') }}</th>
+            <th>{{ t('columns.license') }}</th>
+            <th>{{ t('columns.irating') }}</th>
+            <th class="col-actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -283,6 +290,11 @@ onActivated(() => {
             <td>{{ race.incidents }}</td>
             <td><LicenseCell :old-license-level="race.oldLicenseLevel" :new-license-level="race.newLicenseLevel" :old-sub-level="race.oldSubLevel" :new-sub-level="race.newSubLevel" :old-cpi="race.oldCpi" :new-cpi="race.newCpi" /></td>
             <td>{{ race.newIrating }} <span :class="getIRatingDiffClass(race.oldIrating, race.newIrating)">{{ formatIRatingDiff(race.oldIrating, race.newIrating) }}</span></td>
+            <td class="col-actions">
+              <button class="view-details-btn" @click="viewRaceDetails(race.subsessionId)" :title="t('raceHistory.viewDetails')">
+                <span class="chevron">&rsaquo;</span>
+              </button>
+            </td>
           </tr>
         </tbody>
       </table>
@@ -417,6 +429,37 @@ onActivated(() => {
 
 .stat-loss {
   color: #ef4444;
+}
+
+.col-actions {
+  width: 40px;
+  text-align: center;
+}
+
+.view-details-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.view-details-btn:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+  background: var(--color-accent-subtle);
+}
+
+.view-details-btn .chevron {
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 /* Mobile styles */
