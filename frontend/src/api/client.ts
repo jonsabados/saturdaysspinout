@@ -405,6 +405,37 @@ export interface SessionResponse {
   correlationId: string
 }
 
+// Lap data types
+export interface Lap {
+  lapNumber: number
+  flags: number
+  incident: boolean
+  sessionTime: number
+  lapTime: number
+  personalBestLap: boolean
+  lapEvents: string[]
+}
+
+export interface LapData {
+  bestLapNum: number
+  bestLapTime: number
+  bestNlapsNum: number
+  bestNlapsTime: number
+  bestQualLapNum: number
+  bestQualLapTime: number
+  bestQualLapAt: string
+  custId: number
+  name: string
+  carId: number
+  licenseLevel: number
+  laps: Lap[]
+}
+
+export interface LapDataResponse {
+  response: LapData
+  correlationId: string
+}
+
 export class ApiClient {
   private authStore: ReturnType<typeof useAuthStore>
   private sessionStore: ReturnType<typeof useSessionStore>
@@ -428,9 +459,11 @@ export class ApiClient {
     })
 
     if (response.status === 401) {
+      console.debug('401 received, refreshing token')
       // Token might have expired between check and request - try refresh once
       const refreshed = await this.authStore.refreshToken()
       if (refreshed) {
+        console.debug('token refreshed')
         // Retry the request with new token
         headers.set('Authorization', `Bearer ${this.authStore.token}`)
         const retryResponse = await fetch(`${apiBaseUrl}${path}`, {
@@ -442,6 +475,7 @@ export class ApiClient {
         }
         return retryResponse.json()
       }
+      console.warn('unable to refresh token')
       throw new Error('Session expired - please log in again')
     }
 
@@ -532,6 +566,10 @@ export class ApiClient {
 
   async getSession(subsessionId: number): Promise<SessionResponse> {
     return this.fetch<SessionResponse>(`/session/${subsessionId}`)
+  }
+
+  async getLaps(subsessionId: number, simsession: number, driverId: number): Promise<LapDataResponse> {
+    return this.fetch<LapDataResponse>(`/session/${subsessionId}/simsession/${simsession}/driver/${driverId}/laps`)
   }
 
   async deleteDriverRaces(driverId: number): Promise<void> {

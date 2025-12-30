@@ -4,11 +4,13 @@ defineOptions({ name: 'RaceDetailsView' })
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useApiClient, type Session, type SessionSimResult, type SessionDriverResult } from '@/api/client'
+import { useApiClient, type Session, type SessionSimResult, type SessionDriverResult, type LapData } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useTracksStore } from '@/stores/tracks'
 import GridPosition from '@/components/GridPosition.vue'
 import LicenseCell from '@/components/LicenseCell.vue'
+import LapCard from '@/components/LapCard.vue'
+import RowActionButton from '@/components/RowActionButton.vue'
 import { formatLapTime, formatInterval } from '@/utils/raceFormatters'
 
 const { t } = useI18n()
@@ -23,11 +25,41 @@ const currentUserId = computed(() => authStore.userId)
 const session = ref<Session | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
-const selectedSessionIndex = ref(0)
+
+// Lap data state - cached per simsession number
+interface DriverLapEntry {
+  driverId: number
+  driverName: string
+  finishPosition: number
+  lapData: LapData
+  expanded: boolean
+}
+// Map from simsession number to array of driver lap entries
+const sessionLapsCache = ref<Map<number, DriverLapEntry[]>>(new Map())
+const loadingLaps = ref<Set<number>>(new Set())
 
 const subsessionId = computed(() => {
   const id = route.params.subsessionId
   return typeof id === 'string' ? parseInt(id, 10) : NaN
+})
+
+// Session index from query param, defaulting to last session
+const selectedSessionIndex = computed(() => {
+  const querySession = route.query.session
+  if (typeof querySession === 'string') {
+    const parsed = parseInt(querySession, 10)
+    if (!isNaN(parsed) && session.value && parsed >= 0 && parsed < session.value.sessionResults.length) {
+      return parsed
+    }
+  }
+  // Default to last session (usually the race)
+  return session.value ? session.value.sessionResults.length - 1 : 0
+})
+
+// Current session's driver laps from cache
+const driverLaps = computed(() => {
+  if (!selectedSession.value) return []
+  return sessionLapsCache.value.get(selectedSession.value.simsessionNumber) || []
 })
 
 const track = computed(() => {
@@ -89,12 +121,135 @@ function getIRatingDiffClass(oldRating: number, newRating: number): string {
   return ''
 }
 
+function formatSkies(skies: number): string {
+  // iRacing skies values: 0=Clear, 1=Partly Cloudy, 2=Mostly Cloudy, 3=Overcast
+  const skyTypes = ['clear', 'partlyCloudy', 'mostlyCloudy', 'overcast']
+  return t(`raceDetails.skies.${skyTypes[skies] || 'clear'}`)
+}
+
+function formatWindDirection(degrees: number): string {
+  // Convert degrees to 8-point compass direction
+  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+  const index = Math.round(degrees / 45) % 8
+  return directions[index]
+}
+
+function formatPrecipitation(weather: Session['weather']): string {
+  if (!weather) return '0%'
+  return `${weather.precipTimePct}%`
+}
+
 function goBack() {
   router.back()
 }
 
 function selectSession(index: number) {
-  selectedSessionIndex.value = index
+  router.push({
+    query: { ...route.query, session: String(index) }
+  })
+}
+
+function isLapsLoaded(driverId: number): boolean {
+  return driverLaps.value.some(entry => entry.driverId === driverId)
+}
+
+function isLapsLoading(driverId: number): boolean {
+  return loadingLaps.value.has(driverId)
+}
+
+// Get or create the lap entries array for the current session
+function getSessionLaps(): DriverLapEntry[] {
+  if (!selectedSession.value) return []
+  const simsessionNumber = selectedSession.value.simsessionNumber
+  if (!sessionLapsCache.value.has(simsessionNumber)) {
+    sessionLapsCache.value.set(simsessionNumber, [])
+  }
+  return sessionLapsCache.value.get(simsessionNumber)!
+}
+
+async function toggleLaps(driver: SessionDriverResult) {
+  const laps = getSessionLaps()
+
+  // If already loaded, just toggle visibility
+  const existingIndex = laps.findIndex(entry => entry.driverId === driver.custId)
+  if (existingIndex !== -1) {
+    laps[existingIndex].expanded = !laps[existingIndex].expanded
+    return
+  }
+
+  // Load lap data
+  if (!selectedSession.value || isLapsLoading(driver.custId)) return
+
+  loadingLaps.value.add(driver.custId)
+  try {
+    const response = await apiClient.getLaps(
+      subsessionId.value,
+      selectedSession.value.simsessionNumber,
+      driver.custId
+    )
+    laps.push({
+      driverId: driver.custId,
+      driverName: driver.displayName,
+      finishPosition: driver.finishPosition,
+      lapData: response.response,
+      expanded: true,
+    })
+  } catch (err) {
+    console.error('[RaceDetails] Failed to fetch lap data:', err)
+  } finally {
+    loadingLaps.value.delete(driver.custId)
+  }
+}
+
+function removeLaps(driverId: number) {
+  const laps = getSessionLaps()
+  const index = laps.findIndex(entry => entry.driverId === driverId)
+  if (index !== -1) {
+    laps.splice(index, 1)
+  }
+}
+
+// Drag and drop state
+const dragIndex = ref<number | null>(null)
+const dragOverIndex = ref<number | null>(null)
+
+function onDragStart(event: DragEvent, index: number) {
+  dragIndex.value = index
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    event.dataTransfer.setData('text/plain', String(index))
+  }
+}
+
+function onDragEnd() {
+  dragIndex.value = null
+  dragOverIndex.value = null
+}
+
+function onDragOver(event: DragEvent, index: number) {
+  event.preventDefault()
+  if (dragIndex.value !== null && dragIndex.value !== index) {
+    dragOverIndex.value = index
+  }
+}
+
+function onDragLeave() {
+  dragOverIndex.value = null
+}
+
+function onDrop(event: DragEvent, targetIndex: number) {
+  event.preventDefault()
+  if (dragIndex.value === null || dragIndex.value === targetIndex || !selectedSession.value) {
+    dragOverIndex.value = null
+    return
+  }
+
+  const laps = getSessionLaps()
+  const [draggedItem] = laps.splice(dragIndex.value, 1)
+  laps.splice(targetIndex, 0, draggedItem)
+
+  dragIndex.value = null
+  dragOverIndex.value = null
 }
 
 onMounted(async () => {
@@ -107,10 +262,7 @@ onMounted(async () => {
   try {
     const response = await apiClient.getSession(subsessionId.value)
     session.value = response.response
-    // Default to the last session (usually the race)
-    if (session.value.sessionResults.length > 0) {
-      selectedSessionIndex.value = session.value.sessionResults.length - 1
-    }
+    // selectedSessionIndex computed from route.query.session, defaults to last session
   } catch (err) {
     console.error('[RaceDetails] Failed to fetch session:', err)
     error.value = err instanceof Error ? err.message : t('raceDetails.fetchError')
@@ -178,6 +330,10 @@ onMounted(async () => {
         <summary>{{ t('raceDetails.weather') }}</summary>
         <div class="weather-grid">
           <div class="weather-item">
+            <span class="weather-label">{{ t('raceDetails.skiesLabel') }}</span>
+            <span class="weather-value">{{ formatSkies(session.weather.skies) }}</span>
+          </div>
+          <div class="weather-item">
             <span class="weather-label">{{ t('raceDetails.temperature') }}</span>
             <span class="weather-value">{{ session.weather.tempValue }}°C</span>
           </div>
@@ -187,7 +343,11 @@ onMounted(async () => {
           </div>
           <div class="weather-item">
             <span class="weather-label">{{ t('raceDetails.wind') }}</span>
-            <span class="weather-value">{{ session.weather.windValue }} km/h</span>
+            <span class="weather-value">{{ session.weather.windValue }} km/h {{ formatWindDirection(session.weather.windDir) }}</span>
+          </div>
+          <div class="weather-item">
+            <span class="weather-label">{{ t('raceDetails.precipitation') }}</span>
+            <span class="weather-value">{{ formatPrecipitation(session.weather) }}</span>
           </div>
         </div>
       </details>
@@ -211,10 +371,11 @@ onMounted(async () => {
           <table class="results-table">
             <thead>
               <tr>
+                <th class="col-actions"></th>
                 <th class="col-position">{{ t('raceDetails.columns.pos') }}</th>
                 <th class="col-driver">{{ t('raceDetails.columns.driver') }}</th>
                 <th class="col-car">{{ t('raceDetails.columns.car') }}</th>
-                <th v-if="isRaceSession" class="col-start">{{ t('raceDetails.columns.start') }}</th>
+                <th v-if="isRaceSession" class="col-start">{{ t('columns.start') }}</th>
                 <th v-if="isRaceSession" class="col-interval">{{ t('raceDetails.columns.interval') }}</th>
                 <th class="col-laps">{{ t('raceDetails.columns.laps') }}</th>
                 <th v-if="isRaceSession" class="col-led">{{ t('raceDetails.columns.led') }}</th>
@@ -229,8 +390,16 @@ onMounted(async () => {
               <tr
                 v-for="(driver, index) in sortedResults"
                 :key="driver.custId"
-                :class="{ 'current-user': driver.custId === currentUserId }"
+                :class="{ 'current-user': driver.custId === currentUserId, 'laps-loaded': isLapsLoaded(driver.custId) }"
               >
+                <td class="col-actions">
+                  <RowActionButton
+                    :direction="isLapsLoaded(driver.custId) ? 'down' : 'right'"
+                    :loading="isLapsLoading(driver.custId)"
+                    :title="t('raceDetails.loadLaps')"
+                    @click="toggleLaps(driver)"
+                  />
+                </td>
                 <td class="col-position">
                   <GridPosition
                     :position="driver.finishPosition"
@@ -278,6 +447,24 @@ onMounted(async () => {
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Driver Lap Cards Grid -->
+        <div v-if="driverLaps.length > 0" class="lap-cards-grid">
+          <LapCard
+            v-for="(entry, index) in driverLaps"
+            :key="entry.driverId"
+            :driver-name="entry.driverName"
+            :finish-position="entry.finishPosition"
+            :lap-data="entry.lapData"
+            :is-drag-over="dragOverIndex === index"
+            @remove="removeLaps(entry.driverId)"
+            @dragstart="onDragStart($event, index)"
+            @dragend="onDragEnd"
+            @dragover.prevent="onDragOver($event, index)"
+            @dragleave="onDragLeave"
+            @drop="onDrop($event, index)"
+          />
         </div>
       </div>
     </template>
@@ -571,6 +758,28 @@ onMounted(async () => {
 .weather-value {
   font-size: 1rem;
   color: var(--color-text-primary);
+}
+
+/* Actions Column */
+.col-actions {
+  width: 32px;
+  padding: 0.25rem 0.5rem !important;
+}
+
+.results-table tbody tr.laps-loaded {
+  background: rgba(147, 51, 234, 0.1);
+}
+
+.results-table tbody tr.laps-loaded:hover {
+  background: rgba(147, 51, 234, 0.15);
+}
+
+/* Lap Cards Grid */
+.lap-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
 }
 
 /* Mobile */

@@ -1,0 +1,54 @@
+{
+  "correlationId": "test-correlation-id",
+  "response": {
+    "bestLapNum": 8,
+    "bestLapTime": 95500,
+    "bestNlapsNum": 3,
+    "bestNlapsTime": 287000,
+    "bestQualLapNum": 2,
+    "bestQualLapTime": 95300,
+    "bestQualLapAt": "2024-01-15T14:25:00Z",
+    "custId": 1100750,
+    "name": "Jon Sabados",
+    "carId": 67,
+    "licenseLevel": 8,
+    "laps": [
+      {
+        "lapNumber": 1,
+        "flags": 0,
+        "incident": false,
+        "sessionTime": 60000,
+        "lapTime": 98500,
+        "personalBestLap": false,
+        "lapEvents": []
+      },
+      {
+        "lapNumber": 2,
+        "flags": 0,
+        "incident": false,
+        "sessionTime": 158500,
+        "lapTime": 96200,
+        "personalBestLap": false,
+        "lapEvents": []
+      },
+      {
+        "lapNumber": 3,
+        "flags": 0,
+        "incident": true,
+        "sessionTime": 254700,
+        "lapTime": 97800,
+        "personalBestLap": false,
+        "lapEvents": ["off track"]
+      },
+      {
+        "lapNumber": 8,
+        "flags": 0,
+        "incident": false,
+        "sessionTime": 750000,
+        "lapTime": 95500,
+        "personalBestLap": true,
+        "lapEvents": []
+      }
+    ]
+  }
+}
