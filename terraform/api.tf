@@ -211,6 +211,8 @@ resource "aws_api_gateway_deployment" "api" {
     module.developer_iracing_api_proxy_options,
     module.developer_iracing_token_get,
     module.developer_iracing_token_options,
+    module.driver_get,
+    module.driver_options,
     module.driver_races_get,
     module.driver_races_delete,
     module.driver_races_options,
@@ -218,6 +220,12 @@ resource "aws_api_gateway_deployment" "api" {
     module.driver_race_options,
     module.tracks_get,
     module.tracks_options,
+    module.cars_get,
+    module.cars_options,
+    module.session_get,
+    module.session_options,
+    module.session_driver_laps_get,
+    module.session_driver_laps_options,
   ]
   rest_api_id = aws_api_gateway_rest_api.api.id
 

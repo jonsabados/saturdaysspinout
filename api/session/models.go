@@ -552,3 +552,65 @@ func weatherResultFromIRacing(wr iracing.WeatherResult) WeatherResult {
 		SimulatedStartTime:       wr.SimulatedStartTime,
 	}
 }
+
+// LapDataResponse is the API response for lap data.
+type LapDataResponse struct {
+	BestLapNum      int       `json:"bestLapNum"`
+	BestLapTime     int       `json:"bestLapTime"`
+	BestNLapsNum    int       `json:"bestNlapsNum"`
+	BestNLapsTime   int       `json:"bestNlapsTime"`
+	BestQualLapNum  int       `json:"bestQualLapNum"`
+	BestQualLapTime int       `json:"bestQualLapTime"`
+	BestQualLapAt   time.Time `json:"bestQualLapAt"`
+	CustID          int64     `json:"custId"`
+	Name            string    `json:"name"`
+	CarID           int       `json:"carId"`
+	LicenseLevel    int       `json:"licenseLevel"`
+	Laps            []Lap     `json:"laps"`
+}
+
+// Lap represents a single lap's timing and event data.
+type Lap struct {
+	LapNumber       int      `json:"lapNumber"`
+	Flags           int      `json:"flags"`
+	Incident        bool     `json:"incident"`
+	SessionTime     int      `json:"sessionTime"`
+	LapTime         int      `json:"lapTime"`
+	PersonalBestLap bool     `json:"personalBestLap"`
+	LapEvents       []string `json:"lapEvents"`
+}
+
+func lapDataResponseFromIRacing(ldr *iracing.LapDataResponse) LapDataResponse {
+	laps := make([]Lap, len(ldr.Laps))
+	for i, l := range ldr.Laps {
+		laps[i] = Lap{
+			LapNumber:       l.LapNumber,
+			Flags:           l.Flags,
+			Incident:        l.Incident,
+			SessionTime:     l.SessionTime,
+			LapTime:         l.LapTime,
+			PersonalBestLap: l.PersonalBestLap,
+			LapEvents:       l.LapEvents,
+		}
+	}
+
+	var bestQualLapAt time.Time
+	if ldr.BestQualLapAt != nil {
+		bestQualLapAt = ldr.BestQualLapAt.UTC()
+	}
+
+	return LapDataResponse{
+		BestLapNum:      ldr.BestLapNum,
+		BestLapTime:     ldr.BestLapTime,
+		BestNLapsNum:    ldr.BestNLapsNum,
+		BestNLapsTime:   ldr.BestNLapsTime,
+		BestQualLapNum:  ldr.BestQualLapNum,
+		BestQualLapTime: ldr.BestQualLapTime,
+		BestQualLapAt:   bestQualLapAt,
+		CustID:          ldr.CustID,
+		Name:            ldr.Name,
+		CarID:           ldr.CarID,
+		LicenseLevel:    ldr.LicenseLevel,
+		Laps:            laps,
+	}
+}

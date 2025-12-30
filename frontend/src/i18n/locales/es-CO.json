@@ -150,9 +150,19 @@
     "leadChanges": "Cambios de líder",
     "cautions": "Banderas amarillas",
     "weather": "Condiciones climáticas",
+    "skiesLabel": "Cielo",
+    "skies": {
+      "clear": "Despejado",
+      "partlyCloudy": "Parcialmente nublado",
+      "mostlyCloudy": "Mayormente nublado",
+      "overcast": "Nublado"
+    },
     "temperature": "Temperatura",
     "humidity": "Humedad",
     "wind": "Viento",
+    "precipitation": "Precipitación",
+    "loadLaps": "Cargar tiempos de vuelta",
+    "dragToReorder": "Arrastrar para reordenar",
     "columns": {
       "pos": "Pos",
       "driver": "Piloto",
@@ -163,6 +173,10 @@
       "bestLap": "Mejor vuelta",
       "avgLap": "Vuelta prom",
       "incidents": "Inc"
+    },
+    "lapColumns": {
+      "time": "Tiempo",
+      "events": "Eventos"
     }
   }
 }

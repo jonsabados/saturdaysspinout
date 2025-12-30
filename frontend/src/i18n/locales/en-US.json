@@ -86,9 +86,19 @@
     "leadChanges": "Lead Changes",
     "cautions": "Cautions",
     "weather": "Weather Conditions",
+    "skiesLabel": "Skies",
+    "skies": {
+      "clear": "Clear",
+      "partlyCloudy": "Partly Cloudy",
+      "mostlyCloudy": "Mostly Cloudy",
+      "overcast": "Overcast"
+    },
     "temperature": "Temperature",
     "humidity": "Humidity",
     "wind": "Wind",
+    "precipitation": "Precipitation",
+    "loadLaps": "Load lap times",
+    "dragToReorder": "Drag to reorder",
     "columns": {
       "pos": "Pos",
       "driver": "Driver",
@@ -99,6 +109,10 @@
       "bestLap": "Best Lap",
       "avgLap": "Avg Lap",
       "incidents": "Inc"
+    },
+    "lapColumns": {
+      "time": "Time",
+      "events": "Events"
     }
   },
   "auth": {

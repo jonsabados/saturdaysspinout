@@ -14,6 +14,7 @@ import GridPosition from '@/components/GridPosition.vue'
 import TrackCell from '@/components/TrackCell.vue'
 import SessionCell from '@/components/SessionCell.vue'
 import LicenseCell from '@/components/LicenseCell.vue'
+import RowActionButton from '@/components/RowActionButton.vue'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -269,6 +270,7 @@ onActivated(() => {
       <table class="races-table">
         <thead>
           <tr>
+            <th class="col-actions"></th>
             <th>{{ t('raceHistory.columns.date') }}</th>
             <th>{{ t('raceHistory.columns.session') }}</th>
             <th>{{ t('raceHistory.columns.track') }}</th>
@@ -277,11 +279,17 @@ onActivated(() => {
             <th>{{ t('raceHistory.columns.incidents') }}</th>
             <th>{{ t('columns.license') }}</th>
             <th>{{ t('columns.irating') }}</th>
-            <th class="col-actions"></th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="race in sortedRaces" :key="race.id">
+            <td class="col-actions">
+              <RowActionButton
+                direction="right"
+                :title="t('raceHistory.viewDetails')"
+                @click="viewRaceDetails(race.subsessionId)"
+              />
+            </td>
             <td>{{ formatDate(race.startTime) }}</td>
             <td><SessionCell :series-name="race.seriesName" :car-id="race.carId" /></td>
             <td><TrackCell :track-id="race.trackId" /></td>
@@ -290,11 +298,6 @@ onActivated(() => {
             <td>{{ race.incidents }}</td>
             <td><LicenseCell :old-license-level="race.oldLicenseLevel" :new-license-level="race.newLicenseLevel" :old-sub-level="race.oldSubLevel" :new-sub-level="race.newSubLevel" :old-cpi="race.oldCpi" :new-cpi="race.newCpi" /></td>
             <td>{{ race.newIrating }} <span :class="getIRatingDiffClass(race.oldIrating, race.newIrating)">{{ formatIRatingDiff(race.oldIrating, race.newIrating) }}</span></td>
-            <td class="col-actions">
-              <button class="view-details-btn" @click="viewRaceDetails(race.subsessionId)" :title="t('raceHistory.viewDetails')">
-                <span class="chevron">&rsaquo;</span>
-              </button>
-            </td>
           </tr>
         </tbody>
       </table>
@@ -432,34 +435,8 @@ onActivated(() => {
 }
 
 .col-actions {
-  width: 40px;
-  text-align: center;
-}
-
-.view-details-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  background: transparent;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s, background 0.15s;
-}
-
-.view-details-btn:hover {
-  color: var(--color-text-primary);
-  border-color: var(--color-border-light);
-  background: var(--color-accent-subtle);
-}
-
-.view-details-btn .chevron {
-  font-size: 1.25rem;
-  line-height: 1;
+  width: 32px;
+  padding: 0.25rem 0.5rem !important;
 }
 
 /* Mobile styles */

@@ -141,6 +141,41 @@ resource "aws_api_gateway_resource" "session_id" {
   path_part   = "{subsession_id}"
 }
 
+# /session/{subsession_id}/simsession
+resource "aws_api_gateway_resource" "session_simsession" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.session_id.id
+  path_part   = "simsession"
+}
+
+# /session/{subsession_id}/simsession/{simsession}
+resource "aws_api_gateway_resource" "session_simsession_id" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.session_simsession.id
+  path_part   = "{simsession}"
+}
+
+# /session/{subsession_id}/simsession/{simsession}/driver
+resource "aws_api_gateway_resource" "session_simsession_driver" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.session_simsession_id.id
+  path_part   = "driver"
+}
+
+# /session/{subsession_id}/simsession/{simsession}/driver/{driver_id}
+resource "aws_api_gateway_resource" "session_simsession_driver_id" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.session_simsession_driver.id
+  path_part   = "{driver_id}"
+}
+
+# /session/{subsession_id}/simsession/{simsession}/driver/{driver_id}/laps
+resource "aws_api_gateway_resource" "session_simsession_driver_laps" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.session_simsession_driver_id.id
+  path_part   = "laps"
+}
+
 # API Gateway Endpoints
 # =====================
 
@@ -356,6 +391,22 @@ module "session_options" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id
   resource_id       = aws_api_gateway_resource.session_id.id
+  http_method       = "OPTIONS"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "session_driver_laps_get" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.session_simsession_driver_laps.id
+  http_method       = "GET"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "session_driver_laps_options" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.session_simsession_driver_laps.id
   http_method       = "OPTIONS"
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }
