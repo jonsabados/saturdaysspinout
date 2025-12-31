@@ -25,7 +25,10 @@ data "aws_iam_policy_document" "github_actions_assume_role" {
     condition {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:jonsabados/saturdaysspinout:ref:refs/tags/*"]
+      values   = [
+        "repo:jonsabados/saturdaysspinout:ref:refs/tags/*",
+        "repo:jonsabados/saturdaysspinout:ref:refs/heads/main",
+      ]
     }
   }
 }
