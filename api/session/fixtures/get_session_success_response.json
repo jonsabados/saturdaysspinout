@@ -1,6 +1,7 @@
 {
   "response": {
     "subsessionId": 12345678,
+    "driverRaceId": 1705329000,
     "sessionId": 87654321,
     "allowedLicenses": [
       {

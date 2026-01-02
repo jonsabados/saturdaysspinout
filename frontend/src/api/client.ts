@@ -343,6 +343,7 @@ export interface SessionWeather {
 
 export interface Session {
   subsessionId: number
+  driverRaceId?: number // Present when authenticated user was a participant
   sessionId: number
   allowedLicenses: SessionAllowedLicense[]
   associatedSubsessionIds: number[]
@@ -436,6 +437,56 @@ export interface LapDataResponse {
   correlationId: string
 }
 
+// Journal types
+export interface JournalRaceSummary {
+  id: number
+  subsessionId: number
+  trackId: number
+  carId: number
+  seriesId: number
+  seriesName: string
+  startTime: string
+  startPosition: number
+  startPositionInClass: number
+  finishPosition: number
+  finishPositionInClass: number
+  incidents: number
+  reasonOut: string
+  oldIrating: number
+  newIrating: number
+  oldSubLevel: number
+  newSubLevel: number
+  oldLicenseLevel: number
+  newLicenseLevel: number
+  oldCpi: number
+  newCpi: number
+}
+
+export interface JournalEntry {
+  raceId: number
+  createdAt: string
+  updatedAt: string
+  notes: string
+  tags: string[]
+  race: JournalRaceSummary
+}
+
+export interface JournalEntryRequest {
+  notes: string
+  tags: string[]
+}
+
+export interface JournalEntryResponse {
+  response: JournalEntry
+  correlationId: string
+}
+
+export interface JournalEntriesResponse {
+  items: JournalEntry[]
+  pagination: Pagination
+  correlationId: string
+}
+
 export class ApiClient {
   private authStore: ReturnType<typeof useAuthStore>
   private sessionStore: ReturnType<typeof useSessionStore>
@@ -445,7 +496,11 @@ export class ApiClient {
     this.sessionStore = sessionStore
   }
 
-  async fetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+  /**
+   * Low-level request method that handles authentication and token refresh.
+   * Returns the raw Response for callers that need custom status handling.
+   */
+  private async request(path: string, options: RequestInit = {}): Promise<Response> {
     if (!this.authStore.isLoggedIn) {
       throw new Error('Not authenticated')
     }
@@ -460,35 +515,60 @@ export class ApiClient {
 
     if (response.status === 401) {
       console.debug('401 received, refreshing token')
-      // Token might have expired between check and request - try refresh once
       const refreshed = await this.authStore.refreshToken()
       if (refreshed) {
         console.debug('token refreshed')
-        // Retry the request with new token
         headers.set('Authorization', `Bearer ${this.authStore.token}`)
-        const retryResponse = await fetch(`${apiBaseUrl}${path}`, {
+        return fetch(`${apiBaseUrl}${path}`, {
           ...options,
           headers,
         })
-        if (!retryResponse.ok) {
-          throw await this.parseError(retryResponse)
-        }
-        return retryResponse.json()
       }
       console.warn('unable to refresh token')
       throw new Error('Session expired - please log in again')
     }
 
+    return response
+  }
+
+  /**
+   * Fetch JSON response, throws on non-2xx status.
+   */
+  async fetch<T>(path: string, options: RequestInit = {}): Promise<T> {
+    const response = await this.request(path, options)
     if (!response.ok) {
       throw await this.parseError(response)
     }
-
     return response.json()
+  }
+
+  /**
+   * Fetch JSON response, returns null on 404, throws on other errors.
+   */
+  async fetchOrNull<T>(path: string, options: RequestInit = {}): Promise<T | null> {
+    const response = await this.request(path, options)
+    if (response.status === 404) {
+      return null
+    }
+    if (!response.ok) {
+      throw await this.parseError(response)
+    }
+    return response.json()
+  }
+
+  /**
+   * Fetch with no response body expected (DELETE, etc). Accepts 2xx and 204.
+   */
+  async fetchVoid(path: string, options: RequestInit = {}): Promise<void> {
+    const response = await this.request(path, options)
+    if (!response.ok) {
+      throw await this.parseError(response)
+    }
   }
 
   private async parseError(response: Response): Promise<Error> {
     try {
-      const data = await response.json() as ApiError
+      const data = (await response.json()) as ApiError
       let message = data.message || `Request failed: ${response.status}`
       if (data.correlationId) {
         message += ` (Correlation ID: ${data.correlationId})`
@@ -504,17 +584,9 @@ export class ApiClient {
       throw new Error('Session not ready')
     }
 
-    if (!this.authStore.isLoggedIn) {
-      throw new Error('Not authenticated')
-    }
-
-    const headers = new Headers()
-    headers.set('Authorization', `Bearer ${this.authStore.token}`)
-    headers.set('Content-Type', 'application/json')
-
-    const response = await fetch(`${apiBaseUrl}/ingestion/race`, {
+    const response = await this.request('/ingestion/race', {
       method: 'POST',
-      headers,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ notifyConnectionId: this.sessionStore.connectionId }),
     })
 
@@ -573,37 +645,64 @@ export class ApiClient {
   }
 
   async deleteDriverRaces(driverId: number): Promise<void> {
-    if (!this.authStore.isLoggedIn) {
-      throw new Error('Not authenticated')
-    }
+    return this.fetchVoid(`/driver/${driverId}/races`, { method: 'DELETE' })
+  }
 
-    const headers = new Headers()
-    headers.set('Authorization', `Bearer ${this.authStore.token}`)
+  // Journal methods
 
-    const response = await fetch(`${apiBaseUrl}/driver/${driverId}/races`, {
-      method: 'DELETE',
-      headers,
-    })
+  /**
+   * Get journal entry for a specific race. Returns null if no entry exists.
+   */
+  async getJournalEntry(driverId: number, raceId: number): Promise<JournalEntry | null> {
+    const data = await this.fetchOrNull<JournalEntryResponse>(
+      `/driver/${driverId}/races/${raceId}/journal`
+    )
+    return data?.response ?? null
+  }
 
-    if (response.status === 401) {
-      const refreshed = await this.authStore.refreshToken()
-      if (refreshed) {
-        headers.set('Authorization', `Bearer ${this.authStore.token}`)
-        const retryResponse = await fetch(`${apiBaseUrl}/driver/${driverId}/races`, {
-          method: 'DELETE',
-          headers,
-        })
-        if (!retryResponse.ok) {
-          throw await this.parseError(retryResponse)
-        }
-        return
+  /**
+   * Create or update a journal entry for a race.
+   */
+  async saveJournalEntry(
+    driverId: number,
+    raceId: number,
+    entry: JournalEntryRequest
+  ): Promise<JournalEntry> {
+    const data = await this.fetch<JournalEntryResponse>(
+      `/driver/${driverId}/races/${raceId}/journal`,
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
       }
-      throw new Error('Session expired - please log in again')
-    }
+    )
+    return data.response
+  }
 
-    if (!response.ok) {
-      throw await this.parseError(response)
-    }
+  /**
+   * Delete a journal entry for a race.
+   */
+  async deleteJournalEntry(driverId: number, raceId: number): Promise<void> {
+    return this.fetchVoid(`/driver/${driverId}/races/${raceId}/journal`, { method: 'DELETE' })
+  }
+
+  /**
+   * Get paginated list of journal entries for a driver.
+   */
+  async getJournalEntries(
+    driverId: number,
+    startTime: Date,
+    endTime: Date,
+    page = 1,
+    resultsPerPage = 20
+  ): Promise<JournalEntriesResponse> {
+    const params = new URLSearchParams({
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      page: page.toString(),
+      resultsPerPage: resultsPerPage.toString(),
+    })
+    return this.fetch<JournalEntriesResponse>(`/driver/${driverId}/journal?${params}`)
   }
 }
 

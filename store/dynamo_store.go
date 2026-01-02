@@ -46,61 +46,6 @@ func (s *DynamoStore) GetGlobalCounters(ctx context.Context) (*GlobalCounters, e
 	return globalCountersFromAttributeMap(result.Item)
 }
 
-func (s *DynamoStore) GetDriverNotes(ctx context.Context, driverID int64, fromInclusive, toExclusive time.Time) ([]DriverNote, error) {
-	result, err := s.client.Query(ctx, &dynamodb.QueryInput{
-		TableName:              aws.String(s.table),
-		KeyConditionExpression: aws.String("#pk = :pk AND #sk BETWEEN :from AND :to"),
-		ExpressionAttributeNames: map[string]string{
-			"#pk": partitionKeyName,
-			"#sk": sortKeyName,
-		},
-		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":pk":   &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
-			":from": &types.AttributeValueMemberS{Value: fmt.Sprintf(driverNoteSortKeyFormat, toUnixSeconds(fromInclusive))},
-			":to":   &types.AttributeValueMemberS{Value: fmt.Sprintf(driverNoteSortKeyFormat, toUnixSeconds(toExclusive)-1)},
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	notes := make([]DriverNote, 0, len(result.Items))
-	for _, item := range result.Items {
-		note, err := driverNoteFromAttributeMap(driverID, item)
-		if err != nil {
-			return nil, err
-		}
-		notes = append(notes, *note)
-	}
-	return notes, nil
-}
-
-func (s *DynamoStore) AddDriverNote(ctx context.Context, note DriverNote) error {
-	_, err := s.client.TransactWriteItems(ctx, &dynamodb.TransactWriteItemsInput{
-		TransactItems: []types.TransactWriteItem{
-			{
-				Put: &types.Put{
-					TableName: aws.String(s.table),
-					Item: driverNoteModel{
-						driverID:  note.DriverID,
-						timestamp: toUnixSeconds(note.Timestamp),
-						sessionID: note.SessionID,
-						lapNumber: note.LapNumber,
-						isMistake: note.IsMistake,
-						category:  note.Category,
-						notes:     note.Notes,
-					}.toAttributeMap(),
-					ConditionExpression: aws.String("attribute_not_exists(#pk)"),
-					ExpressionAttributeNames: map[string]string{
-						"#pk": partitionKeyName,
-					},
-				},
-			},
-		},
-	})
-	return mapTransactionError(err)
-}
-
 func mapTransactionError(err error) error {
 	if err == nil {
 		return nil
@@ -447,7 +392,44 @@ func (s *DynamoStore) GetDriverSession(ctx context.Context, driverID int64, star
 	return driverSessionFromAttributeMap(driverID, result.Item)
 }
 
-func (s *DynamoStore) GetDriverSessions(ctx context.Context, driverID int64, from, to time.Time) ([]DriverSession, error) {
+// GetDriverSessions retrieves specific driver sessions by their exact start times.
+// Uses BatchGetItem for efficient fetching. Returns sessions in the order they were found.
+func (s *DynamoStore) GetDriverSessions(ctx context.Context, driverID int64, startTimes []time.Time) ([]DriverSession, error) {
+	if len(startTimes) == 0 {
+		return []DriverSession{}, nil
+	}
+
+	pk := fmt.Sprintf(driverPartitionFormat, driverID)
+	keys := make([]map[string]types.AttributeValue, len(startTimes))
+	for i, startTime := range startTimes {
+		keys[i] = map[string]types.AttributeValue{
+			partitionKeyName: &types.AttributeValueMemberS{Value: pk},
+			sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(driverSessionSortKeyFormat, toUnixSeconds(startTime))},
+		}
+	}
+
+	result, err := s.client.BatchGetItem(ctx, &dynamodb.BatchGetItemInput{
+		RequestItems: map[string]types.KeysAndAttributes{
+			s.table: {Keys: keys},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sessions := make([]DriverSession, 0, len(result.Responses[s.table]))
+	for _, item := range result.Responses[s.table] {
+		session, err := driverSessionFromAttributeMap(driverID, item)
+		if err != nil {
+			return nil, err
+		}
+		sessions = append(sessions, *session)
+	}
+
+	return sessions, nil
+}
+
+func (s *DynamoStore) GetDriverSessionsByTimeRange(ctx context.Context, driverID int64, from, to time.Time) ([]DriverSession, error) {
 	result, err := s.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(s.table),
 		KeyConditionExpression: aws.String("#pk = :pk AND #sk BETWEEN :from AND :to"),
@@ -665,4 +647,115 @@ func (s *DynamoStore) DeleteDriverRaces(ctx context.Context, driverID int64) err
 	}
 
 	return nil
+}
+
+// SaveJournalEntry creates or updates a journal entry for a race (upsert semantics).
+// CreatedAt is set on first save; UpdatedAt is always updated.
+func (s *DynamoStore) SaveJournalEntry(ctx context.Context, entry RaceJournalEntry) error {
+	now := s.now()
+
+	// For upsert: set created_at only if it doesn't exist, always update updated_at
+	_, err := s.client.UpdateItem(ctx, &dynamodb.UpdateItemInput{
+		TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, entry.DriverID)},
+			sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(journalEntrySortKeyFormat, entry.RaceID)},
+		},
+		UpdateExpression: aws.String("SET #driver_id = :driver_id, #race_id = :race_id, #notes = :notes, #updated_at = :updated_at, #created_at = if_not_exists(#created_at, :created_at), #tags = :tags"),
+		ExpressionAttributeNames: map[string]string{
+			"#driver_id":  "driver_id",
+			"#race_id":    "race_id",
+			"#notes":      "notes",
+			"#updated_at": "updated_at",
+			"#created_at": "created_at",
+			"#tags":       "tags",
+		},
+		ExpressionAttributeValues: s.journalEntryUpdateValues(entry, now),
+	})
+	return err
+}
+
+func (s *DynamoStore) journalEntryUpdateValues(entry RaceJournalEntry, now time.Time) map[string]types.AttributeValue {
+	nowUnix := toUnixSeconds(now)
+	values := map[string]types.AttributeValue{
+		":driver_id":  &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", entry.DriverID)},
+		":race_id":    &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", entry.RaceID)},
+		":notes":      &types.AttributeValueMemberS{Value: entry.Notes},
+		":updated_at": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", nowUnix)},
+		":created_at": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", nowUnix)},
+	}
+	if len(entry.Tags) > 0 {
+		tagValues := make([]types.AttributeValue, len(entry.Tags))
+		for i, t := range entry.Tags {
+			tagValues[i] = &types.AttributeValueMemberS{Value: t}
+		}
+		values[":tags"] = &types.AttributeValueMemberL{Value: tagValues}
+	} else {
+		values[":tags"] = &types.AttributeValueMemberL{Value: []types.AttributeValue{}}
+	}
+	return values
+}
+
+// GetJournalEntry retrieves a single journal entry for a specific race.
+// Returns nil if no entry exists.
+func (s *DynamoStore) GetJournalEntry(ctx context.Context, driverID, raceID int64) (*RaceJournalEntry, error) {
+	result, err := s.client.GetItem(ctx, &dynamodb.GetItemInput{
+		TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
+			sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(journalEntrySortKeyFormat, raceID)},
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	if result.Item == nil {
+		return nil, nil
+	}
+	return journalEntryFromAttributeMap(result.Item)
+}
+
+// GetJournalEntries retrieves journal entries for a driver within a time range.
+// Returns entries in reverse chronological order (newest first).
+func (s *DynamoStore) GetJournalEntries(ctx context.Context, driverID int64, from, to time.Time) ([]RaceJournalEntry, error) {
+	result, err := s.client.Query(ctx, &dynamodb.QueryInput{
+		TableName:              aws.String(s.table),
+		KeyConditionExpression: aws.String("#pk = :pk AND #sk BETWEEN :from AND :to"),
+		ExpressionAttributeNames: map[string]string{
+			"#pk": partitionKeyName,
+			"#sk": sortKeyName,
+		},
+		ExpressionAttributeValues: map[string]types.AttributeValue{
+			":pk":   &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
+			":from": &types.AttributeValueMemberS{Value: fmt.Sprintf(journalEntrySortKeyFormat, toUnixSeconds(from))},
+			":to":   &types.AttributeValueMemberS{Value: fmt.Sprintf(journalEntrySortKeyFormat, toUnixSeconds(to))},
+		},
+		ScanIndexForward: aws.Bool(false), // newest first
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	entries := make([]RaceJournalEntry, 0, len(result.Items))
+	for _, item := range result.Items {
+		entry, err := journalEntryFromAttributeMap(item)
+		if err != nil {
+			return nil, err
+		}
+		entries = append(entries, *entry)
+	}
+	return entries, nil
+}
+
+// DeleteJournalEntry removes a journal entry for a specific race.
+// Returns nil even if the entry doesn't exist (idempotent delete).
+func (s *DynamoStore) DeleteJournalEntry(ctx context.Context, driverID, raceID int64) error {
+	_, err := s.client.DeleteItem(ctx, &dynamodb.DeleteItemInput{
+		TableName: aws.String(s.table),
+		Key: map[string]types.AttributeValue{
+			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, driverID)},
+			sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(journalEntrySortKeyFormat, raceID)},
+		},
+	})
+	return err
 }

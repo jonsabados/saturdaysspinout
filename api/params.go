@@ -5,6 +5,9 @@ const DriverIDPathParam = "driver_id"
 
 // begin url parameters
 const (
-	PageQueryParam      = "page"
-	ResultsPerPageParam = "resultsPerPage"
+	StartTimeQueryParam       = "startTime"
+	EndTimeQueryParam         = "endTime"
+	PageQueryParam            = "page"
+	ResultsPerPageParam       = "resultsPerPage"
+	DefaultResultsPerPage int = 10
 )

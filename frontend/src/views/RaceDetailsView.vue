@@ -1,16 +1,18 @@
 <script setup lang="ts">
 defineOptions({ name: 'RaceDetailsView' })
 
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useApiClient, type Session, type SessionSimResult, type SessionDriverResult, type LapData } from '@/api/client'
+import { useApiClient, type Session, type SessionSimResult, type SessionDriverResult, type LapData, type JournalEntry } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useTracksStore } from '@/stores/tracks'
 import GridPosition from '@/components/GridPosition.vue'
 import LicenseCell from '@/components/LicenseCell.vue'
 import LapCard from '@/components/LapCard.vue'
 import RowActionButton from '@/components/RowActionButton.vue'
+import JournalEntryForm from '@/components/JournalEntryForm.vue'
+import JournalEntryDisplay from '@/components/JournalEntryDisplay.vue'
 import { formatLapTime, formatInterval } from '@/utils/raceFormatters'
 
 const { t } = useI18n()
@@ -95,6 +97,75 @@ const sortedResults = computed((): SessionDriverResult[] => {
 
 // simsessionType 6 = Race in iRacing
 const isRaceSession = computed(() => selectedSession.value?.simsessionType === 6)
+
+// Journal state
+const journalEntry = ref<JournalEntry | null>(null)
+const journalLoading = ref(false)
+const journalEditing = ref(false)
+const journalSaving = ref(false)
+
+// Only show journal if user was in this race (driverRaceId present)
+const canShowJournal = computed(() => session.value?.driverRaceId != null)
+
+async function loadJournalEntry() {
+  if (!session.value?.driverRaceId || !currentUserId.value) return
+
+  journalLoading.value = true
+  try {
+    journalEntry.value = await apiClient.getJournalEntry(currentUserId.value, session.value.driverRaceId)
+  } catch (err) {
+    console.error('[RaceDetails] Failed to load journal entry:', err)
+  } finally {
+    journalLoading.value = false
+  }
+}
+
+async function handleJournalSave(data: { notes: string; tags: string[] }) {
+  if (!session.value?.driverRaceId || !currentUserId.value) return
+
+  journalSaving.value = true
+  try {
+    journalEntry.value = await apiClient.saveJournalEntry(
+      currentUserId.value,
+      session.value.driverRaceId,
+      data
+    )
+    journalEditing.value = false
+  } catch (err) {
+    console.error('[RaceDetails] Failed to save journal entry:', err)
+  } finally {
+    journalSaving.value = false
+  }
+}
+
+function handleJournalEdit() {
+  journalEditing.value = true
+}
+
+function handleJournalCancel() {
+  journalEditing.value = false
+}
+
+async function handleJournalDelete() {
+  if (!session.value?.driverRaceId || !currentUserId.value) return
+
+  try {
+    await apiClient.deleteJournalEntry(currentUserId.value, session.value.driverRaceId)
+    journalEntry.value = null
+  } catch (err) {
+    console.error('[RaceDetails] Failed to delete journal entry:', err)
+  }
+}
+
+// Load journal when session loads
+watch(
+  () => session.value?.driverRaceId,
+  (driverRaceId) => {
+    if (driverRaceId) {
+      loadJournalEntry()
+    }
+  }
+)
 
 function formatDateTime(isoString: string): string {
   const date = new Date(isoString)
@@ -324,6 +395,41 @@ onMounted(async () => {
           <span class="stat-value">{{ session.numCautions }} ({{ session.numCautionLaps }} {{ t('raceDetails.lapsAbbr') }})</span>
         </div>
       </div>
+
+      <!-- Journal Section (only for races user participated in) -->
+      <section v-if="canShowJournal" class="journal-section">
+        <h2 class="section-title">{{ t('journal.title') }}</h2>
+
+        <div v-if="journalLoading" class="journal-loading">
+          {{ t('common.loading') }}
+        </div>
+
+        <template v-else-if="journalEntry && !journalEditing">
+          <JournalEntryDisplay
+            :entry="journalEntry"
+            @edit="handleJournalEdit"
+            @delete="handleJournalDelete"
+          />
+        </template>
+
+        <template v-else-if="journalEditing || !journalEntry">
+          <div v-if="!journalEntry && !journalEditing" class="journal-empty">
+            <p class="journal-empty-title">{{ t('journal.empty.title') }}</p>
+            <p class="journal-empty-prompt">{{ t('journal.empty.prompt') }}</p>
+            <button type="button" class="btn btn-primary" @click="journalEditing = true">
+              {{ t('journal.actions.edit') }}
+            </button>
+          </div>
+          <JournalEntryForm
+            v-else
+            :initial-notes="journalEntry?.notes"
+            :initial-tags="journalEntry?.tags"
+            :saving="journalSaving"
+            @save="handleJournalSave"
+            @cancel="handleJournalCancel"
+          />
+        </template>
+      </section>
 
       <!-- Weather Info (collapsible) -->
       <details class="weather-section">
@@ -717,6 +823,44 @@ onMounted(async () => {
 
 .stat-loss {
   color: #ef4444;
+}
+
+/* Journal Section */
+.journal-section {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.section-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.journal-loading {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+.journal-empty {
+  text-align: center;
+  padding: 1rem 0;
+}
+
+.journal-empty-title {
+  margin: 0 0 0.25rem 0;
+  font-size: 0.9375rem;
+  color: var(--color-text-primary);
+}
+
+.journal-empty-prompt {
+  margin: 0 0 1rem 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
 }
 
 /* Weather Section */

@@ -16,6 +16,7 @@
   /* Accent - primary brand color (racing yellow) */
   --color-accent: #faff00;
   --color-accent-hover: #e0e500;
+  --color-accent-text: #0a0a0a; /* Dark text for use on accent backgrounds */
   --color-accent-muted: rgba(250, 255, 0, 0.15);
   --color-accent-subtle: rgba(250, 255, 0, 0.08);
 

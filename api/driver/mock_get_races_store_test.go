@@ -39,12 +39,12 @@ func (_m *MockGetRacesStore) EXPECT() *MockGetRacesStore_Expecter {
 	return &MockGetRacesStore_Expecter{mock: &_m.Mock}
 }
 
-// GetDriverSessions provides a mock function for the type MockGetRacesStore
-func (_mock *MockGetRacesStore) GetDriverSessions(ctx context.Context, driverID int64, from time.Time, to time.Time) ([]store.DriverSession, error) {
+// GetDriverSessionsByTimeRange provides a mock function for the type MockGetRacesStore
+func (_mock *MockGetRacesStore) GetDriverSessionsByTimeRange(ctx context.Context, driverID int64, from time.Time, to time.Time) ([]store.DriverSession, error) {
 	ret := _mock.Called(ctx, driverID, from, to)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetDriverSessions")
+		panic("no return value specified for GetDriverSessionsByTimeRange")
 	}
 
 	var r0 []store.DriverSession
@@ -67,21 +67,21 @@ func (_mock *MockGetRacesStore) GetDriverSessions(ctx context.Context, driverID 
 	return r0, r1
 }
 
-// MockGetRacesStore_GetDriverSessions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDriverSessions'
-type MockGetRacesStore_GetDriverSessions_Call struct {
+// MockGetRacesStore_GetDriverSessionsByTimeRange_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDriverSessionsByTimeRange'
+type MockGetRacesStore_GetDriverSessionsByTimeRange_Call struct {
 	*mock.Call
 }
 
-// GetDriverSessions is a helper method to define mock.On call
+// GetDriverSessionsByTimeRange is a helper method to define mock.On call
 //   - ctx context.Context
 //   - driverID int64
 //   - from time.Time
 //   - to time.Time
-func (_e *MockGetRacesStore_Expecter) GetDriverSessions(ctx interface{}, driverID interface{}, from interface{}, to interface{}) *MockGetRacesStore_GetDriverSessions_Call {
-	return &MockGetRacesStore_GetDriverSessions_Call{Call: _e.mock.On("GetDriverSessions", ctx, driverID, from, to)}
+func (_e *MockGetRacesStore_Expecter) GetDriverSessionsByTimeRange(ctx interface{}, driverID interface{}, from interface{}, to interface{}) *MockGetRacesStore_GetDriverSessionsByTimeRange_Call {
+	return &MockGetRacesStore_GetDriverSessionsByTimeRange_Call{Call: _e.mock.On("GetDriverSessionsByTimeRange", ctx, driverID, from, to)}
 }
 
-func (_c *MockGetRacesStore_GetDriverSessions_Call) Run(run func(ctx context.Context, driverID int64, from time.Time, to time.Time)) *MockGetRacesStore_GetDriverSessions_Call {
+func (_c *MockGetRacesStore_GetDriverSessionsByTimeRange_Call) Run(run func(ctx context.Context, driverID int64, from time.Time, to time.Time)) *MockGetRacesStore_GetDriverSessionsByTimeRange_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -109,12 +109,12 @@ func (_c *MockGetRacesStore_GetDriverSessions_Call) Run(run func(ctx context.Con
 	return _c
 }
 
-func (_c *MockGetRacesStore_GetDriverSessions_Call) Return(driverSessions []store.DriverSession, err error) *MockGetRacesStore_GetDriverSessions_Call {
+func (_c *MockGetRacesStore_GetDriverSessionsByTimeRange_Call) Return(driverSessions []store.DriverSession, err error) *MockGetRacesStore_GetDriverSessionsByTimeRange_Call {
 	_c.Call.Return(driverSessions, err)
 	return _c
 }
 
-func (_c *MockGetRacesStore_GetDriverSessions_Call) RunAndReturn(run func(ctx context.Context, driverID int64, from time.Time, to time.Time) ([]store.DriverSession, error)) *MockGetRacesStore_GetDriverSessions_Call {
+func (_c *MockGetRacesStore_GetDriverSessionsByTimeRange_Call) RunAndReturn(run func(ctx context.Context, driverID int64, from time.Time, to time.Time) ([]store.DriverSession, error)) *MockGetRacesStore_GetDriverSessionsByTimeRange_Call {
 	_c.Call.Return(run)
 	return _c
 }

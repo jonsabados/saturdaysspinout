@@ -1,0 +1,5 @@
+{
+  "errors": ["invalid JSON body"],
+  "fieldErrors": [],
+  "correlationId": "test-correlation-id"
+}

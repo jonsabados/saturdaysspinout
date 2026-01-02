@@ -8,14 +8,16 @@ export type SupportedLocale = 'en-US' | 'en-GB' | 'es-CO'
 const STORAGE_KEY = 'user-locale'
 
 function getInitialLocale(): SupportedLocale {
-  // Check localStorage first
-  const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored === 'en-US' || stored === 'en-GB' || stored === 'es-CO') {
-    return stored
+  // Check localStorage first (with guard for test environments)
+  if (typeof localStorage !== 'undefined' && localStorage.getItem) {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored === 'en-US' || stored === 'en-GB' || stored === 'es-CO') {
+      return stored
+    }
   }
 
   // Check browser preference
-  const browserLang = navigator.language
+  const browserLang = typeof navigator !== 'undefined' ? navigator.language : 'en-US'
   if (browserLang === 'en-GB') {
     return 'en-GB'
   }

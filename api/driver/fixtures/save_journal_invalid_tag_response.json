@@ -1,0 +1,7 @@
+{
+  "errors": [],
+  "fieldErrors": [
+    {"field": "tags", "code": "invalid_tag_value", "params": {"prefix": "sentiment", "value": "invalid", "allowed": "good,neutral,bad"}}
+  ],
+  "correlationId": "test-correlation-id"
+}

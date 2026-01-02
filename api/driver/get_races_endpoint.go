@@ -13,7 +13,7 @@ import (
 )
 
 type GetRacesStore interface {
-	GetDriverSessions(ctx context.Context, driverID int64, from, to time.Time) ([]store.DriverSession, error)
+	GetDriverSessionsByTimeRange(ctx context.Context, driverID int64, from, to time.Time) ([]store.DriverSession, error)
 }
 
 func NewGetRacesEndpoint(raceStore GetRacesStore) http.Handler {
@@ -30,23 +30,23 @@ func NewGetRacesEndpoint(raceStore GetRacesStore) http.Handler {
 
 		var startTime, endTime time.Time
 
-		startTimeStr := r.URL.Query().Get("startTime")
+		startTimeStr := r.URL.Query().Get(api.StartTimeQueryParam)
 		if startTimeStr == "" {
-			errs = errs.WithFieldError("startTime", "required")
+			errs = errs.WithFieldError(api.StartTimeQueryParam, "required")
 		} else {
 			startTime, err = time.Parse(time.RFC3339, startTimeStr)
 			if err != nil {
-				errs = errs.WithFieldError("startTime", "must be a valid ISO-8601 timestamp")
+				errs = errs.WithFieldError(api.StartTimeQueryParam, "must be a valid ISO-8601 timestamp")
 			}
 		}
 
-		endTimeStr := r.URL.Query().Get("endTime")
+		endTimeStr := r.URL.Query().Get(api.EndTimeQueryParam)
 		if endTimeStr == "" {
-			errs = errs.WithFieldError("endTime", "required")
+			errs = errs.WithFieldError(api.EndTimeQueryParam, "required")
 		} else {
 			endTime, err = time.Parse(time.RFC3339, endTimeStr)
 			if err != nil {
-				errs = errs.WithFieldError("endTime", "must be a valid ISO-8601 timestamp")
+				errs = errs.WithFieldError(api.EndTimeQueryParam, "must be a valid ISO-8601 timestamp")
 			}
 		}
 
@@ -58,7 +58,7 @@ func NewGetRacesEndpoint(raceStore GetRacesStore) http.Handler {
 			}
 		}
 
-		resultsPerPage := 10
+		resultsPerPage := api.DefaultResultsPerPage
 		if rppStr := r.URL.Query().Get(api.ResultsPerPageParam); rppStr != "" {
 			resultsPerPage, err = strconv.Atoi(rppStr)
 			if err != nil || resultsPerPage < 1 {
@@ -71,7 +71,7 @@ func NewGetRacesEndpoint(raceStore GetRacesStore) http.Handler {
 			return
 		}
 
-		sessions, err := raceStore.GetDriverSessions(ctx, driverID, startTime, endTime)
+		sessions, err := raceStore.GetDriverSessionsByTimeRange(ctx, driverID, startTime, endTime)
 		if err != nil {
 			logger.Error().Err(err).Int64("driverId", driverID).Msg("failed to fetch driver sessions")
 			api.DoErrorResponse(ctx, w)

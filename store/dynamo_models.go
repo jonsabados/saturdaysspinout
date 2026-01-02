@@ -14,13 +14,13 @@ const sortKeyName = "sort_key"
 const defaultSortKey = "info"
 
 const driverPartitionFormat = "driver#%d"
-const driverNoteSortKeyFormat = "note#%d" // note, the number should be a unix timestamp allowing us to find notes within a specified time period
 const wsConnectionSortKeyFormat = "ws#%s"
 const ingestionLockSortKey = "ingestion_lock"
 
 const websocketPartitionFormat = "websocket#%s"
 
 const driverSessionSortKeyFormat = "session#%d" // timestamp for ordering
+const journalEntrySortKeyFormat = "journal#%d"  // race_id (timestamp) for ordering
 
 const globalCountersPartitionKey = "global"
 const globalCountersSortKey = "counters"
@@ -38,66 +38,6 @@ func globalCountersFromAttributeMap(item map[string]types.AttributeValue) (*Glob
 	}
 
 	return counters, nil
-}
-
-type driverNoteModel struct {
-	driverID  int64
-	timestamp int64
-	sessionID int64
-	lapNumber int64
-	isMistake bool
-	category  string
-	notes     string
-}
-
-func (n driverNoteModel) toAttributeMap() map[string]types.AttributeValue {
-	return map[string]types.AttributeValue{
-		partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, n.driverID)},
-		sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(driverNoteSortKeyFormat, n.timestamp)},
-		"timestamp":      &types.AttributeValueMemberN{Value: strconv.FormatInt(n.timestamp, 10)},
-		"session_id":     &types.AttributeValueMemberN{Value: strconv.FormatInt(n.sessionID, 10)},
-		"lap_number":     &types.AttributeValueMemberN{Value: strconv.FormatInt(n.lapNumber, 10)},
-		"is_mistake":     &types.AttributeValueMemberBOOL{Value: n.isMistake},
-		"category":       &types.AttributeValueMemberS{Value: n.category},
-		"notes":          &types.AttributeValueMemberS{Value: n.notes},
-	}
-}
-
-func driverNoteFromAttributeMap(driverID int64, item map[string]types.AttributeValue) (*DriverNote, error) {
-	timestamp, err := getInt64Attr(item, "timestamp")
-	if err != nil {
-		return nil, err
-	}
-	sessionID, err := getInt64Attr(item, "session_id")
-	if err != nil {
-		return nil, err
-	}
-	lapNumber, err := getInt64Attr(item, "lap_number")
-	if err != nil {
-		return nil, err
-	}
-	isMistake, err := getBoolAttr(item, "is_mistake")
-	if err != nil {
-		return nil, err
-	}
-	category, err := getStringAttr(item, "category")
-	if err != nil {
-		return nil, err
-	}
-	notes, err := getStringAttr(item, "notes")
-	if err != nil {
-		return nil, err
-	}
-
-	return &DriverNote{
-		DriverID:  driverID,
-		Timestamp: time.Unix(timestamp, 0),
-		SessionID: sessionID,
-		LapNumber: lapNumber,
-		IsMistake: isMistake,
-		Category:  category,
-		Notes:     notes,
-	}, nil
 }
 
 type driverModel struct {
@@ -413,6 +353,72 @@ func driverSessionFromAttributeMap(driverID int64, item map[string]types.Attribu
 		OldSubLevel:           oldSubLevel,
 		NewSubLevel:           newSubLevel,
 		ReasonOut:             reasonOut,
+	}, nil
+}
+
+// journalEntryModel represents a journal entry for a race (driver#<id> / journal#<race_id>)
+type journalEntryModel struct {
+	driverID  int64
+	raceID    int64
+	createdAt int64
+	updatedAt int64
+	notes     string
+	tags      []string
+}
+
+func (j journalEntryModel) toAttributeMap() map[string]types.AttributeValue {
+	m := map[string]types.AttributeValue{
+		partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, j.driverID)},
+		sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(journalEntrySortKeyFormat, j.raceID)},
+		"driver_id":      &types.AttributeValueMemberN{Value: strconv.FormatInt(j.driverID, 10)},
+		"race_id":        &types.AttributeValueMemberN{Value: strconv.FormatInt(j.raceID, 10)},
+		"created_at":     &types.AttributeValueMemberN{Value: strconv.FormatInt(j.createdAt, 10)},
+		"updated_at":     &types.AttributeValueMemberN{Value: strconv.FormatInt(j.updatedAt, 10)},
+		"notes":          &types.AttributeValueMemberS{Value: j.notes},
+	}
+	if len(j.tags) > 0 {
+		tagValues := make([]types.AttributeValue, len(j.tags))
+		for i, t := range j.tags {
+			tagValues[i] = &types.AttributeValueMemberS{Value: t}
+		}
+		m["tags"] = &types.AttributeValueMemberL{Value: tagValues}
+	}
+	return m
+}
+
+func journalEntryFromAttributeMap(item map[string]types.AttributeValue) (*RaceJournalEntry, error) {
+	driverID, err := getInt64Attr(item, "driver_id")
+	if err != nil {
+		return nil, err
+	}
+	raceID, err := getInt64Attr(item, "race_id")
+	if err != nil {
+		return nil, err
+	}
+	createdAt, err := getInt64Attr(item, "created_at")
+	if err != nil {
+		return nil, err
+	}
+	updatedAt, err := getInt64Attr(item, "updated_at")
+	if err != nil {
+		return nil, err
+	}
+	notes, err := getStringAttr(item, "notes")
+	if err != nil {
+		return nil, err
+	}
+	tags, err := getOptionalStringSliceAttr(item, "tags")
+	if err != nil {
+		return nil, err
+	}
+
+	return &RaceJournalEntry{
+		DriverID:  driverID,
+		RaceID:    raceID,
+		CreatedAt: time.Unix(createdAt, 0),
+		UpdatedAt: time.Unix(updatedAt, 0),
+		Notes:     notes,
+		Tags:      tags,
 	}, nil
 }
 
