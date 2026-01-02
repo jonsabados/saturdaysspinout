@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jonsabados/saturdaysspinout/metrics"
 	"github.com/jonsabados/saturdaysspinout/store"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -136,9 +137,10 @@ func TestService_ValidateRaceExists(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore := NewMockStore(t)
+			mockMetrics := NewMockMetricsEmitter(t)
 			tc.setupMock(mockStore)
 
-			svc := NewService(mockStore)
+			svc := NewService(mockStore, mockMetrics)
 			exists, err := svc.ValidateRaceExists(ctx, driverID, raceID)
 
 			if tc.expectedErr {
@@ -261,9 +263,10 @@ func TestService_Get(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore := NewMockStore(t)
+			mockMetrics := NewMockMetricsEmitter(t)
 			tc.setupMock(mockStore)
 
-			svc := NewService(mockStore)
+			svc := NewService(mockStore, mockMetrics)
 			entry, err := svc.Get(ctx, driverID, raceID)
 
 			if tc.expectedErr {
@@ -285,11 +288,12 @@ func TestService_Save(t *testing.T) {
 	updatedAt := time.Unix(2000, 0)
 
 	testCases := []struct {
-		name        string
-		input       SaveInput
-		setupMock   func(*MockStore)
-		expected    *Entry
-		expectedErr bool
+		name            string
+		input           SaveInput
+		setupMock       func(*MockStore, *MockMetricsEmitter)
+		expected        *Entry
+		expectedErr     bool
+		expectMetricErr bool
 	}{
 		{
 			name: "success",
@@ -299,13 +303,60 @@ func TestService_Save(t *testing.T) {
 				Notes:    "Great race!",
 				Tags:     []string{"sentiment:good"},
 			},
-			setupMock: func(m *MockStore) {
+			setupMock: func(m *MockStore, me *MockMetricsEmitter) {
 				m.EXPECT().SaveJournalEntry(mock.Anything, store.RaceJournalEntry{
 					DriverID: driverID,
 					RaceID:   raceID,
 					Notes:    "Great race!",
 					Tags:     []string{"sentiment:good"},
 				}).Return(nil)
+				me.EXPECT().EmitCount(mock.Anything, metrics.JournalEntriesCreated, 1).Return(nil)
+				m.EXPECT().GetJournalEntry(mock.Anything, driverID, raceID).
+					Return(&store.RaceJournalEntry{
+						DriverID:  driverID,
+						RaceID:    raceID,
+						Notes:     "Great race!",
+						Tags:      []string{"sentiment:good"},
+						CreatedAt: createdAt,
+						UpdatedAt: updatedAt,
+					}, nil)
+				m.EXPECT().GetDriverSession(mock.Anything, driverID, startTime).
+					Return(&store.DriverSession{
+						DriverID:       driverID,
+						StartTime:      startTime,
+						FinishPosition: 2,
+					}, nil)
+			},
+			expected: &Entry{
+				RaceID:    raceID,
+				CreatedAt: createdAt,
+				UpdatedAt: updatedAt,
+				Notes:     "Great race!",
+				Tags:      []string{"sentiment:good"},
+				Race: &store.DriverSession{
+					DriverID:       driverID,
+					StartTime:      startTime,
+					FinishPosition: 2,
+				},
+			},
+			expectedErr: false,
+		},
+		{
+			name: "success with metric error (logs but continues)",
+			input: SaveInput{
+				DriverID: driverID,
+				RaceID:   raceID,
+				Notes:    "Great race!",
+				Tags:     []string{"sentiment:good"},
+			},
+			setupMock: func(m *MockStore, me *MockMetricsEmitter) {
+				m.EXPECT().SaveJournalEntry(mock.Anything, store.RaceJournalEntry{
+					DriverID: driverID,
+					RaceID:   raceID,
+					Notes:    "Great race!",
+					Tags:     []string{"sentiment:good"},
+				}).Return(nil)
+				me.EXPECT().EmitCount(mock.Anything, metrics.JournalEntriesCreated, 1).Return(errors.New("cloudwatch error"))
 				m.EXPECT().GetJournalEntry(mock.Anything, driverID, raceID).
 					Return(&store.RaceJournalEntry{
 						DriverID:  driverID,
@@ -343,7 +394,7 @@ func TestService_Save(t *testing.T) {
 				RaceID:   raceID,
 				Notes:    "Great race!",
 			},
-			setupMock: func(m *MockStore) {
+			setupMock: func(m *MockStore, me *MockMetricsEmitter) {
 				m.EXPECT().SaveJournalEntry(mock.Anything, mock.Anything).
 					Return(errors.New("database error"))
 			},
@@ -357,8 +408,9 @@ func TestService_Save(t *testing.T) {
 				RaceID:   raceID,
 				Notes:    "Great race!",
 			},
-			setupMock: func(m *MockStore) {
+			setupMock: func(m *MockStore, me *MockMetricsEmitter) {
 				m.EXPECT().SaveJournalEntry(mock.Anything, mock.Anything).Return(nil)
+				me.EXPECT().EmitCount(mock.Anything, metrics.JournalEntriesCreated, 1).Return(nil)
 				m.EXPECT().GetJournalEntry(mock.Anything, driverID, raceID).
 					Return(nil, errors.New("database error"))
 			},
@@ -370,9 +422,10 @@ func TestService_Save(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore := NewMockStore(t)
-			tc.setupMock(mockStore)
+			mockMetrics := NewMockMetricsEmitter(t)
+			tc.setupMock(mockStore, mockMetrics)
 
-			svc := NewService(mockStore)
+			svc := NewService(mockStore, mockMetrics)
 			entry, err := svc.Save(ctx, tc.input)
 
 			if tc.expectedErr {
@@ -483,9 +536,10 @@ func TestService_List(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore := NewMockStore(t)
+			mockMetrics := NewMockMetricsEmitter(t)
 			tc.setupMock(mockStore)
 
-			svc := NewService(mockStore)
+			svc := NewService(mockStore, mockMetrics)
 			entries, err := svc.List(ctx, tc.input)
 
 			if tc.expectedErr {
@@ -528,9 +582,10 @@ func TestService_Delete(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore := NewMockStore(t)
+			mockMetrics := NewMockMetricsEmitter(t)
 			tc.setupMock(mockStore)
 
-			svc := NewService(mockStore)
+			svc := NewService(mockStore, mockMetrics)
 			err := svc.Delete(ctx, driverID, raceID)
 
 			if tc.expectedErr {

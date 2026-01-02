@@ -5,8 +5,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jonsabados/saturdaysspinout/metrics"
 	"github.com/jonsabados/saturdaysspinout/store"
+	"github.com/rs/zerolog"
 )
+
+// MetricsEmitter defines the metrics interface needed by the journal service.
+type MetricsEmitter interface {
+	EmitCount(ctx context.Context, name string, count int) error
+}
 
 // Known tag prefixes with constrained values
 var knownTagPrefixes = map[string][]string{
@@ -76,12 +83,13 @@ type Store interface {
 
 // Service provides business logic for race journal operations.
 type Service struct {
-	store Store
+	store   Store
+	metrics MetricsEmitter
 }
 
 // NewService creates a new journal service.
-func NewService(store Store) *Service {
-	return &Service{store: store}
+func NewService(store Store, metrics MetricsEmitter) *Service {
+	return &Service{store: store, metrics: metrics}
 }
 
 // ValidateRaceExists checks if a race exists for the given driver.
@@ -115,6 +123,11 @@ func (s *Service) Save(ctx context.Context, input SaveInput) (*Entry, error) {
 
 	if err := s.store.SaveJournalEntry(ctx, entry); err != nil {
 		return nil, err
+	}
+
+	// Emit metric (includes both creates and updates for simplicity)
+	if err := s.metrics.EmitCount(ctx, metrics.JournalEntriesCreated, 1); err != nil {
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("failed to emit journal entry metric")
 	}
 
 	// Fetch the saved entry to get timestamps and race context

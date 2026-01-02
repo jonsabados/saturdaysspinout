@@ -161,7 +161,7 @@ func CreateAPI() http.Handler {
 	authService := auth.NewService(iRacingOAuthClient, jwtService, iRacingClient, driverStore)
 	tracksService := tracks.NewService(cachingClient)
 	carsService := cars.NewService(cachingClient)
-	journalService := journal.NewService(driverStore)
+	journalService := journal.NewService(driverStore, metricsClient)
 
 	authMiddleware := api.AuthMiddleware(jwtService)
 	developerMiddleware := api.EntitlementMiddleware("developer")
