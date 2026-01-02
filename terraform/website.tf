@@ -44,14 +44,31 @@ resource "aws_cloudfront_function" "www_redirect" {
     function handler(event) {
       var request = event.request;
       var host = request.headers.host.value;
+      var uri = request.uri;
       var targetHost = '${local.website_domain_name}';
 
+      // Redirect www to non-www
       if (host !== targetHost) {
         return {
           statusCode: 301,
           statusDescription: 'Moved Permanently',
           headers: {
-            location: { value: 'https://' + targetHost + request.uri }
+            location: { value: 'https://' + targetHost + uri }
+          }
+        };
+      }
+
+      // Rewrite directory requests to index.html
+      // e.g., /es/ -> /es/index.html
+      if (uri.endsWith('/')) {
+        request.uri = uri + 'index.html';
+      } else if (!uri.includes('.')) {
+        // Handle /es -> /es/ redirect for consistency
+        return {
+          statusCode: 301,
+          statusDescription: 'Moved Permanently',
+          headers: {
+            location: { value: 'https://' + targetHost + uri + '/' }
           }
         };
       }

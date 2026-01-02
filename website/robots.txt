@@ -1,0 +1,6 @@
+# Welcome, robots. Make yourselves at home.
+
+User-agent: *
+Allow: /
+
+Sitemap: https://saturdaysspinout.com/sitemap.xml

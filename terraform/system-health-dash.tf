@@ -28,7 +28,7 @@ resource "aws_cloudwatch_dashboard" "system_health" {
         type   = "metric"
         x      = 12
         y      = 0
-        width  = 12
+        width  = 6
         height = 6
         properties = {
           title  = "Driver Sessions Ingested"
@@ -41,6 +41,117 @@ resource "aws_cloudwatch_dashboard" "system_health" {
           yAxis = {
             left = {
               min = 0
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 18
+        y      = 0
+        width  = 6
+        height = 6
+        properties = {
+          title  = "Journal Entries Saved"
+          region = "us-east-1"
+          metrics = [
+            ["${local.workspace_prefix}SaturdaysSpinout", "journal_entries_created", { stat = "Sum", period = 300 }]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          yAxis = {
+            left = {
+              min = 0
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 6
+        width  = 12
+        height = 6
+        properties = {
+          title  = "Website Traffic (Requests)"
+          region = "us-east-1"
+          metrics = [
+            ["AWS/CloudFront", "Requests", "DistributionId", aws_cloudfront_distribution.website.id, "Region", "Global", { stat = "Sum", period = 300 }]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          yAxis = {
+            left = {
+              min = 0
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 6
+        width  = 12
+        height = 6
+        properties = {
+          title  = "App Traffic (Requests)"
+          region = "us-east-1"
+          metrics = [
+            ["AWS/CloudFront", "Requests", "DistributionId", aws_cloudfront_distribution.frontend.id, "Region", "Global", { stat = "Sum", period = 300 }]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          yAxis = {
+            left = {
+              min = 0
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 12
+        width  = 12
+        height = 6
+        properties = {
+          title  = "Website Error Rate (%)"
+          region = "us-east-1"
+          metrics = [
+            ["AWS/CloudFront", "TotalErrorRate", "DistributionId", aws_cloudfront_distribution.website.id, "Region", "Global", { stat = "Average", period = 300 }],
+            ["AWS/CloudFront", "4xxErrorRate", "DistributionId", aws_cloudfront_distribution.website.id, "Region", "Global", { stat = "Average", period = 300 }],
+            ["AWS/CloudFront", "5xxErrorRate", "DistributionId", aws_cloudfront_distribution.website.id, "Region", "Global", { stat = "Average", period = 300 }]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          yAxis = {
+            left = {
+              min = 0
+              max = 100
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 12
+        width  = 12
+        height = 6
+        properties = {
+          title  = "App Error Rate (%)"
+          region = "us-east-1"
+          metrics = [
+            ["AWS/CloudFront", "TotalErrorRate", "DistributionId", aws_cloudfront_distribution.frontend.id, "Region", "Global", { stat = "Average", period = 300 }],
+            ["AWS/CloudFront", "4xxErrorRate", "DistributionId", aws_cloudfront_distribution.frontend.id, "Region", "Global", { stat = "Average", period = 300 }],
+            ["AWS/CloudFront", "5xxErrorRate", "DistributionId", aws_cloudfront_distribution.frontend.id, "Region", "Global", { stat = "Average", period = 300 }]
+          ]
+          view    = "timeSeries"
+          stacked = false
+          yAxis = {
+            left = {
+              min = 0
+              max = 100
             }
           }
         }
