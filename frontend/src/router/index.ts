@@ -52,6 +52,12 @@ const router = createRouter({
       component: CarDetailsView,
       meta: { requiresAuth: true },
     },
+    {
+      path: '/journal',
+      name: 'journal',
+      component: () => import('@/views/JournalView.vue'),
+      meta: { requiresAuth: true, keepAlive: true },
+    },
   ],
 })
 

@@ -20,16 +20,6 @@ type Driver struct {
 	Entitlements          []string
 }
 
-type DriverNote struct {
-	DriverID  int64
-	Timestamp time.Time
-	SessionID int64
-	LapNumber int64
-	IsMistake bool
-	Category  string
-	Notes     string
-}
-
 // DriverSession represents drivers records of sessions (for use in list views of races)
 type DriverSession struct {
 	DriverID              int64
@@ -53,6 +43,19 @@ type DriverSession struct {
 	OldSubLevel           int
 	NewSubLevel           int
 	ReasonOut             string
+}
+
+// RaceJournalEntry represents a user's journal entry for a specific race.
+// Race context is fetched separately via DriverSession and joined at query time.
+type RaceJournalEntry struct {
+	DriverID  int64
+	RaceID    int64 // driver_race_id (unix timestamp of race start)
+	CreatedAt time.Time
+	UpdatedAt time.Time
+
+	// User-provided content
+	Notes string
+	Tags  []string // Unified tags: plain ("podium") or key:value ("sentiment:good")
 }
 
 type GlobalCounters struct {

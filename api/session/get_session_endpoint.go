@@ -64,6 +64,13 @@ func NewGetSessionEndpoint(client IRacingClient) http.Handler {
 			return
 		}
 
-		api.DoOKResponse(ctx, sessionResponseFromIRacing(result), w)
+		sessionClaims := api.SessionClaimsFromContext(ctx)
+		if sessionClaims == nil {
+			logger.Error().Msg("session claims not found in context")
+			api.DoErrorResponse(ctx, w)
+			return
+		}
+
+		api.DoOKResponse(ctx, sessionResponseFromIRacing(result, sessionClaims.IRacingUserID), w)
 	})
 }

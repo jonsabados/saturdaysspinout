@@ -29,8 +29,10 @@ func DoErrorResponse(ctx context.Context, writer http.ResponseWriter) {
 }
 
 type FieldError struct {
-	Field string `json:"field"`
-	Error string `json:"error"`
+	Field  string            `json:"field"`
+	Error  string            `json:"error,omitempty"`
+	Code   string            `json:"code,omitempty"`
+	Params map[string]string `json:"params,omitempty"`
 }
 
 type RequestErrors struct {
@@ -60,6 +62,18 @@ func (r RequestErrors) WithFieldError(field, error string) RequestErrors {
 		FieldErrors: append(slices.Clone(r.FieldErrors), FieldError{
 			Field: field,
 			Error: error,
+		}),
+		CorrelationID: r.CorrelationID,
+	}
+}
+
+func (r RequestErrors) WithFieldErrorCode(field, code string, params map[string]string) RequestErrors {
+	return RequestErrors{
+		Errors: r.Errors,
+		FieldErrors: append(slices.Clone(r.FieldErrors), FieldError{
+			Field:  field,
+			Code:   code,
+			Params: params,
 		}),
 		CorrelationID: r.CorrelationID,
 	}

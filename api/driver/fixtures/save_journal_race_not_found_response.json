@@ -1,0 +1,7 @@
+{
+  "errors": [],
+  "fieldErrors": [
+    {"field": "driver_race_id", "code": "race_not_found"}
+  ],
+  "correlationId": "test-correlation-id"
+}

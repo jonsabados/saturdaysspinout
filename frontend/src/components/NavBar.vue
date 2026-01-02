@@ -142,6 +142,7 @@ router.afterEach(() => {
     <div class="nav-links" :class="{ open: menuOpen }">
       <template v-if="session.isLoggedIn">
         <RouterLink to="/race-history" class="nav-link" @click="closeMenu">{{ t('nav.raceHistory') }}</RouterLink>
+        <RouterLink to="/journal" class="nav-link" @click="closeMenu">{{ t('nav.journal') }}</RouterLink>
 
         <!-- Desktop "More" dropdown - only show if user has access to any tools -->
         <div v-if="hasAnyTools" ref="moreDropdown" class="more-dropdown desktop-only">

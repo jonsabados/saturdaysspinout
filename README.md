@@ -42,10 +42,11 @@ flowchart TB
     Lambda --> DynamoDB["DynamoDB"]
     Lambda --> SecretsManager["Secrets Manager"]
     Lambda --> SQS["SQS<br/>(Race Ingestion)"]
+    Lambda --> iRacingAPI["iRacing API"]
 
     SQS --> IngestionLambda["Ingestion Lambda<br/>(Go)"]
     IngestionLambda --> DynamoDB
-    IngestionLambda --> iRacingAPI["iRacing Data API"]
+    IngestionLambda --> iRacingAPI
     IngestionLambda -->|"Push Updates"| WS_APIGW
 
     WS_APIGW["API Gateway<br/>(WebSocket)"] --> WS_Lambda["WebSocket Lambda<br/>(Go)"]

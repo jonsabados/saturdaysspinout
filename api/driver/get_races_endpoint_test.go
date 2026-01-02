@@ -182,7 +182,7 @@ func TestNewGetRacesEndpoint(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore := NewMockGetRacesStore(t)
 			for _, call := range tc.storeCalls {
-				mockStore.EXPECT().GetDriverSessions(mock.Anything, call.driverID, call.from, call.to).
+				mockStore.EXPECT().GetDriverSessionsByTimeRange(mock.Anything, call.driverID, call.from, call.to).
 					Return(call.sessions, call.err)
 			}
 

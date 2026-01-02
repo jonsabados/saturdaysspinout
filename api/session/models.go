@@ -4,11 +4,13 @@ import (
 	"time"
 
 	"github.com/jonsabados/saturdaysspinout/iracing"
+	"github.com/jonsabados/saturdaysspinout/store"
 )
 
 // SessionResponse is the API response for session results.
 type SessionResponse struct {
 	SubsessionID            int64              `json:"subsessionId"`
+	DriverRaceId            *int64             `json:"driverRaceId,omitempty"`
 	SessionID               int64              `json:"sessionId"`
 	AllowedLicenses         []AllowedLicense   `json:"allowedLicenses"`
 	AssociatedSubsessionIDs []int64            `json:"associatedSubsessionIds"`
@@ -276,7 +278,19 @@ type Weather struct {
 	WindValue                     int     `json:"windValue"`
 }
 
-func sessionResponseFromIRacing(sr *iracing.SessionResult) SessionResponse {
+// isDriverInSession checks if the given driver ID is present in any session result.
+func isDriverInSession(sr *iracing.SessionResult, driverID int64) bool {
+	for _, ssr := range sr.SessionResults {
+		for _, dr := range ssr.Results {
+			if dr.CustID == driverID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func sessionResponseFromIRacing(sr *iracing.SessionResult, currentDriverID int64) SessionResponse {
 	allowedLicenses := make([]AllowedLicense, len(sr.AllowedLicenses))
 	for i, al := range sr.AllowedLicenses {
 		allowedLicenses[i] = AllowedLicense{
@@ -329,8 +343,15 @@ func sessionResponseFromIRacing(sr *iracing.SessionResult) SessionResponse {
 		}
 	}
 
+	var driverRaceId *int64
+	if isDriverInSession(sr, currentDriverID) {
+		id := store.DriverRaceIDFromTime(sr.StartTime)
+		driverRaceId = &id
+	}
+
 	return SessionResponse{
 		SubsessionID:            sr.SubsessionID,
+		DriverRaceId:            driverRaceId,
 		SessionID:               sr.SessionID,
 		AllowedLicenses:         allowedLicenses,
 		AssociatedSubsessionIDs: sr.AssociatedSubsessionIDs,

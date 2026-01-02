@@ -16,6 +16,7 @@
   },
   "nav": {
     "raceHistory": "Race History",
+    "journal": "Journal",
     "tools": "Tools",
     "apiExplorer": "iRacing API Explorer",
     "copyBearerToken": "Copy Bearer Token",
@@ -178,5 +179,58 @@
     "paidContent": "Paid Content",
     "retired": "Retired",
     "lbs": "{weight} lbs"
+  },
+  "journal": {
+    "title": "Journal",
+    "howDidItGo": "How did this race go?",
+    "sentiment": {
+      "good": "Good",
+      "neutral": "Okay",
+      "bad": "Rough",
+      "aria": "How did this race feel?"
+    },
+    "notes": {
+      "label": "Notes",
+      "placeholder": "What happened? What did you learn?"
+    },
+    "actions": {
+      "save": "Save",
+      "cancel": "Cancel",
+      "edit": "Edit",
+      "delete": "Delete"
+    },
+    "empty": {
+      "title": "No journal entry yet",
+      "prompt": "Record your thoughts about this race"
+    },
+    "updated": "Updated {date}",
+    "saving": "Saving...",
+    "confirmDelete": "Are you sure you want to delete this journal entry?",
+    "page": {
+      "title": "Race Journal",
+      "loading": "Loading entries...",
+      "loadingMore": "Loading more...",
+      "noEntries": "No journal entries yet",
+      "noEntriesPrompt": "Add notes to your races from the Race History page to see them here.",
+      "noMatchingEntries": "No entries match your filters",
+      "noMatchingPrompt": "Try adjusting the date range or clearing filters.",
+      "viewRace": "View Race",
+      "dnf": "DNF",
+      "promoted": "Promoted",
+      "demoted": "Demoted"
+    },
+    "filters": {
+      "from": "From",
+      "to": "To",
+      "sentiment": "Sentiment",
+      "all": "All",
+      "dnfOnly": "DNF Only"
+    },
+    "card": {
+      "position": "P{start} → P{finish}",
+      "incidents": "{count}x",
+      "irating": "{change} iR",
+      "sr": "{change} SR"
+    }
   }
 }

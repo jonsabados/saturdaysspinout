@@ -26,99 +26,6 @@ func TestGetGlobalCounters_Empty(t *testing.T) {
 	assert.Equal(t, &GlobalCounters{}, counters)
 }
 
-func TestAddDriverNote_Success(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	note := DriverNote{
-		DriverID:  1,
-		Timestamp: time.Unix(1000, 0),
-		SessionID: 100,
-		LapNumber: 5,
-		IsMistake: true,
-		Category:  "braking",
-		Notes:     "Braked too late into turn 1",
-	}
-
-	err := s.AddDriverNote(ctx, note)
-	require.NoError(t, err)
-
-	// Verify by reading it back
-	notes, err := s.GetDriverNotes(ctx, 1, time.Unix(0, 0), time.Unix(2000, 0))
-	require.NoError(t, err)
-	require.Len(t, notes, 1)
-	assert.Equal(t, note, notes[0])
-}
-
-func TestAddDriverNote_DuplicateReturnsError(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	note := DriverNote{
-		DriverID:  1,
-		Timestamp: time.Unix(1000, 0),
-		SessionID: 100,
-		LapNumber: 5,
-		IsMistake: false,
-		Category:  "racing line",
-		Notes:     "Good apex",
-	}
-
-	err := s.AddDriverNote(ctx, note)
-	require.NoError(t, err)
-
-	// Try to insert again with same driver + timestamp
-	err = s.AddDriverNote(ctx, note)
-	assert.ErrorIs(t, err, ErrEntityAlreadyExists)
-}
-
-func TestGetDriverNotes_TimeRangeFiltering(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	// Insert notes at different times
-	notes := []DriverNote{
-		{DriverID: 1, Timestamp: time.Unix(1000, 0), SessionID: 1, LapNumber: 1, Category: "a", Notes: "note 1"},
-		{DriverID: 1, Timestamp: time.Unix(2000, 0), SessionID: 1, LapNumber: 2, Category: "b", Notes: "note 2"},
-		{DriverID: 1, Timestamp: time.Unix(3000, 0), SessionID: 1, LapNumber: 3, Category: "c", Notes: "note 3"},
-		{DriverID: 1, Timestamp: time.Unix(4000, 0), SessionID: 1, LapNumber: 4, Category: "d", Notes: "note 4"},
-	}
-	for _, n := range notes {
-		require.NoError(t, s.AddDriverNote(ctx, n))
-	}
-
-	// Query with inclusive start, exclusive end
-	got, err := s.GetDriverNotes(ctx, 1, time.Unix(2000, 0), time.Unix(4000, 0))
-	require.NoError(t, err)
-	assert.Equal(t, []DriverNote{notes[1], notes[2]}, got)
-}
-
-func TestGetDriverNotes_EmptyResult(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	notes, err := s.GetDriverNotes(ctx, 999, time.Unix(0, 0), time.Unix(1000, 0))
-	require.NoError(t, err)
-	assert.Empty(t, notes)
-}
-
-func TestGetDriverNotes_DifferentDriversIsolated(t *testing.T) {
-	s := setupTestStore(t)
-	ctx := context.Background()
-
-	note1 := DriverNote{DriverID: 1, Timestamp: time.Unix(1000, 0), SessionID: 1, LapNumber: 1, Category: "a", Notes: "driver 1 note"}
-	note2 := DriverNote{DriverID: 2, Timestamp: time.Unix(1000, 0), SessionID: 1, LapNumber: 1, Category: "b", Notes: "driver 2 note"}
-
-	require.NoError(t, s.AddDriverNote(ctx, note1))
-	require.NoError(t, s.AddDriverNote(ctx, note2))
-
-	// Query for driver 1 only
-	got, err := s.GetDriverNotes(ctx, 1, time.Unix(0, 0), time.Unix(2000, 0))
-	require.NoError(t, err)
-	require.Len(t, got, 1)
-	assert.Equal(t, note1, got[0])
-}
-
 func TestGetDriver_NotFound(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
@@ -792,12 +699,12 @@ func TestSaveDriverSessions_HappyPath(t *testing.T) {
 	err := s.SaveDriverSessions(ctx, sessions)
 	require.NoError(t, err)
 
-	// Verify GetDriverSessions
-	driverSessions, err := s.GetDriverSessions(ctx, 1001, sessionStartTime.Add(-time.Hour), sessionStartTime.Add(time.Hour))
+	// Verify GetDriverSessionsByTimeRange
+	driverSessions, err := s.GetDriverSessionsByTimeRange(ctx, 1001, sessionStartTime.Add(-time.Hour), sessionStartTime.Add(time.Hour))
 	require.NoError(t, err)
 	assert.Equal(t, []DriverSession{sessions[0]}, driverSessions)
 
-	driverSessions, err = s.GetDriverSessions(ctx, 1002, sessionStartTime.Add(-time.Hour), sessionStartTime.Add(time.Hour))
+	driverSessions, err = s.GetDriverSessionsByTimeRange(ctx, 1002, sessionStartTime.Add(-time.Hour), sessionStartTime.Add(time.Hour))
 	require.NoError(t, err)
 	assert.Equal(t, []DriverSession{sessions[1]}, driverSessions)
 }
@@ -862,16 +769,16 @@ func TestGetDriverSession_NotFound(t *testing.T) {
 	assert.Nil(t, got)
 }
 
-func TestGetDriverSessions_Empty(t *testing.T) {
+func TestGetDriverSessionsByTimeRange_Empty(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
-	sessions, err := s.GetDriverSessions(ctx, 99999, time.Unix(0, 0), time.Unix(9999999999, 0))
+	sessions, err := s.GetDriverSessionsByTimeRange(ctx, 99999, time.Unix(0, 0), time.Unix(9999999999, 0))
 	require.NoError(t, err)
 	assert.Empty(t, sessions)
 }
 
-func TestGetDriverSessions_DateRangeFiltering(t *testing.T) {
+func TestGetDriverSessionsByTimeRange_DateRangeFiltering(t *testing.T) {
 	s := setupTestStore(t)
 	ctx := context.Background()
 
@@ -898,12 +805,135 @@ func TestGetDriverSessions_DateRangeFiltering(t *testing.T) {
 	}
 
 	// Query middle range - expect newest first
-	sessions, err := s.GetDriverSessions(ctx, 1001, time.Unix(2000, 0), time.Unix(3000, 0))
+	sessions, err := s.GetDriverSessionsByTimeRange(ctx, 1001, time.Unix(2000, 0), time.Unix(3000, 0))
 	require.NoError(t, err)
 	assert.Equal(t, []DriverSession{
 		{DriverID: 1001, SubsessionID: 3, TrackID: 100, CarID: 101, StartTime: time.Unix(3000, 0), ReasonOut: "Running"},
 		{DriverID: 1001, SubsessionID: 2, TrackID: 100, CarID: 101, StartTime: time.Unix(2000, 0), ReasonOut: "Running"},
 	}, sessions)
+}
+
+func TestGetDriverSessions_EmptyStartTimes(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	sessions, err := s.GetDriverSessions(ctx, 12345, []time.Time{})
+	require.NoError(t, err)
+	assert.Empty(t, sessions)
+}
+
+func TestGetDriverSessions_SingleMatch(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	startTime := time.Unix(1000, 0)
+	require.NoError(t, s.SaveDriverSessions(ctx, []DriverSession{
+		{
+			DriverID:     1001,
+			SubsessionID: 100,
+			TrackID:      10,
+			CarID:        20,
+			StartTime:    startTime,
+			ReasonOut:    "Running",
+		},
+	}))
+
+	sessions, err := s.GetDriverSessions(ctx, 1001, []time.Time{startTime})
+	require.NoError(t, err)
+	require.Len(t, sessions, 1)
+	assert.Equal(t, int64(100), sessions[0].SubsessionID)
+}
+
+func TestGetDriverSessions_MultipleMatches(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	times := []time.Time{
+		time.Unix(1000, 0),
+		time.Unix(2000, 0),
+		time.Unix(3000, 0),
+	}
+
+	for i, startTime := range times {
+		require.NoError(t, s.SaveDriverSessions(ctx, []DriverSession{
+			{
+				DriverID:     1001,
+				SubsessionID: int64(100 + i),
+				TrackID:      10,
+				CarID:        20,
+				StartTime:    startTime,
+				ReasonOut:    "Running",
+			},
+		}))
+	}
+
+	sessions, err := s.GetDriverSessions(ctx, 1001, times)
+	require.NoError(t, err)
+	require.Len(t, sessions, 3)
+
+	// BatchGetItem doesn't guarantee order, so check by subsession ID
+	subsessionIDs := make(map[int64]bool)
+	for _, s := range sessions {
+		subsessionIDs[s.SubsessionID] = true
+	}
+	assert.True(t, subsessionIDs[100])
+	assert.True(t, subsessionIDs[101])
+	assert.True(t, subsessionIDs[102])
+}
+
+func TestGetDriverSessions_PartialMatches(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	existingTime := time.Unix(1000, 0)
+	require.NoError(t, s.SaveDriverSessions(ctx, []DriverSession{
+		{
+			DriverID:     1001,
+			SubsessionID: 100,
+			TrackID:      10,
+			CarID:        20,
+			StartTime:    existingTime,
+			ReasonOut:    "Running",
+		},
+	}))
+
+	// Query with one existing and one non-existing time
+	sessions, err := s.GetDriverSessions(ctx, 1001, []time.Time{existingTime, time.Unix(9999, 0)})
+	require.NoError(t, err)
+	require.Len(t, sessions, 1)
+	assert.Equal(t, int64(100), sessions[0].SubsessionID)
+}
+
+func TestGetDriverSessions_NoMatches(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Query for times that don't exist
+	sessions, err := s.GetDriverSessions(ctx, 1001, []time.Time{time.Unix(9999, 0), time.Unix(8888, 0)})
+	require.NoError(t, err)
+	assert.Empty(t, sessions)
+}
+
+func TestGetDriverSessions_DifferentDriver(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	startTime := time.Unix(1000, 0)
+	require.NoError(t, s.SaveDriverSessions(ctx, []DriverSession{
+		{
+			DriverID:     1001,
+			SubsessionID: 100,
+			TrackID:      10,
+			CarID:        20,
+			StartTime:    startTime,
+			ReasonOut:    "Running",
+		},
+	}))
+
+	// Query with correct time but wrong driver
+	sessions, err := s.GetDriverSessions(ctx, 9999, []time.Time{startTime})
+	require.NoError(t, err)
+	assert.Empty(t, sessions)
 }
 
 func TestGetOptionalStringSliceAttr_NotPresent(t *testing.T) {
@@ -994,7 +1024,7 @@ func TestDeleteDriverRaces_DeletesAllExceptInfo(t *testing.T) {
 	require.NoError(t, s.SaveDriverSessions(ctx, driverSessions))
 
 	// Verify driver has sessions
-	sessions, err := s.GetDriverSessions(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
+	sessions, err := s.GetDriverSessionsByTimeRange(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
 	require.NoError(t, err)
 	assert.Len(t, sessions, 1)
 
@@ -1016,7 +1046,7 @@ func TestDeleteDriverRaces_DeletesAllExceptInfo(t *testing.T) {
 	assert.Equal(t, int64(0), got.SessionCount)
 
 	// Verify sessions are deleted
-	sessions, err = s.GetDriverSessions(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
+	sessions, err = s.GetDriverSessionsByTimeRange(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
 	require.NoError(t, err)
 	assert.Empty(t, sessions)
 }
@@ -1127,7 +1157,7 @@ func TestDeleteDriverRaces_MultipleSessions(t *testing.T) {
 	}
 
 	// Verify driver has sessions
-	sessions, err := s.GetDriverSessions(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
+	sessions, err := s.GetDriverSessionsByTimeRange(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
 	require.NoError(t, err)
 	assert.Len(t, sessions, 30)
 
@@ -1136,7 +1166,7 @@ func TestDeleteDriverRaces_MultipleSessions(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify all sessions are deleted
-	sessions, err = s.GetDriverSessions(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
+	sessions, err = s.GetDriverSessionsByTimeRange(ctx, 12345, time.Unix(0, 0), time.Unix(9999999999, 0))
 	require.NoError(t, err)
 	assert.Empty(t, sessions)
 
@@ -1170,14 +1200,215 @@ func TestDeleteDriverRaces_IsolatedByDriver(t *testing.T) {
 	require.NoError(t, err)
 
 	// Driver 111 should have no sessions
-	sessions, err := s.GetDriverSessions(ctx, 111, time.Unix(0, 0), time.Unix(9999999999, 0))
+	sessions, err := s.GetDriverSessionsByTimeRange(ctx, 111, time.Unix(0, 0), time.Unix(9999999999, 0))
 	require.NoError(t, err)
 	assert.Empty(t, sessions)
 
 	// Driver 222 should still have their session
-	sessions, err = s.GetDriverSessions(ctx, 222, time.Unix(0, 0), time.Unix(9999999999, 0))
+	sessions, err = s.GetDriverSessionsByTimeRange(ctx, 222, time.Unix(0, 0), time.Unix(9999999999, 0))
 	require.NoError(t, err)
 	assert.Len(t, sessions, 1)
+}
+
+func TestSaveJournalEntry_Success(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	fixedTime := time.Unix(1000, 0)
+	s.now = func() time.Time { return fixedTime }
+
+	entry := RaceJournalEntry{
+		DriverID: 12345,
+		RaceID:   1700000000,
+		Notes:    "Great race! Finally nailed turn 3.",
+		Tags:     []string{"sentiment:good", "podium", "clean-race"},
+	}
+
+	err := s.SaveJournalEntry(ctx, entry)
+	require.NoError(t, err)
+
+	// Verify by reading it back
+	got, err := s.GetJournalEntry(ctx, 12345, 1700000000)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, entry.DriverID, got.DriverID)
+	assert.Equal(t, entry.RaceID, got.RaceID)
+	assert.Equal(t, entry.Notes, got.Notes)
+	assert.Equal(t, entry.Tags, got.Tags)
+	assert.Equal(t, fixedTime, got.CreatedAt)
+	assert.Equal(t, fixedTime, got.UpdatedAt)
+}
+
+func TestSaveJournalEntry_UpsertPreservesCreatedAt(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	createTime := time.Unix(1000, 0)
+	s.now = func() time.Time { return createTime }
+
+	entry := RaceJournalEntry{
+		DriverID: 12345,
+		RaceID:   1700000000,
+		Notes:    "Initial notes",
+		Tags:     []string{"sentiment:neutral"},
+	}
+
+	err := s.SaveJournalEntry(ctx, entry)
+	require.NoError(t, err)
+
+	// Update at a later time
+	updateTime := time.Unix(2000, 0)
+	s.now = func() time.Time { return updateTime }
+
+	entry.Notes = "Updated notes after reflection"
+	entry.Tags = []string{"sentiment:good", "lesson-learned"}
+
+	err = s.SaveJournalEntry(ctx, entry)
+	require.NoError(t, err)
+
+	// Verify created_at is preserved, updated_at is changed
+	got, err := s.GetJournalEntry(ctx, 12345, 1700000000)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "Updated notes after reflection", got.Notes)
+	assert.Equal(t, []string{"sentiment:good", "lesson-learned"}, got.Tags)
+	assert.Equal(t, createTime, got.CreatedAt, "CreatedAt should be preserved on upsert")
+	assert.Equal(t, updateTime, got.UpdatedAt, "UpdatedAt should be changed on upsert")
+}
+
+func TestSaveJournalEntry_EmptyTags(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	entry := RaceJournalEntry{
+		DriverID: 12345,
+		RaceID:   1700000000,
+		Notes:    "Just some notes, no tags",
+		Tags:     nil,
+	}
+
+	err := s.SaveJournalEntry(ctx, entry)
+	require.NoError(t, err)
+
+	got, err := s.GetJournalEntry(ctx, 12345, 1700000000)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	assert.Equal(t, "Just some notes, no tags", got.Notes)
+	assert.Empty(t, got.Tags)
+}
+
+func TestGetJournalEntry_NotFound(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	got, err := s.GetJournalEntry(ctx, 99999, 1700000000)
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}
+
+func TestGetJournalEntries_Empty(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	entries, err := s.GetJournalEntries(ctx, 99999, time.Unix(0, 0), time.Unix(9999999999, 0))
+	require.NoError(t, err)
+	assert.Empty(t, entries)
+}
+
+func TestGetJournalEntries_TimeRangeFiltering(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Insert entries at different times (race_id is unix timestamp)
+	entries := []RaceJournalEntry{
+		{DriverID: 1, RaceID: 1000, Notes: "race 1"},
+		{DriverID: 1, RaceID: 2000, Notes: "race 2"},
+		{DriverID: 1, RaceID: 3000, Notes: "race 3"},
+		{DriverID: 1, RaceID: 4000, Notes: "race 4"},
+	}
+	for _, e := range entries {
+		require.NoError(t, s.SaveJournalEntry(ctx, e))
+	}
+
+	// Query middle range (inclusive)
+	got, err := s.GetJournalEntries(ctx, 1, time.Unix(2000, 0), time.Unix(3000, 0))
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	// Results should be newest first
+	assert.Equal(t, int64(3000), got[0].RaceID)
+	assert.Equal(t, int64(2000), got[1].RaceID)
+}
+
+func TestGetJournalEntries_ReturnsNewestFirst(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Insert in random order
+	entries := []RaceJournalEntry{
+		{DriverID: 1, RaceID: 3000, Notes: "middle"},
+		{DriverID: 1, RaceID: 1000, Notes: "oldest"},
+		{DriverID: 1, RaceID: 5000, Notes: "newest"},
+	}
+	for _, e := range entries {
+		require.NoError(t, s.SaveJournalEntry(ctx, e))
+	}
+
+	got, err := s.GetJournalEntries(ctx, 1, time.Unix(0, 0), time.Unix(9999999999, 0))
+	require.NoError(t, err)
+	require.Len(t, got, 3)
+	assert.Equal(t, int64(5000), got[0].RaceID, "newest should be first")
+	assert.Equal(t, int64(3000), got[1].RaceID)
+	assert.Equal(t, int64(1000), got[2].RaceID, "oldest should be last")
+}
+
+func TestGetJournalEntries_IsolatedByDriver(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Insert entries for different drivers at same race time
+	require.NoError(t, s.SaveJournalEntry(ctx, RaceJournalEntry{DriverID: 111, RaceID: 1000, Notes: "driver 1 notes"}))
+	require.NoError(t, s.SaveJournalEntry(ctx, RaceJournalEntry{DriverID: 222, RaceID: 1000, Notes: "driver 2 notes"}))
+
+	// Query for driver 111 only
+	got, err := s.GetJournalEntries(ctx, 111, time.Unix(0, 0), time.Unix(9999999999, 0))
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	assert.Equal(t, "driver 1 notes", got[0].Notes)
+}
+
+func TestDeleteJournalEntry_Success(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	entry := RaceJournalEntry{
+		DriverID: 12345,
+		RaceID:   1700000000,
+		Notes:    "Entry to delete",
+	}
+	require.NoError(t, s.SaveJournalEntry(ctx, entry))
+
+	// Verify it exists
+	got, err := s.GetJournalEntry(ctx, 12345, 1700000000)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	// Delete it
+	err = s.DeleteJournalEntry(ctx, 12345, 1700000000)
+	require.NoError(t, err)
+
+	// Verify it's gone
+	got, err = s.GetJournalEntry(ctx, 12345, 1700000000)
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}
+
+func TestDeleteJournalEntry_NotFoundNoError(t *testing.T) {
+	s := setupTestStore(t)
+	ctx := context.Background()
+
+	// Deleting non-existent entry should not error (idempotent)
+	err := s.DeleteJournalEntry(ctx, 99999, 1700000000)
+	require.NoError(t, err)
 }
 
 func setupTestStore(t *testing.T) *DynamoStore {

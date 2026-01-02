@@ -16,6 +16,7 @@
   },
   "nav": {
     "raceHistory": "Historial de carreras",
+    "journal": "Diario",
     "tools": "Herramientas",
     "apiExplorer": "Explorador de API de iRacing",
     "copyBearerToken": "Copiar token de autenticación",
@@ -177,6 +178,59 @@
     "lapColumns": {
       "time": "Tiempo",
       "events": "Eventos"
+    }
+  },
+  "journal": {
+    "title": "Diario",
+    "howDidItGo": "¿Cómo te fue en esta carrera?",
+    "sentiment": {
+      "good": "Bien",
+      "neutral": "Regular",
+      "bad": "Difícil",
+      "aria": "¿Cómo se sintió esta carrera?"
+    },
+    "notes": {
+      "label": "Notas",
+      "placeholder": "¿Qué pasó? ¿Qué aprendiste?"
+    },
+    "actions": {
+      "save": "Guardar",
+      "cancel": "Cancelar",
+      "edit": "Editar",
+      "delete": "Eliminar"
+    },
+    "empty": {
+      "title": "Sin entrada de diario",
+      "prompt": "Registra tus pensamientos sobre esta carrera"
+    },
+    "updated": "Actualizado {date}",
+    "saving": "Guardando...",
+    "confirmDelete": "¿Estás seguro de que deseas eliminar esta entrada del diario?",
+    "page": {
+      "title": "Diario de carreras",
+      "loading": "Cargando entradas...",
+      "loadingMore": "Cargando más...",
+      "noEntries": "Aún no hay entradas en el diario",
+      "noEntriesPrompt": "Agrega notas a tus carreras desde la página de historial para verlas aquí.",
+      "noMatchingEntries": "No hay entradas que coincidan con tus filtros",
+      "noMatchingPrompt": "Intenta ajustar el rango de fechas o eliminar los filtros.",
+      "viewRace": "Ver carrera",
+      "dnf": "DNF",
+      "promoted": "Ascendido",
+      "demoted": "Descendido"
+    },
+    "filters": {
+      "from": "Desde",
+      "to": "Hasta",
+      "sentiment": "Sentimiento",
+      "all": "Todos",
+      "dnfOnly": "Solo DNF"
+    },
+    "card": {
+      "position": "P{start} → P{finish}",
+      "incidents": "{count}x",
+      "irating": "{change} iR",
+      "sr": "{change} SR"
     }
   }
 }
