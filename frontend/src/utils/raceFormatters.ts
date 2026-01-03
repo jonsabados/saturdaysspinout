@@ -1,4 +1,11 @@
 /**
+ * Convert 0-indexed position from iRacing API to 1-indexed for display
+ */
+export function toDisplayPosition(position: number): number {
+  return position + 1
+}
+
+/**
  * Format a lap time from iRacing's 1/10000ths of a second format
  */
 export function formatLapTime(timeInCentiseconds: number): string {

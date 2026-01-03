@@ -1,27 +1,26 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { toDisplayPosition } from '@/utils/raceFormatters'
 
 const props = defineProps<{
   position: number
   positionInClass: number
 }>()
 
-const displayPosition = computed(() => props.position + 1)
-const displayPositionInClass = computed(() => props.positionInClass + 1)
 const isMultiClass = computed(() => props.position !== props.positionInClass)
 
 const tooltipText = computed(() =>
-  `Overall: P${displayPosition.value}, Class: P${displayPositionInClass.value}`,
+  `Overall: P${toDisplayPosition(props.position)}, Class: P${toDisplayPosition(props.positionInClass)}`,
 )
 </script>
 
 <template>
   <span class="grid-position" :class="{ 'multi-class': isMultiClass }" :data-tooltip="tooltipText">
     <template v-if="isMultiClass">
-      {{ displayPositionInClass }}<span class="separator">/</span>{{ displayPosition }}
+      {{ toDisplayPosition(positionInClass) }}<span class="separator">/</span>{{ toDisplayPosition(position) }}
     </template>
     <template v-else>
-      {{ displayPosition }}
+      {{ toDisplayPosition(position) }}
     </template>
   </span>
 </template>

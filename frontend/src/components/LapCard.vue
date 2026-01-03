@@ -3,7 +3,7 @@ defineOptions({ name: 'LapCard' })
 
 import { useI18n } from 'vue-i18n'
 import type { LapData, Lap } from '@/api/client'
-import { formatLapTime } from '@/utils/raceFormatters'
+import { formatLapTime, toDisplayPosition } from '@/utils/raceFormatters'
 
 const { t } = useI18n()
 
@@ -63,7 +63,7 @@ function getDisplayEvents(lap: Lap): string[] {
     <div class="lap-card-header">
       <span class="drag-handle" :title="t('raceDetails.dragToReorder')">⋮⋮</span>
       <span class="lap-card-title">
-        P{{ finishPosition + 1 }} - {{ driverName }}
+        P{{ toDisplayPosition(finishPosition) }} - {{ driverName }}
       </span>
       <button
         class="lap-card-close"
