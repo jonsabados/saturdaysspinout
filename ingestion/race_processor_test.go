@@ -96,6 +96,11 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 	rangeEnd := memberSince.Add(time.Hour * 24 * 10) // default search window
 	lockDuration := 15 * time.Minute
 
+	// For continuation scenario (driver with RacesIngestedTo set)
+	racesIngestedTo := time.Date(2024, 6, 10, 12, 0, 0, 0, time.UTC)
+	continuationRangeBegin := racesIngestedTo.Add(-time.Hour * 4) // 4-hour buffer
+	continuationRangeEnd := now                                   // capped by now since rangeBegin + 10 days > now
+
 	testCases := []struct {
 		name string
 
@@ -469,6 +474,44 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 					NotifyConnectionID: "conn-123",
 				},
 			},
+		},
+		{
+			name: "continuation ingestion - applies 4-hour buffer to search range",
+			request: RaceIngestionRequest{
+				DriverID:           driverID,
+				IRacingAccessToken: "test-token",
+				NotifyConnectionID: "conn-123",
+			},
+			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
+			// No releaseIngestionLockCall - willBeUpToDate=true so lock expires naturally
+			getDriverCall: &getDriverCall{
+				driverID: driverID,
+				result: &store.Driver{
+					DriverID:        driverID,
+					MemberSince:     memberSince,
+					RacesIngestedTo: &racesIngestedTo, // continuing from previous ingestion
+				},
+			},
+			searchSeriesResultsCall: &searchSeriesResultsCall{
+				finishRangeBegin: continuationRangeBegin, // RacesIngestedTo - 4 hours
+				finishRangeEnd:   continuationRangeEnd,   // capped by now
+				result:           []iracing.SeriesResult{},
+			},
+			// No races found, so no session calls
+			getSessionResultsCalls:  []getSessionResultsCall{},
+			saveDriverSessionsCalls: []saveDriverSessionsCall{},
+			broadcastCalls: []broadcastCall{
+				{
+					driverID:   driverID,
+					actionType: "ingestionChunkComplete",
+					payload:    ChunkCompleteMsg{IngestedTo: continuationRangeEnd},
+				},
+			},
+			updateDriverRacesIngestedToCall: &updateDriverRacesIngestedToCall{
+				driverID:        driverID,
+				racesIngestedTo: continuationRangeEnd,
+			},
+			// No publishEventCall - willBeUpToDate=true since rangeEnd was capped by now
 		},
 	}
 
