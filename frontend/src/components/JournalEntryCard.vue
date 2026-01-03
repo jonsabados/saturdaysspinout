@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import type { JournalEntry } from '@/api/client'
 import { useTracksStore } from '@/stores/tracks'
 import { getSentiment } from '@/utils/tagHelpers'
+import { toDisplayPosition } from '@/utils/raceFormatters'
 import SentimentBadge from './SentimentBadge.vue'
 
 const props = defineProps<{
@@ -68,15 +69,7 @@ const licenseChange = computed(() => {
   return null
 })
 
-const notesPreview = computed(() => {
-  const notes = props.entry.notes
-  if (!notes) return null
-  // Show first 150 chars with ellipsis if longer
-  if (notes.length > 150) {
-    return notes.substring(0, 150).trim() + '...'
-  }
-  return notes
-})
+const hasNotes = computed(() => !!props.entry.notes)
 </script>
 
 <template>
@@ -93,7 +86,7 @@ const notesPreview = computed(() => {
 
     <div class="stats-row">
       <span class="stat position">
-        P{{ entry.race.startPosition }} → P{{ entry.race.finishPosition }}
+        P{{ toDisplayPosition(entry.race.startPosition) }} → P{{ toDisplayPosition(entry.race.finishPosition) }}
       </span>
       <span class="stat incidents">{{ entry.race.incidents }}x</span>
       <span class="stat irating" :class="{ positive: entry.race.newIrating > entry.race.oldIrating, negative: entry.race.newIrating < entry.race.oldIrating }">
@@ -110,7 +103,7 @@ const notesPreview = computed(() => {
       <span v-if="licenseChange === 'demoted'" class="badge badge-demoted">{{ t('journal.page.demoted') }}</span>
     </div>
 
-    <p v-if="notesPreview" class="notes-preview">{{ notesPreview }}</p>
+    <p v-if="hasNotes" class="notes">{{ entry.notes }}</p>
 
     <footer class="card-footer">
       <RouterLink :to="{ name: 'race-details', params: { subsessionId: entry.race.subsessionId } }" class="view-race-link">
@@ -218,11 +211,12 @@ const notesPreview = computed(() => {
   color: #ef4444;
 }
 
-.notes-preview {
+.notes {
   margin: 0;
   font-size: 0.875rem;
   color: var(--color-text-secondary);
   line-height: 1.5;
+  white-space: pre-wrap;
 }
 
 .card-footer {

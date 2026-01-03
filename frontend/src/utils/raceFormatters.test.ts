@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { formatLapTime, formatInterval } from './raceFormatters'
+import { toDisplayPosition, formatLapTime, formatInterval } from './raceFormatters'
+
+describe('toDisplayPosition', () => {
+  it('converts 0-indexed position to 1-indexed', () => {
+    expect(toDisplayPosition(0)).toBe(1)
+    expect(toDisplayPosition(1)).toBe(2)
+    expect(toDisplayPosition(9)).toBe(10)
+  })
+})
 
 describe('formatLapTime', () => {
   it('returns dash for zero', () => {

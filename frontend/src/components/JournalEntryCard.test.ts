@@ -105,9 +105,10 @@ describe('JournalEntryCard', () => {
     expect(badge.props('sentiment')).toBe('good')
   })
 
-  it('displays position change', () => {
+  it('displays position change (1-indexed from 0-indexed API data)', () => {
     const wrapper = mountComponent()
-    expect(wrapper.find('.stat.position').text()).toBe('P5 → P2')
+    // API returns 0-indexed positions (5, 2), display adds 1 for human-readable (P6, P3)
+    expect(wrapper.find('.stat.position').text()).toBe('P6 → P3')
   })
 
   it('displays incidents', () => {
@@ -129,20 +130,18 @@ describe('JournalEntryCard', () => {
     expect(sr.classes()).toContain('positive')
   })
 
-  it('displays notes preview', () => {
+  it('displays full notes without truncation', () => {
     const wrapper = mountComponent()
-    expect(wrapper.find('.notes-preview').text()).toBe(
+    expect(wrapper.find('.notes').text()).toBe(
       'Great race! Managed to stay clean and work through the field.'
     )
   })
 
-  it('truncates long notes', () => {
+  it('displays long notes in full', () => {
     const longNotes = 'A'.repeat(200)
     const entry = { ...mockEntry, notes: longNotes }
     const wrapper = mountComponent(entry)
-    const preview = wrapper.find('.notes-preview').text()
-    expect(preview.length).toBeLessThan(200)
-    expect(preview).toContain('...')
+    expect(wrapper.find('.notes').text()).toBe(longNotes)
   })
 
   it('shows DNF badge when reasonOut is not Running', () => {
