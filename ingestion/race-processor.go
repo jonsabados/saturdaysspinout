@@ -154,6 +154,9 @@ func (r *RaceProcessor) doIngestRaces(ctx context.Context, request RaceIngestion
 	rangeBegin := driver.MemberSince
 	if driver.RacesIngestedTo != nil {
 		rangeBegin = *driver.RacesIngestedTo
+		// give bit of a buffer, if ingestion is triggered after exiting a session its possible results
+		// will not be ready & then the user is stuck with missing races
+		rangeBegin = rangeBegin.Add(-time.Hour * 4)
 	}
 
 	willBeUpToDate := false
