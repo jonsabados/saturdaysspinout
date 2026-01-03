@@ -12,5 +12,5 @@ variable "route53_domain" {
 variable "race_ingestion_processor_concurrency" {
   description = "Reserved concurrent executions for the race ingestion processor Lambda"
   type        = number
-  default     = 5
+  default     = 15
 }
