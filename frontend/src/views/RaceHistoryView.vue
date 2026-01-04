@@ -129,6 +129,12 @@ async function handleRaceIngested(payload: unknown) {
     if (isRaceInDateRange(race.startTime) && !races.value.some((r) => r.id === race.id)) {
       races.value.push(race)
       totalMatching.value++
+      // Enable infinite scroll so table auto-fills during ingestion
+      userHasScrolled.value = true
+      // Refresh from API to get accurate pagination (other races may have been ingested)
+      if (races.value.length < pageSize && !loading.value) {
+        fetchRaces()
+      }
     }
   } catch (err) {
     console.error('[RaceHistory] Failed to fetch ingested race:', err)

@@ -476,6 +476,94 @@ func TestRaceProcessor_IngestRaces(t *testing.T) {
 			},
 		},
 		{
+			name: "old race - no raceIngested broadcast for races older than 30 days",
+			request: RaceIngestionRequest{
+				DriverID:           driverID,
+				IRacingAccessToken: "test-token",
+				NotifyConnectionID: "conn-123",
+			},
+			acquireIngestionLockCall: acquireIngestionLockCall{driverID: driverID, acquired: true},
+			releaseIngestionLockCall: &releaseIngestionLockCall{driverID: driverID},
+			getDriverCall: &getDriverCall{
+				driverID: driverID,
+				result: &store.Driver{
+					DriverID:    driverID,
+					MemberSince: memberSince,
+				},
+			},
+			searchSeriesResultsCall: &searchSeriesResultsCall{
+				finishRangeBegin: memberSince,
+				finishRangeEnd:   rangeEnd,
+				result: []iracing.SeriesResult{
+					{SubsessionID: subsessionID},
+				},
+			},
+			getSessionResultsCalls: []getSessionResultsCall{
+				{
+					subsessionID: subsessionID,
+					result: &iracing.SessionResult{
+						SubsessionID:    subsessionID,
+						SeriesID:        42,
+						SeriesName:      "Test Series",
+						LicenseCategory: "Road",
+						Track:           iracing.Track{TrackID: 123},
+						StartTime:       time.Date(2020, 1, 5, 18, 0, 0, 0, time.UTC), // 4+ years old, well beyond 30 days
+						SessionResults: []iracing.SimSessionResult{
+							{
+								SimsessionNumber: 0,
+								Results: []iracing.DriverResult{
+									{
+										CustID:           driverID,
+										DisplayName:      "Test Driver",
+										CarID:            10,
+										StartingPosition: 5,
+										FinishPosition:   3,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			getDriverSessionCalls: []getDriverSessionCall{
+				{
+					driverID:  driverID,
+					startTime: time.Date(2020, 1, 5, 18, 0, 0, 0, time.UTC),
+					result:    nil, // doesn't exist
+				},
+			},
+			saveDriverSessionsCalls: []saveDriverSessionsCall{
+				{
+					validate: func(t *testing.T, sessions []store.DriverSession) {
+						require.Len(t, sessions, 1)
+						assert.Equal(t, driverID, sessions[0].DriverID)
+					},
+				},
+			},
+			emitCountCalls: []emitCountCall{
+				{name: metrics.DriverSessionsIngested, count: 1},
+			},
+			// Key assertion: NO raceIngested broadcast for old races, only ingestionChunkComplete
+			broadcastCalls: []broadcastCall{
+				{
+					driverID:   driverID,
+					actionType: "ingestionChunkComplete",
+					payload:    ChunkCompleteMsg{IngestedTo: rangeEnd},
+				},
+			},
+			updateDriverRacesIngestedToCall: &updateDriverRacesIngestedToCall{
+				driverID:        driverID,
+				racesIngestedTo: rangeEnd,
+			},
+			publishEventCall: &publishEventCall{
+				event: RaceIngestionRequest{
+					DriverID:           driverID,
+					IRacingAccessToken: "test-token",
+					NotifyConnectionID: "conn-123",
+				},
+			},
+		},
+		{
 			name: "continuation ingestion - applies 4-hour buffer to search range",
 			request: RaceIngestionRequest{
 				DriverID:           driverID,
