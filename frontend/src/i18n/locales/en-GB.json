@@ -65,7 +65,7 @@
     "from": "From",
     "to": "To",
     "loadingRaces": "Loading races...",
-    "noRaces": "No races yet. Races will appear here as they are ingested.",
+    "noRaces": "No races yet. Recent races will appear here during sync.",
     "showingRaces": "Showing {shown} of {total} matching races",
     "loadingMore": "Loading more...",
     "viewDetails": "View race details",

@@ -32,7 +32,7 @@ const cooldownRemaining = computed(() => {
 const isOnCooldown = computed(() => cooldownRemaining.value > 0)
 
 const isLoading = computed(() => ingestionStore.status === 'loading')
-const isDisabled = computed(() => !sessionStore.isReady || isLoading.value || isOnCooldown.value)
+const isDisabled = computed(() => !sessionStore.isReady || !sessionStore.isConnected || isLoading.value || isOnCooldown.value)
 
 const syncStatusText = computed(() => {
   if (driverStore.syncedToFormatted) {

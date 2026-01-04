@@ -18,6 +18,7 @@ const DefaultRaceConsumptionConcurrency = 2
 
 const mainEventSessionNumber = 0
 const actionIngestionFailedStaleCredentials = "ingestionFailedStaleCredentials"
+const broadcastThreshold = time.Hour * 24 * 30
 
 type RaceReadyMsg struct {
 	RaceID int64 `json:"raceId"`
@@ -355,11 +356,13 @@ func (r *RaceProcessor) ingestRace(ctx context.Context, insertionMutex *sync.Mut
 		logger.Warn().Err(err).Msg("failed to emit driver sessions ingested metric")
 	}
 
-	raceID := store.DriverRaceIDFromTime(driverSession.StartTime)
-	if err := r.pusher.Broadcast(ctx, driver.DriverID, "raceIngested", RaceReadyMsg{raceID}); err != nil {
-		segmentErr = err
-		collectorChan <- collectionResult{err: fmt.Errorf("broadcasting race ingested: %w", err)}
-		return
+	if r.now().Sub(driverSession.StartTime) < broadcastThreshold {
+		raceID := store.DriverRaceIDFromTime(driverSession.StartTime)
+		if err := r.pusher.Broadcast(ctx, driver.DriverID, "raceIngested", RaceReadyMsg{raceID}); err != nil {
+			segmentErr = err
+			collectorChan <- collectionResult{err: fmt.Errorf("broadcasting race ingested: %w", err)}
+			return
+		}
 	}
 }
 
