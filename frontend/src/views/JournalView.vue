@@ -1,17 +1,20 @@
 <script setup lang="ts">
 defineOptions({ name: 'JournalView' })
 
-import { ref, computed, onMounted, onUnmounted, onActivated, onDeactivated, watch } from 'vue'
+import { ref, computed, onUnmounted, onActivated, onDeactivated, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useApiClient, type JournalEntry } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
+import { useDriverStore } from '@/stores/driver'
 import { getSentiment } from '@/utils/tagHelpers'
 import JournalFilters, { type JournalFiltersState } from '@/components/JournalFilters.vue'
 import JournalEntryCard from '@/components/JournalEntryCard.vue'
+import '@/assets/page-layout.css'
 
 const { t } = useI18n()
 const apiClient = useApiClient()
 const authStore = useAuthStore()
+const driverStore = useDriverStore()
 
 // State
 const entries = ref<JournalEntry[]>([])
@@ -28,9 +31,12 @@ const sentinelRef = ref<HTMLElement | null>(null)
 // Scroll position preservation
 const savedScrollY = ref(0)
 
-// Filters - default to last 90 days
+// Track if we've initialized dates from driver data
+const initialized = ref(false)
+
+// Filters - dates will be set when driver data loads
 const filters = ref<JournalFiltersState>({
-  from: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
+  from: new Date(), // Placeholder, will be set to memberSince
   to: new Date(),
   sentiment: null,
   showDNFOnly: false,
@@ -135,9 +141,29 @@ watch(sentinelRef, (el) => {
   }
 })
 
-onMounted(() => {
-  loadEntries(true)
-})
+// Initialize date filters when driver loads (once only)
+watch(
+  () => driverStore.driver,
+  (driver) => {
+    if (driver?.memberSince && !initialized.value) {
+      filters.value.from = new Date(driver.memberSince)
+      filters.value.to = new Date()
+      initialized.value = true
+      loadEntries(true)
+    }
+  },
+  { immediate: true }
+)
+
+// Reload when date filters change (user interaction only, not initialization)
+watch(
+  () => [filters.value.from, filters.value.to],
+  ([newFrom, newTo], [oldFrom, oldTo]) => {
+    if (initialized.value && (oldFrom !== newFrom || oldTo !== newTo)) {
+      loadEntries(true)
+    }
+  }
+)
 
 onUnmounted(() => {
   if (observer) {
@@ -157,18 +183,10 @@ onActivated(() => {
     }
   })
 })
-
-// Reload when date filters change
-watch(
-  () => [filters.value.from, filters.value.to],
-  () => {
-    loadEntries(true)
-  }
-)
 </script>
 
 <template>
-  <div class="journal-page">
+  <div class="journal-page page-view">
     <header class="page-header">
       <h1>{{ t('journal.page.title') }}</h1>
     </header>
@@ -216,53 +234,7 @@ watch(
 </template>
 
 <style scoped>
-.journal-page {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-.page-header {
-  margin-bottom: 1.5rem;
-}
-
-.page-header h1 {
-  margin: 0;
-  font-size: 1.75rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.loading-state,
-.error-state,
-.empty-state {
-  text-align: center;
-  padding: 3rem 2rem;
-  background: var(--color-bg-surface);
-  border: 1px solid var(--color-border);
-  border-radius: 8px;
-}
-
-.loading-state {
-  color: var(--color-text-muted);
-}
-
-.error-state {
-  color: #ef4444;
-}
-
-.empty-state h2 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-.empty-state p {
-  margin: 0;
-  color: var(--color-text-muted);
-}
-
+/* View-specific styles (shared styles from page-layout.css) */
 .journal-timeline {
   display: flex;
   flex-direction: column;
@@ -278,15 +250,5 @@ watch(
 .loading-more {
   color: var(--color-text-muted);
   font-size: 0.875rem;
-}
-
-@media (max-width: 768px) {
-  .journal-page {
-    padding: 1rem;
-  }
-
-  .page-header h1 {
-    font-size: 1.5rem;
-  }
 }
 </style>

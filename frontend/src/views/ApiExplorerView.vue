@@ -2,6 +2,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useApiClient } from '@/api/client'
+import '@/assets/page-layout.css'
 
 const { t } = useI18n()
 
@@ -110,7 +111,7 @@ onMounted(loadDocs)
 </script>
 
 <template>
-  <div class="api-explorer">
+  <div class="api-explorer page-view">
     <header class="explorer-header">
       <h1>{{ t('apiExplorer.title') }}</h1>
       <p class="subtitle">{{ t('apiExplorer.subtitle') }}</p>
@@ -233,11 +234,7 @@ onMounted(loadDocs)
 </template>
 
 <style scoped>
-.api-explorer {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
+/* View-specific styles (shared layout from page-layout.css) */
 .explorer-header {
   margin-bottom: 1.5rem;
 }

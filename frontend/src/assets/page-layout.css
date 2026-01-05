@@ -1,0 +1,126 @@
+/* Shared page layout styles for consistent view containers */
+
+.page-view {
+  padding: 2rem;
+}
+
+.page-view .page-header {
+  margin-bottom: 1.5rem;
+}
+
+.page-view .page-header h1 {
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+/* Common state containers */
+.page-view .loading-state,
+.page-view .error-state,
+.page-view .empty-state {
+  text-align: center;
+  padding: 3rem 2rem;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.page-view .loading-state {
+  color: var(--color-text-muted);
+}
+
+.page-view .error-state {
+  color: #ef4444;
+}
+
+.page-view .empty-state h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.page-view .empty-state p {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+/* Filter bar styles */
+.page-view .filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  align-items: flex-end;
+  padding: 1rem;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+}
+
+.page-view .filter-bar .filter-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-view .filter-bar .date-filters {
+  flex-direction: row;
+  gap: 1rem;
+}
+
+.page-view .filter-bar .filter-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.page-view .filter-bar .label-text {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.page-view .filter-bar .date-input {
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg-deep);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text-primary);
+  font-size: 0.875rem;
+  font-family: inherit;
+}
+
+.page-view .filter-bar .date-input:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.page-view .filter-bar .date-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+  .page-view {
+    padding: 1rem;
+  }
+
+  .page-view .page-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .page-view .filter-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-view {
+    padding: 0.75rem;
+  }
+}
