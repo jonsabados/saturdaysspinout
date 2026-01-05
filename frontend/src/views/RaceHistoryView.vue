@@ -3,8 +3,6 @@ defineOptions({ name: 'RaceHistoryView' })
 
 import { ref, computed, watch, onMounted, onUnmounted, onActivated } from 'vue'
 import { useRouter } from 'vue-router'
-import { VueDatePicker } from '@vuepic/vue-datepicker'
-import '@vuepic/vue-datepicker/dist/main.css'
 import { useI18n } from 'vue-i18n'
 import { useApiClient, type Race } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
@@ -15,6 +13,7 @@ import TrackCell from '@/components/TrackCell.vue'
 import SessionCell from '@/components/SessionCell.vue'
 import LicenseCell from '@/components/LicenseCell.vue'
 import RowActionButton from '@/components/RowActionButton.vue'
+import '@/assets/page-layout.css'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -41,6 +40,36 @@ const lastScrollSave = ref(0)
 const fromDate = ref<Date | null>(null)
 const toDate = ref<Date | null>(null)
 const initialized = ref(false)
+
+// Format date for input[type="date"]
+function formatDateForInput(date: Date | null): string {
+  if (!date) return ''
+  return date.toISOString().split('T')[0]
+}
+
+// Parse date from input[type="date"]
+function parseDateFromInput(value: string): Date {
+  return new Date(value + 'T00:00:00')
+}
+
+// Computed properties for native date input binding
+const fromDateStr = computed({
+  get: () => formatDateForInput(fromDate.value),
+  set: (value: string) => {
+    if (value) {
+      fromDate.value = parseDateFromInput(value)
+    }
+  },
+})
+
+const toDateStr = computed({
+  get: () => formatDateForInput(toDate.value),
+  set: (value: string) => {
+    if (value) {
+      toDate.value = parseDateFromInput(value)
+    }
+  },
+})
 
 function isRaceInDateRange(raceStartTime: string): boolean {
   if (!fromDate.value || !toDate.value) return false
@@ -231,7 +260,7 @@ onActivated(() => {
 </script>
 
 <template>
-  <div class="race-history">
+  <div class="race-history page-view">
     <div class="page-header">
       <h1>{{ t('raceHistory.title') }}</h1>
       <span v-if="driverStore.driver?.sessionCount" class="total-races">
@@ -239,28 +268,26 @@ onActivated(() => {
       </span>
     </div>
 
-    <div class="filters">
-      <div class="filter-group">
-        <label>{{ t('raceHistory.from') }}</label>
-        <VueDatePicker
-          v-model="fromDate"
-          :disabled="loading"
-          dark
-          auto-apply
-          :clearable="false"
-          hide-input-icon
-        />
-      </div>
-      <div class="filter-group">
-        <label>{{ t('raceHistory.to') }}</label>
-        <VueDatePicker
-          v-model="toDate"
-          :disabled="loading"
-          dark
-          auto-apply
-          :clearable="false"
-          hide-input-icon
-        />
+    <div class="filter-bar">
+      <div class="filter-group date-filters">
+        <label class="filter-label">
+          <span class="label-text">{{ t('raceHistory.from') }}</span>
+          <input
+            type="date"
+            v-model="fromDateStr"
+            :disabled="loading"
+            class="date-input"
+          />
+        </label>
+        <label class="filter-label">
+          <span class="label-text">{{ t('raceHistory.to') }}</span>
+          <input
+            type="date"
+            v-model="toDateStr"
+            :disabled="loading"
+            class="date-input"
+          />
+        </label>
       </div>
     </div>
 
@@ -320,10 +347,7 @@ onActivated(() => {
 </template>
 
 <style scoped>
-.race-history {
-  padding: 2rem;
-}
-
+/* View-specific styles (shared layout from page-layout.css) */
 .page-header {
   margin-bottom: 1.5rem;
 }
@@ -336,23 +360,6 @@ onActivated(() => {
 .total-races {
   font-size: 0.875rem;
   color: var(--color-text-muted);
-}
-
-.filters {
-  display: flex;
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.filter-group label {
-  font-size: 0.875rem;
-  color: var(--color-text-secondary);
 }
 
 .loading-state {

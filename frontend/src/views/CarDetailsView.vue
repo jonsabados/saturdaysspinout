@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useCarsStore } from '@/stores/cars'
+import '@/assets/page-layout.css'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -35,7 +36,7 @@ function goBack() {
 </script>
 
 <template>
-  <div class="car-details">
+  <div class="car-details page-view">
     <button class="back-button" @click="goBack">
       &larr; {{ t('common.back') }}
     </button>
@@ -116,12 +117,7 @@ function goBack() {
 </template>
 
 <style scoped>
-.car-details {
-  padding: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-
+/* View-specific styles (shared layout from page-layout.css) */
 .back-button {
   display: inline-flex;
   align-items: center;

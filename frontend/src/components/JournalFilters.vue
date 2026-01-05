@@ -95,7 +95,7 @@ function getSentimentLabel(sentiment: Sentiment): string {
 </script>
 
 <template>
-  <div class="journal-filters">
+  <div class="filter-bar journal-filters">
     <div class="filter-group date-filters">
       <label class="filter-label">
         <span class="label-text">{{ t('journal.filters.from') }}</span>
@@ -255,12 +255,8 @@ function getSentimentLabel(sentiment: Sentiment): string {
 @media (max-width: 768px) {
   .journal-filters {
     flex-direction: column;
-    align-items: stretch;
+    align-items: flex-start;
     gap: 1rem;
-  }
-
-  .date-filters {
-    flex-direction: column;
   }
 }
 </style>

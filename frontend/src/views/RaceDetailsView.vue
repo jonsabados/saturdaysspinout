@@ -14,6 +14,7 @@ import RowActionButton from '@/components/RowActionButton.vue'
 import JournalEntryForm from '@/components/JournalEntryForm.vue'
 import JournalEntryDisplay from '@/components/JournalEntryDisplay.vue'
 import { formatLapTime, formatInterval } from '@/utils/raceFormatters'
+import '@/assets/page-layout.css'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -344,7 +345,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="race-details">
+  <div class="race-details page-view">
     <button class="back-button" @click="goBack">
       &larr; {{ t('common.back') }}
     </button>
@@ -578,12 +579,7 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.race-details {
-  padding: 2rem;
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
+/* View-specific styles (shared layout from page-layout.css) */
 .back-button {
   display: inline-flex;
   align-items: center;
