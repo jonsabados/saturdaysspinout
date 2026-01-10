@@ -24,10 +24,12 @@ import (
 	"github.com/jonsabados/saturdaysspinout/api/driver"
 	"github.com/jonsabados/saturdaysspinout/api/health"
 	"github.com/jonsabados/saturdaysspinout/api/ingestion"
+	apiSeries "github.com/jonsabados/saturdaysspinout/api/series"
 	apiSession "github.com/jonsabados/saturdaysspinout/api/session"
 	apiTracks "github.com/jonsabados/saturdaysspinout/api/tracks"
 	"github.com/jonsabados/saturdaysspinout/cars"
 	"github.com/jonsabados/saturdaysspinout/event"
+	"github.com/jonsabados/saturdaysspinout/series"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
 
@@ -161,6 +163,7 @@ func CreateAPI() http.Handler {
 	authService := auth.NewService(iRacingOAuthClient, jwtService, iRacingClient, driverStore)
 	tracksService := tracks.NewService(cachingClient)
 	carsService := cars.NewService(cachingClient)
+	seriesService := series.NewService(cachingClient)
 	journalService := journal.NewService(driverStore, metricsClient)
 
 	authMiddleware := api.AuthMiddleware(jwtService)
@@ -174,6 +177,7 @@ func CreateAPI() http.Handler {
 		DriverRouter:    driver.NewRouter(driverStore, journalService, authMiddleware, developerMiddleware),
 		TracksRouter:    apiTracks.NewRouter(tracksService, authMiddleware),
 		CarsRouter:      apiCars.NewRouter(carsService, authMiddleware),
+		SeriesRouter:    apiSeries.NewRouter(seriesService, authMiddleware),
 		SessionRouter:   apiSession.NewRouter(iRacingClient, authMiddleware),
 	}
 

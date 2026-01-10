@@ -228,6 +228,8 @@ resource "aws_api_gateway_deployment" "api" {
     module.tracks_options,
     module.cars_get,
     module.cars_options,
+    module.series_get,
+    module.series_options,
     module.session_get,
     module.session_options,
     module.session_driver_laps_get,

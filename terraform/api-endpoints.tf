@@ -141,6 +141,13 @@ resource "aws_api_gateway_resource" "cars" {
   path_part   = "cars"
 }
 
+# /series
+resource "aws_api_gateway_resource" "series" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_rest_api.api.root_resource_id
+  path_part   = "series"
+}
+
 # /session
 resource "aws_api_gateway_resource" "session" {
   rest_api_id = aws_api_gateway_rest_api.api.id
@@ -437,6 +444,22 @@ module "cars_options" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id
   resource_id       = aws_api_gateway_resource.cars.id
+  http_method       = "OPTIONS"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "series_get" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.series.id
+  http_method       = "GET"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "series_options" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.series.id
   http_method       = "OPTIONS"
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }

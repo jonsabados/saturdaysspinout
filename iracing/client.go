@@ -593,3 +593,20 @@ func (c *Client) GetCarAssets(ctx context.Context, accessToken string) (map[int6
 
 	return assets, nil
 }
+
+// GetSeries fetches all series information from iRacing.
+func (c *Client) GetSeries(ctx context.Context, accessToken string) ([]SeriesInfo, error) {
+	endpoint := c.baseURL + "/data/series/get"
+
+	data, err := c.fetchLinkedData(ctx, accessToken, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	var series []SeriesInfo
+	if err := json.Unmarshal(data, &series); err != nil {
+		return nil, fmt.Errorf("parsing series response: %w", err)
+	}
+
+	return series, nil
+}
