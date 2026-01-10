@@ -127,6 +127,20 @@ resource "aws_api_gateway_resource" "driver_journal" {
   path_part   = "journal"
 }
 
+# /driver/{driver_id}/analytics
+resource "aws_api_gateway_resource" "driver_analytics" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.driver_id.id
+  path_part   = "analytics"
+}
+
+# /driver/{driver_id}/analytics/dimensions
+resource "aws_api_gateway_resource" "driver_analytics_dimensions" {
+  rest_api_id = aws_api_gateway_rest_api.api.id
+  parent_id   = aws_api_gateway_resource.driver_analytics.id
+  path_part   = "dimensions"
+}
+
 # /tracks
 resource "aws_api_gateway_resource" "tracks" {
   rest_api_id = aws_api_gateway_rest_api.api.id
@@ -412,6 +426,38 @@ module "driver_journal_options" {
   source            = "./api_endpoint"
   rest_api_id       = aws_api_gateway_rest_api.api.id
   resource_id       = aws_api_gateway_resource.driver_journal.id
+  http_method       = "OPTIONS"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "driver_analytics_get" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.driver_analytics.id
+  http_method       = "GET"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "driver_analytics_options" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.driver_analytics.id
+  http_method       = "OPTIONS"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "driver_analytics_dimensions_get" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.driver_analytics_dimensions.id
+  http_method       = "GET"
+  lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
+}
+
+module "driver_analytics_dimensions_options" {
+  source            = "./api_endpoint"
+  rest_api_id       = aws_api_gateway_rest_api.api.id
+  resource_id       = aws_api_gateway_resource.driver_analytics_dimensions.id
   http_method       = "OPTIONS"
   lambda_invoke_arn = aws_lambda_function.api_lambda.invoke_arn
 }

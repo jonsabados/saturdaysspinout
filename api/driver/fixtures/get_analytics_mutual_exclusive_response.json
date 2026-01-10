@@ -1,0 +1,13 @@
+{
+  "errors": [],
+  "fieldErrors": [
+    {
+      "field": "groupBy",
+      "code": "mutual_exclusive",
+      "params": {
+        "other": "granularity"
+      }
+    }
+  ],
+  "correlationId": "test-correlation-id"
+}

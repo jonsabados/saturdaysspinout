@@ -1,0 +1,76 @@
+{
+  "response": {
+    "summary": {
+      "raceCount": 3,
+      "iRatingStart": 1500,
+      "iRatingEnd": 1600,
+      "iRatingDelta": 100,
+      "iRatingGain": 130,
+      "iRatingLoss": 30,
+      "cpiStart": 3.0,
+      "cpiEnd": 3.2,
+      "cpiDelta": 0.2,
+      "cpiGain": 0.4,
+      "cpiLoss": 0.2,
+      "podiums": 2,
+      "top5Finishes": 2,
+      "wins": 1,
+      "avgFinishPosition": 3.6666666666666665,
+      "avgStartPosition": 6,
+      "positionsGained": 2.3333333333333335,
+      "totalIncidents": 6,
+      "avgIncidents": 2
+    },
+    "groupedBy": [
+      {
+        "seriesId": 42,
+        "summary": {
+          "raceCount": 2,
+          "iRatingStart": 1500,
+          "iRatingEnd": 1520,
+          "iRatingDelta": 20,
+          "iRatingGain": 50,
+          "iRatingLoss": 30,
+          "cpiStart": 3.0,
+          "cpiEnd": 2.9,
+          "cpiDelta": -0.1,
+          "cpiGain": 0.1,
+          "cpiLoss": 0.2,
+          "podiums": 1,
+          "top5Finishes": 1,
+          "wins": 0,
+          "avgFinishPosition": 5,
+          "avgStartPosition": 4,
+          "positionsGained": -1,
+          "totalIncidents": 6,
+          "avgIncidents": 3
+        }
+      },
+      {
+        "seriesId": 43,
+        "summary": {
+          "raceCount": 1,
+          "iRatingStart": 1520,
+          "iRatingEnd": 1600,
+          "iRatingDelta": 80,
+          "iRatingGain": 80,
+          "iRatingLoss": 0,
+          "cpiStart": 2.9,
+          "cpiEnd": 3.2,
+          "cpiDelta": 0.3,
+          "cpiGain": 0.3,
+          "cpiLoss": 0,
+          "podiums": 1,
+          "top5Finishes": 1,
+          "wins": 1,
+          "avgFinishPosition": 1,
+          "avgStartPosition": 10,
+          "positionsGained": 9,
+          "totalIncidents": 0,
+          "avgIncidents": 0
+        }
+      }
+    ]
+  },
+  "correlationId": "test-correlation-id"
+}

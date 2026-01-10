@@ -1,0 +1,26 @@
+{
+  "response": {
+    "summary": {
+      "raceCount": 3,
+      "iRatingStart": 1500,
+      "iRatingEnd": 1600,
+      "iRatingDelta": 100,
+      "iRatingGain": 130,
+      "iRatingLoss": 30,
+      "cpiStart": 3.0,
+      "cpiEnd": 3.2,
+      "cpiDelta": 0.2,
+      "cpiGain": 0.4,
+      "cpiLoss": 0.2,
+      "podiums": 2,
+      "top5Finishes": 2,
+      "wins": 1,
+      "avgFinishPosition": 3.6666666666666665,
+      "avgStartPosition": 6,
+      "positionsGained": 2.3333333333333335,
+      "totalIncidents": 6,
+      "avgIncidents": 2
+    }
+  },
+  "correlationId": "test-correlation-id"
+}

@@ -10,4 +10,11 @@ const (
 	PageQueryParam            = "page"
 	ResultsPerPageParam       = "resultsPerPage"
 	DefaultResultsPerPage int = 10
+
+	// Analytics query params
+	GroupByQueryParam     = "groupBy"
+	GranularityQueryParam = "granularity"
+	SeriesIDQueryParam    = "seriesId"
+	CarIDQueryParam       = "carId"
+	TrackIDQueryParam     = "trackId"
 )

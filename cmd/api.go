@@ -18,6 +18,7 @@ import (
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/google/uuid"
+	"github.com/jonsabados/saturdaysspinout/analytics"
 	apiAuth "github.com/jonsabados/saturdaysspinout/api/auth"
 	apiCars "github.com/jonsabados/saturdaysspinout/api/cars"
 	"github.com/jonsabados/saturdaysspinout/api/developer"
@@ -165,6 +166,7 @@ func CreateAPI() http.Handler {
 	carsService := cars.NewService(cachingClient)
 	seriesService := series.NewService(cachingClient)
 	journalService := journal.NewService(driverStore, metricsClient)
+	analyticsService := analytics.NewService(driverStore)
 
 	authMiddleware := api.AuthMiddleware(jwtService)
 	developerMiddleware := api.EntitlementMiddleware("developer")
@@ -174,7 +176,7 @@ func CreateAPI() http.Handler {
 		AuthRouter:      apiAuth.NewRouter(authService, authMiddleware),
 		DeveloperRouter: developer.NewRouter(iracing.NewDocClient(httpClient), authMiddleware, developerMiddleware),
 		IngestionRouter: ingestion.NewRouter(driverStore, raceIngestionDispatcher, authMiddleware),
-		DriverRouter:    driver.NewRouter(driverStore, journalService, authMiddleware, developerMiddleware),
+		DriverRouter:    driver.NewRouter(driverStore, journalService, analyticsService, authMiddleware, developerMiddleware),
 		TracksRouter:    apiTracks.NewRouter(tracksService, authMiddleware),
 		CarsRouter:      apiCars.NewRouter(carsService, authMiddleware),
 		SeriesRouter:    apiSeries.NewRouter(seriesService, authMiddleware),

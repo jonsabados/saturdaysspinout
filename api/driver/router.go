@@ -22,7 +22,7 @@ type JournalService interface {
 	DeleteJournalEntryStore
 }
 
-func NewRouter(raceStore Store, journalService JournalService, authMiddleware, developerMiddleware func(http.Handler) http.Handler) http.Handler {
+func NewRouter(raceStore Store, journalService JournalService, analyticsService AnalyticsService, authMiddleware, developerMiddleware func(http.Handler) http.Handler) http.Handler {
 	r := chi.NewRouter()
 	r.Use(authMiddleware)
 
@@ -36,6 +36,10 @@ func NewRouter(raceStore Store, journalService JournalService, authMiddleware, d
 		r.Put("/races/{driver_race_id}/journal", api.WrapWithSegment("saveJournalEntry", NewSaveJournalEndpoint(journalService)).ServeHTTP)
 		r.Delete("/races/{driver_race_id}/journal", api.WrapWithSegment("deleteJournalEntry", NewDeleteJournalEntryEndpoint(journalService)).ServeHTTP)
 		r.Get("/journal", api.WrapWithSegment("listJournalEntries", NewListJournalEntriesEndpoint(journalService)).ServeHTTP)
+
+		// Analytics endpoints
+		r.Get("/analytics/dimensions", api.WrapWithSegment("getAnalyticsDimensions", NewAnalyticsDimensionsEndpoint(analyticsService)).ServeHTTP)
+		r.Get("/analytics", api.WrapWithSegment("getAnalytics", NewAnalyticsEndpoint(analyticsService)).ServeHTTP)
 
 		// Developer-only endpoints
 		r.With(developerMiddleware).Delete("/races", api.WrapWithSegment("deleteDriverRaces", NewDeleteRacesEndpoint(raceStore)).ServeHTTP)
