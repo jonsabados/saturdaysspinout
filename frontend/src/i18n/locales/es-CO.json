@@ -16,6 +16,7 @@
   },
   "nav": {
     "raceHistory": "Historial de carreras",
+    "analytics": "Estadísticas",
     "journal": "Diario",
     "tools": "Herramientas",
     "apiExplorer": "Explorador de API de iRacing",
@@ -42,7 +43,8 @@
   "loading": {
     "title": "Preparando todo...",
     "loadingTracks": "Cargando circuitos",
-    "loadingCars": "Cargando autos"
+    "loadingCars": "Cargando autos",
+    "loadingSeries": "Cargando series"
   },
   "home": {
     "tagline": "Registro y análisis de carreras para iRacing",
@@ -178,6 +180,64 @@
     "lapColumns": {
       "time": "Tiempo",
       "events": "Eventos"
+    }
+  },
+  "analytics": {
+    "title": "Estadísticas",
+    "loading": "Cargando estadísticas...",
+    "noData": "No hay datos de carreras para el rango de fechas seleccionado.",
+    "selectDateRange": "Selecciona un rango de fechas para ver estadísticas.",
+    "from": "Desde",
+    "to": "Hasta",
+    "groupBy": "Agrupar por",
+    "groupByNone": "Ninguno",
+    "groupBySeries": "Serie",
+    "groupByCar": "Auto",
+    "groupByTrack": "Circuito",
+    "filterAll": "Seleccionar para filtrar...",
+    "discipline": "Disciplina",
+    "allDisciplines": "Todas las disciplinas",
+    "summary": {
+      "races": "Carreras",
+      "wins": "Victorias",
+      "podiums": "Podios",
+      "top5": "Top 5",
+      "avgFinish": "Prom Final",
+      "avgStart": "Prom Inicio",
+      "positionsGained": "Pos Ganadas",
+      "incidents": "Incidentes",
+      "avgIncidents": "Prom Inc",
+      "iRating": "iRating",
+      "iRatingDelta": "Cambio iRating",
+      "safetyRating": "Safety Rating",
+      "srDelta": "Cambio SR"
+    },
+    "columns": {
+      "group": "Grupo",
+      "races": "Carreras",
+      "wins": "Victorias",
+      "podiums": "Podios",
+      "avgFinish": "Prom Fin",
+      "iRatingDelta": "iR +/-",
+      "srDelta": "CPI +/-",
+      "incidents": "Inc"
+    },
+    "chart": {
+      "title": "Tendencias en el tiempo",
+      "iRating": "iRating",
+      "cpi": "CPI",
+      "incidents": "Incidentes",
+      "positions": "Posiciones",
+      "iRatingAxis": "Cambio iRating",
+      "cpiAxis": "Cambio CPI",
+      "incidentsAxis": "Prom Incidentes",
+      "day": "Día",
+      "week": "Semana",
+      "month": "Mes",
+      "year": "Año",
+      "loading": "Cargando datos del gráfico...",
+      "noData": "No hay datos de series temporales disponibles",
+      "disclaimer": "El iRating y CPI se registran por separado para cada disciplina. Las tendencias pueden ser engañosas al ver carreras de múltiples disciplinas."
     }
   },
   "journal": {

@@ -58,6 +58,12 @@ const router = createRouter({
       component: () => import('@/views/JournalView.vue'),
       meta: { requiresAuth: true, keepAlive: true },
     },
+    {
+      path: '/analytics',
+      name: 'analytics',
+      component: () => import('@/views/AnalyticsView.vue'),
+      meta: { requiresAuth: true, keepAlive: true },
+    },
   ],
 })
 

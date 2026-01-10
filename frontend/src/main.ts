@@ -8,6 +8,7 @@ import { i18n } from './i18n'
 import { setupWebSocketAutoConnect } from './stores/websocket'
 import { setupRaceIngestionListener } from './stores/raceIngestion'
 import { setupDriverListener } from './stores/driver'
+import { setupAnalyticsListener } from './stores/analytics'
 import './assets/variables.css'
 
 const pinia = createPinia()
@@ -24,3 +25,4 @@ app.mount('#app')
 setupWebSocketAutoConnect()
 setupRaceIngestionListener()
 setupDriverListener()
+setupAnalyticsListener()
