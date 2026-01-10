@@ -1,0 +1,14 @@
+{
+  "response": [
+    {
+      "id": 159,
+      "name": "Porsche 911 GT3 Cup",
+      "shortName": "Porsche Cup",
+      "category": "Road",
+      "logoUrl": "https://images-static.iracing.com/img/logos/series/porsche-cup-logo.png",
+      "active": true,
+      "official": true
+    }
+  ],
+  "correlationId": "test-correlation-id"
+}

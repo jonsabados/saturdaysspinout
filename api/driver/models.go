@@ -141,3 +141,66 @@ func journalEntryFromServiceEntry(entry journal.Entry) JournalEntry {
 	}
 	return result
 }
+
+// AnalyticsSummary contains aggregated statistics for a set of races.
+type AnalyticsSummary struct {
+	RaceCount int `json:"raceCount"`
+
+	// iRating
+	IRatingStart int `json:"iRatingStart"` // first race in range
+	IRatingEnd   int `json:"iRatingEnd"`   // last race in range
+	IRatingDelta int `json:"iRatingDelta"` // net change
+	IRatingGain  int `json:"iRatingGain"`  // sum of positive deltas
+	IRatingLoss  int `json:"iRatingLoss"`  // sum of negative deltas (as positive number)
+
+	// CPI (Compliance Points Index) - frontend formats as SR for display
+	CPIStart float64 `json:"cpiStart"` // CPI at first race
+	CPIEnd   float64 `json:"cpiEnd"`   // CPI at last race
+	CPIDelta float64 `json:"cpiDelta"` // net CPI change
+	CPIGain  float64 `json:"cpiGain"`  // sum of positive CPI deltas
+	CPILoss  float64 `json:"cpiLoss"`  // sum of negative CPI deltas
+
+	// Position stats
+	Podiums           int     `json:"podiums"`           // finish <= 3
+	Top5Finishes      int     `json:"top5Finishes"`      // finish <= 5
+	Wins              int     `json:"wins"`              // finish == 1
+	AvgFinishPosition float64 `json:"avgFinishPosition"` // average finish position
+	AvgStartPosition  float64 `json:"avgStartPosition"`  // average qualifying position
+	PositionsGained   float64 `json:"positionsGained"`   // avg (start - finish), positive = gained
+
+	// Incidents
+	TotalIncidents int     `json:"totalIncidents"`
+	AvgIncidents   float64 `json:"avgIncidents"`
+}
+
+// AnalyticsGroup represents aggregated stats for a specific dimension combination.
+type AnalyticsGroup struct {
+	// Dimension identifiers - populated based on groupBy dimensions
+	// Frontend uses reference endpoints (/series, /cars, /tracks) for names
+	SeriesID *int64 `json:"seriesId,omitempty"`
+	CarID    *int64 `json:"carId,omitempty"`
+	TrackID  *int64 `json:"trackId,omitempty"`
+
+	Summary AnalyticsSummary `json:"summary"`
+}
+
+// AnalyticsPeriod represents aggregated stats for a time period.
+type AnalyticsPeriod struct {
+	Period  string           `json:"period"` // Format based on granularity: "2024-01-15", "2024-W03", "2024-01", "2024"
+	Summary AnalyticsSummary `json:"summary"`
+}
+
+// AnalyticsResponse is the response for the analytics endpoint.
+type AnalyticsResponse struct {
+	Summary    AnalyticsSummary  `json:"summary"`
+	GroupedBy  []AnalyticsGroup  `json:"groupedBy,omitempty"`  // if groupBy specified
+	TimeSeries []AnalyticsPeriod `json:"timeSeries,omitempty"` // if granularity specified
+}
+
+// DimensionsResponse is the response for the dimensions endpoint.
+// Returns IDs only - frontend uses reference endpoints (/series, /cars, /tracks) for details.
+type DimensionsResponse struct {
+	Series []int64 `json:"series"`
+	Cars   []int64 `json:"cars"`
+	Tracks []int64 `json:"tracks"`
+}

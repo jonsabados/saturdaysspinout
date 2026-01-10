@@ -22,6 +22,7 @@ type RootRouters struct {
 	DriverRouter    http.Handler
 	TracksRouter    http.Handler
 	CarsRouter      http.Handler
+	SeriesRouter    http.Handler
 	SessionRouter   http.Handler
 }
 
@@ -56,6 +57,7 @@ func NewRestAPI(logger zerolog.Logger, correlationIDGenerator correlation.IDGene
 	r.Mount("/driver", routers.DriverRouter)
 	r.Mount("/tracks", routers.TracksRouter)
 	r.Mount("/cars", routers.CarsRouter)
+	r.Mount("/series", routers.SeriesRouter)
 	r.Mount("/session", routers.SessionRouter)
 
 	return xray.Handler(xray.NewFixedSegmentNamer("processHttpRequest"), r)

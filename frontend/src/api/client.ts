@@ -130,6 +130,21 @@ export interface CarsResponse {
   correlationId: string
 }
 
+export interface Series {
+  id: number
+  name: string
+  shortName: string
+  category: string
+  logoUrl: string
+  active: boolean
+  official: boolean
+}
+
+export interface SeriesResponse {
+  response: Series[]
+  correlationId: string
+}
+
 // Session/Race Details types
 export interface SessionAllowedLicense {
   groupName: string
@@ -487,6 +502,67 @@ export interface JournalEntriesResponse {
   correlationId: string
 }
 
+// Analytics types
+export interface AnalyticsSummary {
+  raceCount: number
+  iRatingStart: number
+  iRatingEnd: number
+  iRatingDelta: number
+  iRatingGain: number
+  iRatingLoss: number
+  cpiStart: number
+  cpiEnd: number
+  cpiDelta: number
+  cpiGain: number
+  cpiLoss: number
+  podiums: number
+  top5Finishes: number
+  wins: number
+  avgFinishPosition: number
+  avgStartPosition: number
+  positionsGained: number
+  totalIncidents: number
+  avgIncidents: number
+}
+
+export interface AnalyticsGroup {
+  seriesId?: number
+  carId?: number
+  trackId?: number
+  summary: AnalyticsSummary
+}
+
+export interface AnalyticsPeriod {
+  period: string
+  summary: AnalyticsSummary
+}
+
+export interface Analytics {
+  summary: AnalyticsSummary
+  groupedBy?: AnalyticsGroup[]
+  timeSeries?: AnalyticsPeriod[]
+}
+
+export type AnalyticsGranularity = 'day' | 'week' | 'month' | 'year'
+
+export interface AnalyticsResponse {
+  response: Analytics
+  correlationId: string
+}
+
+export interface AnalyticsDimensions {
+  series: number[]
+  cars: number[]
+  tracks: number[]
+}
+
+export interface AnalyticsDimensionsResponse {
+  response: AnalyticsDimensions
+  correlationId: string
+}
+
+export type AnalyticsGroupBy = 'series' | 'car' | 'track'
+
 export class ApiClient {
   private authStore: ReturnType<typeof useAuthStore>
   private sessionStore: ReturnType<typeof useSessionStore>
@@ -636,6 +712,10 @@ export class ApiClient {
     return this.fetch<CarsResponse>('/cars')
   }
 
+  async getSeries(): Promise<SeriesResponse> {
+    return this.fetch<SeriesResponse>('/series')
+  }
+
   async getSession(subsessionId: number): Promise<SessionResponse> {
     return this.fetch<SessionResponse>(`/session/${subsessionId}`)
   }
@@ -703,6 +783,93 @@ export class ApiClient {
       resultsPerPage: resultsPerPage.toString(),
     })
     return this.fetch<JournalEntriesResponse>(`/driver/${driverId}/journal?${params}`)
+  }
+
+  // Analytics methods
+
+  /**
+   * Get available dimensions (series, cars, tracks) for filtering analytics.
+   */
+  async getAnalyticsDimensions(
+    driverId: number,
+    startTime: Date,
+    endTime: Date
+  ): Promise<AnalyticsDimensions> {
+    const params = new URLSearchParams({
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    })
+    const data = await this.fetch<AnalyticsDimensionsResponse>(
+      `/driver/${driverId}/analytics/dimensions?${params}`
+    )
+    return data.response
+  }
+
+  /**
+   * Get analytics summary with optional grouping and filters.
+   */
+  async getAnalytics(
+    driverId: number,
+    startTime: Date,
+    endTime: Date,
+    options?: {
+      groupBy?: AnalyticsGroupBy[]
+      seriesIds?: number[]
+      carIds?: number[]
+      trackIds?: number[]
+    }
+  ): Promise<Analytics> {
+    const params = new URLSearchParams({
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+    })
+    if (options?.groupBy?.length) {
+      options.groupBy.forEach((g) => params.append('groupBy', g))
+    }
+    if (options?.seriesIds?.length) {
+      options.seriesIds.forEach((id) => params.append('seriesId', id.toString()))
+    }
+    if (options?.carIds?.length) {
+      options.carIds.forEach((id) => params.append('carId', id.toString()))
+    }
+    if (options?.trackIds?.length) {
+      options.trackIds.forEach((id) => params.append('trackId', id.toString()))
+    }
+    const data = await this.fetch<AnalyticsResponse>(`/driver/${driverId}/analytics?${params}`)
+    return data.response
+  }
+
+  /**
+   * Get analytics time series data with specified granularity.
+   * Note: Backend makes groupBy and granularity mutually exclusive, so this is a separate method.
+   */
+  async getAnalyticsTimeSeries(
+    driverId: number,
+    startTime: Date,
+    endTime: Date,
+    granularity: AnalyticsGranularity,
+    options?: {
+      seriesIds?: number[]
+      carIds?: number[]
+      trackIds?: number[]
+    }
+  ): Promise<Analytics> {
+    const params = new URLSearchParams({
+      startTime: startTime.toISOString(),
+      endTime: endTime.toISOString(),
+      granularity,
+    })
+    if (options?.seriesIds?.length) {
+      options.seriesIds.forEach((id) => params.append('seriesId', id.toString()))
+    }
+    if (options?.carIds?.length) {
+      options.carIds.forEach((id) => params.append('carId', id.toString()))
+    }
+    if (options?.trackIds?.length) {
+      options.trackIds.forEach((id) => params.append('trackId', id.toString()))
+    }
+    const data = await this.fetch<AnalyticsResponse>(`/driver/${driverId}/analytics?${params}`)
+    return data.response
   }
 }
 

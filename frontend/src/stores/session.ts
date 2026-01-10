@@ -4,6 +4,7 @@ import { useAuthStore } from './auth'
 import { useWebSocketStore } from './websocket'
 import { useTracksStore } from './tracks'
 import { useCarsStore } from './cars'
+import { useSeriesStore } from './series'
 
 export interface LoadingState {
   id: string
@@ -15,6 +16,7 @@ export const useSessionStore = defineStore('session', () => {
   const ws = useWebSocketStore()
   const tracksStore = useTracksStore()
   const carsStore = useCarsStore()
+  const seriesStore = useSeriesStore()
 
   const isLoggedIn = computed(() => auth.isLoggedIn)
 
@@ -25,6 +27,7 @@ export const useSessionStore = defineStore('session', () => {
   const loadingStates = computed<LoadingState[]>(() => [
     { id: 'tracks', done: tracksStore.isLoaded },
     { id: 'cars', done: carsStore.isLoaded },
+    { id: 'series', done: seriesStore.isLoaded },
   ])
 
   const pendingStates = computed(() => loadingStates.value.filter((s) => !s.done))
@@ -42,6 +45,7 @@ export const useSessionStore = defineStore('session', () => {
       if (loggedIn) {
         tracksStore.fetchTracks().catch((err) => console.error('[Session] Failed to load tracks:', err))
         carsStore.fetchCars().catch((err) => console.error('[Session] Failed to load cars:', err))
+        seriesStore.fetchSeries().catch((err) => console.error('[Session] Failed to load series:', err))
       }
     },
     { immediate: true }

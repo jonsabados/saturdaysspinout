@@ -13,6 +13,8 @@ type GlobalInfoCachingClient struct {
 
 	carsCache      func(ctx context.Context, accessToken string) ([]CarInfo, error)
 	carAssetsCache func(ctx context.Context, accessToken string) (map[int64]CarAssets, error)
+
+	seriesCache func(ctx context.Context, accessToken string) ([]SeriesInfo, error)
 }
 
 func NewGlobalInfoCachingClient(toWrap *Client, s3Client S3Client, bucketName string, s3CacheDuration time.Duration) *GlobalInfoCachingClient {
@@ -22,6 +24,7 @@ func NewGlobalInfoCachingClient(toWrap *Client, s3Client S3Client, bucketName st
 		trackAssetCache: WithMemoryCache(WithS3Cache(s3Client, bucketName, "trackAssets", s3CacheDuration, toWrap.GetTrackAssets)),
 		carsCache:       WithMemoryCache(WithS3Cache(s3Client, bucketName, "cars", s3CacheDuration, toWrap.GetCars)),
 		carAssetsCache:  WithMemoryCache(WithS3Cache(s3Client, bucketName, "carAssets", s3CacheDuration, toWrap.GetCarAssets)),
+		seriesCache:     WithMemoryCache(WithS3Cache(s3Client, bucketName, "series", s3CacheDuration, toWrap.GetSeries)),
 	}
 }
 
@@ -39,4 +42,8 @@ func (g *GlobalInfoCachingClient) GetCars(ctx context.Context, accessToken strin
 
 func (g *GlobalInfoCachingClient) GetCarAssets(ctx context.Context, accessToken string) (map[int64]CarAssets, error) {
 	return g.carAssetsCache(ctx, accessToken)
+}
+
+func (g *GlobalInfoCachingClient) GetSeries(ctx context.Context, accessToken string) ([]SeriesInfo, error) {
+	return g.seriesCache(ctx, accessToken)
 }

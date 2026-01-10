@@ -18,16 +18,19 @@ import (
 	"github.com/aws/aws-xray-sdk-go/v2/instrumentation/awsv2"
 	"github.com/aws/aws-xray-sdk-go/v2/xray"
 	"github.com/google/uuid"
+	"github.com/jonsabados/saturdaysspinout/analytics"
 	apiAuth "github.com/jonsabados/saturdaysspinout/api/auth"
 	apiCars "github.com/jonsabados/saturdaysspinout/api/cars"
 	"github.com/jonsabados/saturdaysspinout/api/developer"
 	"github.com/jonsabados/saturdaysspinout/api/driver"
 	"github.com/jonsabados/saturdaysspinout/api/health"
 	"github.com/jonsabados/saturdaysspinout/api/ingestion"
+	apiSeries "github.com/jonsabados/saturdaysspinout/api/series"
 	apiSession "github.com/jonsabados/saturdaysspinout/api/session"
 	apiTracks "github.com/jonsabados/saturdaysspinout/api/tracks"
 	"github.com/jonsabados/saturdaysspinout/cars"
 	"github.com/jonsabados/saturdaysspinout/event"
+	"github.com/jonsabados/saturdaysspinout/series"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/rs/zerolog"
 
@@ -161,7 +164,9 @@ func CreateAPI() http.Handler {
 	authService := auth.NewService(iRacingOAuthClient, jwtService, iRacingClient, driverStore)
 	tracksService := tracks.NewService(cachingClient)
 	carsService := cars.NewService(cachingClient)
+	seriesService := series.NewService(cachingClient)
 	journalService := journal.NewService(driverStore, metricsClient)
+	analyticsService := analytics.NewService(driverStore)
 
 	authMiddleware := api.AuthMiddleware(jwtService)
 	developerMiddleware := api.EntitlementMiddleware("developer")
@@ -171,9 +176,10 @@ func CreateAPI() http.Handler {
 		AuthRouter:      apiAuth.NewRouter(authService, authMiddleware),
 		DeveloperRouter: developer.NewRouter(iracing.NewDocClient(httpClient), authMiddleware, developerMiddleware),
 		IngestionRouter: ingestion.NewRouter(driverStore, raceIngestionDispatcher, authMiddleware),
-		DriverRouter:    driver.NewRouter(driverStore, journalService, authMiddleware, developerMiddleware),
+		DriverRouter:    driver.NewRouter(driverStore, journalService, analyticsService, authMiddleware, developerMiddleware),
 		TracksRouter:    apiTracks.NewRouter(tracksService, authMiddleware),
 		CarsRouter:      apiCars.NewRouter(carsService, authMiddleware),
+		SeriesRouter:    apiSeries.NewRouter(seriesService, authMiddleware),
 		SessionRouter:   apiSession.NewRouter(iRacingClient, authMiddleware),
 	}
 

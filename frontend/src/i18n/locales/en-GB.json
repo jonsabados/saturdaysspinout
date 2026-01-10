@@ -16,6 +16,7 @@
   },
   "nav": {
     "raceHistory": "Race History",
+    "analytics": "Analytics",
     "journal": "Journal",
     "tools": "Tools",
     "apiExplorer": "iRacing API Explorer",
@@ -42,7 +43,8 @@
   "loading": {
     "title": "Getting things ready...",
     "loadingTracks": "Loading tracks",
-    "loadingCars": "Loading cars"
+    "loadingCars": "Loading cars",
+    "loadingSeries": "Loading series"
   },
   "home": {
     "tagline": "Race logging and analysis for iRacing",
@@ -179,6 +181,64 @@
     "paidContent": "Paid Content",
     "retired": "Retired",
     "lbs": "{weight} lbs"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "loading": "Loading analytics...",
+    "noData": "No race data available for the selected date range.",
+    "selectDateRange": "Select a date range to view analytics.",
+    "from": "From",
+    "to": "To",
+    "groupBy": "Group by",
+    "groupByNone": "None",
+    "groupBySeries": "Series",
+    "groupByCar": "Car",
+    "groupByTrack": "Track",
+    "filterAll": "Select to filter...",
+    "discipline": "Discipline",
+    "allDisciplines": "All Disciplines",
+    "summary": {
+      "races": "Races",
+      "wins": "Wins",
+      "podiums": "Podiums",
+      "top5": "Top 5",
+      "avgFinish": "Avg Finish",
+      "avgStart": "Avg Start",
+      "positionsGained": "Pos Gained",
+      "incidents": "Incidents",
+      "avgIncidents": "Avg Inc",
+      "iRating": "iRating",
+      "iRatingDelta": "iRating Change",
+      "safetyRating": "Safety Rating",
+      "srDelta": "SR Change"
+    },
+    "columns": {
+      "group": "Group",
+      "races": "Races",
+      "wins": "Wins",
+      "podiums": "Podiums",
+      "avgFinish": "Avg Fin",
+      "iRatingDelta": "iR +/-",
+      "srDelta": "CPI +/-",
+      "incidents": "Inc"
+    },
+    "chart": {
+      "title": "Trends Over Time",
+      "iRating": "iRating",
+      "cpi": "CPI",
+      "incidents": "Incidents",
+      "positions": "Positions",
+      "iRatingAxis": "iRating Change",
+      "cpiAxis": "CPI Change",
+      "incidentsAxis": "Avg Incidents",
+      "day": "Day",
+      "week": "Week",
+      "month": "Month",
+      "year": "Year",
+      "loading": "Loading chart data...",
+      "noData": "No time series data available",
+      "disclaimer": "iRating and CPI are tracked separately per discipline. Trends may be misleading when viewing races across multiple disciplines."
+    }
   },
   "journal": {
     "title": "Journal",

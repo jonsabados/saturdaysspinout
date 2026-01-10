@@ -1,0 +1,8 @@
+{
+  "response": {
+    "series": [42, 43],
+    "cars": [10, 11],
+    "tracks": [100, 101]
+  },
+  "correlationId": "test-correlation-id"
+}

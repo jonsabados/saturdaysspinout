@@ -585,3 +585,22 @@ type TrackAssets struct {
 	TrackMap            string         `json:"track_map"`
 	TrackMapLayers      TrackMapLayers `json:"track_map_layers"`
 }
+
+// SeriesInfo contains series information from the /data/series/get endpoint.
+type SeriesInfo struct {
+	SeriesID       int    `json:"series_id"`
+	SeriesName     string `json:"series_name"`
+	SeriesShortName string `json:"series_short_name"`
+	CategoryID     int    `json:"category_id"`
+	Category       string `json:"category"`
+	Active         bool   `json:"active"`
+	Official       bool   `json:"official"`
+	FixedSetup     bool   `json:"fixed_setup"`
+	Logo           string `json:"logo"`
+	SearchFilters  string `json:"search_filters"`
+	MinStarters    int    `json:"min_starters"`
+	MaxStarters    int    `json:"max_starters"`
+	Oval           bool   `json:"oval"`
+	Road           bool   `json:"road"`
+	Dirt           bool   `json:"dirt"`
+}
