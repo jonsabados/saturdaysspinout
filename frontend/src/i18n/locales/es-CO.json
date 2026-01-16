@@ -197,6 +197,13 @@
     "filterAll": "Seleccionar para filtrar...",
     "discipline": "Disciplina",
     "allDisciplines": "Todas las disciplinas",
+    "disciplines": {
+      "formula_car": "Monoplaza",
+      "oval": "Óvalo",
+      "sports_car": "Autos Deportivos",
+      "dirt_oval": "Óvalo de Tierra",
+      "dirt_road": "Rally"
+    },
     "summary": {
       "races": "Carreras",
       "wins": "Victorias",
