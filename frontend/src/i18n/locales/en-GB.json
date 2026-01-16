@@ -197,6 +197,13 @@
     "filterAll": "Select to filter...",
     "discipline": "Discipline",
     "allDisciplines": "All Disciplines",
+    "disciplines": {
+      "formula_car": "Formula Car",
+      "oval": "Oval",
+      "sports_car": "Sports Car",
+      "dirt_oval": "Dirt Oval",
+      "dirt_road": "Dirt Road"
+    },
     "summary": {
       "races": "Races",
       "wins": "Wins",

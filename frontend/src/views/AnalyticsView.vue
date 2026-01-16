@@ -10,6 +10,7 @@ import { useTracksStore } from '@/stores/tracks'
 import { useSeriesStore } from '@/stores/series'
 import type { AnalyticsGroupBy } from '@/api/client'
 import AnalyticsChart from '@/components/AnalyticsChart.vue'
+import { toDisplayPosition } from '@/utils/raceFormatters'
 import '@/assets/page-layout.css'
 
 const { t } = useI18n()
@@ -24,41 +25,51 @@ const fromDate = ref<Date | null>(null)
 const toDate = ref<Date | null>(null)
 const initialized = ref(false)
 
-// Discipline filter (acts as a meta-filter that pre-selects series)
+// Discipline filter (acts as a meta-filter that pre-selects cars and series)
 const selectedDiscipline = ref<string | null>(null)
 
-// Compute available disciplines from series in dimensions
+// Compute available disciplines from car categories in dimensions
 const availableDisciplines = computed(() => {
-  const seriesIds = analyticsStore.dimensions?.series ?? []
+  const carIds = analyticsStore.dimensions?.cars ?? []
   const disciplines = new Set<string>()
-  for (const id of seriesIds) {
-    const series = seriesStore.getSeries(id)
-    if (series?.category) {
-      disciplines.add(series.category)
+  for (const id of carIds) {
+    const car = carsStore.getCar(id)
+    if (car?.categories) {
+      for (const category of car.categories) {
+        disciplines.add(category)
+      }
     }
   }
   return Array.from(disciplines).sort()
 })
 
-// When discipline changes, auto-filter by all series of that discipline
+// When discipline changes, auto-filter by cars and series of that discipline
 function onDisciplineChange(discipline: string | null) {
   selectedDiscipline.value = discipline
 
   if (!discipline) {
-    // Clear series filter when "All" is selected
+    // Clear filters when "All" is selected
+    analyticsStore.setCarFilter([])
     analyticsStore.setSeriesFilter([])
   } else {
+    // Filter to only cars that have this category
+    const carIds = analyticsStore.dimensions?.cars ?? []
+    const filteredCarIds = carIds.filter((id) => {
+      const car = carsStore.getCar(id)
+      return car?.categories?.includes(discipline)
+    })
+    analyticsStore.setCarFilter(filteredCarIds)
+
     // Filter to only series from this discipline
     const seriesIds = analyticsStore.dimensions?.series ?? []
-    const filteredIds = seriesIds.filter((id) => {
+    const filteredSeriesIds = seriesIds.filter((id) => {
       const series = seriesStore.getSeries(id)
       return series?.category === discipline
     })
-    analyticsStore.setSeriesFilter(filteredIds)
+    analyticsStore.setSeriesFilter(filteredSeriesIds)
   }
 
-  // Clear car and track filters since they may not apply to the new discipline
-  analyticsStore.setCarFilter([])
+  // Clear track filter since it may not apply to the new discipline
   analyticsStore.setTrackFilter([])
 
   if (analyticsStore.dateRange) {
@@ -394,7 +405,7 @@ function getGroupByLabel(dimension: AnalyticsGroupBy): string {
           >
             <option value="">{{ t('analytics.allDisciplines') }}</option>
             <option v-for="disc in availableDisciplines" :key="disc" :value="disc">
-              {{ disc }}
+              {{ t(`analytics.disciplines.${disc}`) }}
             </option>
           </select>
         </label>
@@ -612,12 +623,12 @@ function getGroupByLabel(dimension: AnalyticsGroupBy): string {
         </div>
 
         <div class="stat-card">
-          <div class="stat-value">{{ formatNumber(summary.avgFinishPosition, 1) }}</div>
+          <div class="stat-value">{{ formatNumber(toDisplayPosition(summary.avgFinishPosition), 1) }}</div>
           <div class="stat-label">{{ t('analytics.summary.avgFinish') }}</div>
         </div>
 
         <div class="stat-card">
-          <div class="stat-value">{{ formatNumber(summary.avgStartPosition, 1) }}</div>
+          <div class="stat-value">{{ formatNumber(toDisplayPosition(summary.avgStartPosition), 1) }}</div>
           <div class="stat-label">{{ t('analytics.summary.avgStart') }}</div>
         </div>
 
@@ -692,7 +703,7 @@ function getGroupByLabel(dimension: AnalyticsGroupBy): string {
                 <td>{{ group.summary.raceCount }}</td>
                 <td>{{ group.summary.wins }}</td>
                 <td>{{ group.summary.podiums }}</td>
-                <td>{{ formatNumber(group.summary.avgFinishPosition, 1) }}</td>
+                <td>{{ formatNumber(toDisplayPosition(group.summary.avgFinishPosition), 1) }}</td>
                 <td :class="getDeltaClass(group.summary.iRatingDelta)">
                   {{ formatDelta(group.summary.iRatingDelta) }}
                 </td>
