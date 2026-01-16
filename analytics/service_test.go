@@ -130,7 +130,7 @@ func TestService_GetAnalytics(t *testing.T) {
 			OldCPI:         2.9,
 			NewCPI:         3.2,
 			StartPosition:  10,
-			FinishPosition: 1,
+			FinishPosition: 0, // 0-based: 0 = 1st place (win)
 			Incidents:      0,
 		},
 	}
@@ -341,7 +341,7 @@ func TestComputeSummary(t *testing.T) {
 					OldIRating:     1500,
 					NewIRating:     1600,
 					StartPosition:  3,
-					FinishPosition: 1,
+					FinishPosition: 0, // 0-based: 0 = 1st place (win)
 				},
 			},
 			expected: Summary{
@@ -353,9 +353,9 @@ func TestComputeSummary(t *testing.T) {
 				Podiums:           1,
 				Top5Finishes:      1,
 				Wins:              1,
-				AvgFinishPosition: 1.0,
+				AvgFinishPosition: 0.0,
 				AvgStartPosition:  3.0,
-				PositionsGained:   2.0,
+				PositionsGained:   3.0,
 			},
 		},
 		{

@@ -279,14 +279,14 @@ func computeSummary(sessions []store.DriverSession) Summary {
 			summary.CPILoss += -cpiDelta // store as positive
 		}
 
-		// Position stats
-		if session.FinishPosition <= 3 {
+		// Position stats (iRacing uses 0-based positions: 0=1st, 1=2nd, etc.)
+		if session.FinishPosition <= 2 {
 			summary.Podiums++
 		}
-		if session.FinishPosition <= 5 {
+		if session.FinishPosition <= 4 {
 			summary.Top5Finishes++
 		}
-		if session.FinishPosition == 1 {
+		if session.FinishPosition == 0 {
 			summary.Wins++
 		}
 
