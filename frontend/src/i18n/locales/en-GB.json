@@ -71,6 +71,9 @@
     "showingRaces": "Showing {shown} of {total} matching races",
     "loadingMore": "Loading more...",
     "viewDetails": "View race details",
+    "actions": {
+      "view": "View"
+    },
     "columns": {
       "date": "Date",
       "session": "Session",
@@ -102,6 +105,9 @@
     "precipitation": "Precipitation",
     "loadLaps": "Load lap times",
     "dragToReorder": "Drag to reorder",
+    "actions": {
+      "laps": "Laps"
+    },
     "columns": {
       "pos": "Pos",
       "driver": "Driver",

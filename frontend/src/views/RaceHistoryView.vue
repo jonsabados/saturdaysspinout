@@ -319,6 +319,7 @@ onActivated(() => {
             <td class="col-actions">
               <RowActionButton
                 direction="right"
+                :label="t('raceHistory.actions.view')"
                 :title="t('raceHistory.viewDetails')"
                 @click="viewRaceDetails(race.subsessionId)"
               />
@@ -445,11 +446,6 @@ onActivated(() => {
 
 .stat-loss {
   color: #ef4444;
-}
-
-.col-actions {
-  width: 32px;
-  padding: 0.25rem 0.5rem !important;
 }
 
 /* Mobile styles */
