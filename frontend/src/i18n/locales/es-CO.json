@@ -71,6 +71,9 @@
     "showingRaces": "Mostrando {shown} de {total} carreras",
     "loadingMore": "Cargando más...",
     "viewDetails": "Ver detalles de la carrera",
+    "actions": {
+      "view": "Ver"
+    },
     "columns": {
       "date": "Fecha",
       "session": "Sesión",
@@ -166,6 +169,9 @@
     "precipitation": "Precipitación",
     "loadLaps": "Cargar tiempos de vuelta",
     "dragToReorder": "Arrastrar para reordenar",
+    "actions": {
+      "laps": "Vueltas"
+    },
     "columns": {
       "pos": "Pos",
       "driver": "Piloto",

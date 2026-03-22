@@ -503,6 +503,7 @@ onMounted(async () => {
                   <RowActionButton
                     :direction="isLapsLoaded(driver.custId) ? 'down' : 'right'"
                     :loading="isLapsLoading(driver.custId)"
+                    :label="t('raceDetails.actions.laps')"
                     :title="t('raceDetails.loadLaps')"
                     @click="toggleLaps(driver)"
                   />
@@ -898,12 +899,6 @@ onMounted(async () => {
 .weather-value {
   font-size: 1rem;
   color: var(--color-text-primary);
-}
-
-/* Actions Column */
-.col-actions {
-  width: 32px;
-  padding: 0.25rem 0.5rem !important;
 }
 
 .results-table tbody tr.laps-loaded {

@@ -102,6 +102,13 @@
   cursor: not-allowed;
 }
 
+/* Table action columns - shrink to fit content */
+.col-actions {
+  width: 1%;
+  white-space: nowrap;
+  padding: 0.5rem 0.625rem !important;
+}
+
 /* Mobile responsive */
 @media (max-width: 768px) {
   .page-view {
