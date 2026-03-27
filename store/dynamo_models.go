@@ -358,12 +358,13 @@ func driverSessionFromAttributeMap(driverID int64, item map[string]types.Attribu
 
 // journalEntryModel represents a journal entry for a race (driver#<id> / journal#<race_id>)
 type journalEntryModel struct {
-	driverID  int64
-	raceID    int64
-	createdAt int64
-	updatedAt int64
-	notes     string
-	tags      []string
+	driverID    int64
+	raceID      int64
+	createdAt   int64
+	updatedAt   int64
+	notes       string
+	tags        []string
+	replayVideo string
 }
 
 func (j journalEntryModel) toAttributeMap() map[string]types.AttributeValue {
@@ -382,6 +383,9 @@ func (j journalEntryModel) toAttributeMap() map[string]types.AttributeValue {
 			tagValues[i] = &types.AttributeValueMemberS{Value: t}
 		}
 		m["tags"] = &types.AttributeValueMemberL{Value: tagValues}
+	}
+	if j.replayVideo != "" {
+		m["replay_video"] = &types.AttributeValueMemberS{Value: j.replayVideo}
 	}
 	return m
 }
@@ -412,13 +416,19 @@ func journalEntryFromAttributeMap(item map[string]types.AttributeValue) (*RaceJo
 		return nil, err
 	}
 
+	replayVideo := ""
+	if rv, ok := item["replay_video"].(*types.AttributeValueMemberS); ok {
+		replayVideo = rv.Value
+	}
+
 	return &RaceJournalEntry{
-		DriverID:  driverID,
-		RaceID:    raceID,
-		CreatedAt: time.Unix(createdAt, 0),
-		UpdatedAt: time.Unix(updatedAt, 0),
-		Notes:     notes,
-		Tags:      tags,
+		DriverID:    driverID,
+		RaceID:      raceID,
+		CreatedAt:   time.Unix(createdAt, 0),
+		UpdatedAt:   time.Unix(updatedAt, 0),
+		Notes:       notes,
+		Tags:        tags,
+		ReplayVideo: replayVideo,
 	}, nil
 }
 

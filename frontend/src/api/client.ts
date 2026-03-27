@@ -8,6 +8,23 @@ export interface ApiError {
   correlationId?: string
 }
 
+export interface FieldError {
+  field: string
+  code: string
+  params?: Record<string, string>
+}
+
+export class ValidationError extends Error {
+  fieldErrors: FieldError[]
+  correlationId?: string
+
+  constructor(fieldErrors: FieldError[], correlationId?: string) {
+    super('Validation failed')
+    this.fieldErrors = fieldErrors
+    this.correlationId = correlationId
+  }
+}
+
 export interface Race {
   id: number
   subsessionId: number
@@ -483,12 +500,14 @@ export interface JournalEntry {
   updatedAt: string
   notes: string
   tags: string[]
+  replayVideo?: string
   race: JournalRaceSummary
 }
 
 export interface JournalEntryRequest {
   notes: string
   tags: string[]
+  replayVideo?: string
 }
 
 export interface JournalEntryResponse {
@@ -644,7 +663,10 @@ export class ApiClient {
 
   private async parseError(response: Response): Promise<Error> {
     try {
-      const data = (await response.json()) as ApiError
+      const data = (await response.json()) as ApiError & { errors?: string[]; fieldErrors?: FieldError[] }
+      if (response.status === 400 && data.fieldErrors && data.fieldErrors.length > 0) {
+        return new ValidationError(data.fieldErrors, data.correlationId)
+      }
       let message = data.message || `Request failed: ${response.status}`
       if (data.correlationId) {
         message += ` (Correlation ID: ${data.correlationId})`

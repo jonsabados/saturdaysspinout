@@ -154,6 +154,7 @@ The persistence layer uses DynamoDB with a single-table design.
 | `ingestion_lock` | Distributed lock for race ingestion | locked_until, ttl                                                                                                                                                                                  |
 | `ws#<connectionId>` | WebSocket connection | connected_at, ttl                                                                                                                                                                                  |
 | `session#<timestamp>` | Race participation (list view) | subsession_id, track_id, series_id, series_name, car_id, start_time, start_position, start_position_in_class, finish_position, finish_position_in_class, incidents, old_cpi, new_cpi, old_irating, new_irating, old_license_level, new_license_level, old_sub_level, new_sub_level, reason_out |
+| `journal#<race_id>` | Journal entry for a race | driver_id, race_id, notes, tags, replay_video (optional), created_at, updated_at |
 
 #### `websocket#<id>` partition
 

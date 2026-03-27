@@ -4,7 +4,7 @@ defineOptions({ name: 'RaceDetailsView' })
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useApiClient, type Session, type SessionSimResult, type SessionDriverResult, type LapData, type JournalEntry } from '@/api/client'
+import { useApiClient, ValidationError, type Session, type SessionSimResult, type SessionDriverResult, type LapData, type JournalEntry } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
 import { useTracksStore } from '@/stores/tracks'
 import GridPosition from '@/components/GridPosition.vue'
@@ -104,6 +104,7 @@ const journalEntry = ref<JournalEntry | null>(null)
 const journalLoading = ref(false)
 const journalEditing = ref(false)
 const journalSaving = ref(false)
+const journalFieldErrors = ref<Record<string, string>>({})
 
 // Only show journal if user was in this race (driverRaceId present)
 const canShowJournal = computed(() => session.value?.driverRaceId != null)
@@ -121,10 +122,11 @@ async function loadJournalEntry() {
   }
 }
 
-async function handleJournalSave(data: { notes: string; tags: string[] }) {
+async function handleJournalSave(data: { notes: string; tags: string[]; replayVideo: string }) {
   if (!session.value?.driverRaceId || !currentUserId.value) return
 
   journalSaving.value = true
+  journalFieldErrors.value = {}
   try {
     journalEntry.value = await apiClient.saveJournalEntry(
       currentUserId.value,
@@ -133,7 +135,15 @@ async function handleJournalSave(data: { notes: string; tags: string[] }) {
     )
     journalEditing.value = false
   } catch (err) {
-    console.error('[RaceDetails] Failed to save journal entry:', err)
+    if (err instanceof ValidationError) {
+      const errors: Record<string, string> = {}
+      for (const fe of err.fieldErrors) {
+        errors[fe.field] = t(`journal.fieldErrors.${fe.code}`)
+      }
+      journalFieldErrors.value = errors
+    } else {
+      console.error('[RaceDetails] Failed to save journal entry:', err)
+    }
   } finally {
     journalSaving.value = false
   }
@@ -145,6 +155,7 @@ function handleJournalEdit() {
 
 function handleJournalCancel() {
   journalEditing.value = false
+  journalFieldErrors.value = {}
 }
 
 async function handleJournalDelete() {
@@ -425,7 +436,9 @@ onMounted(async () => {
             v-else
             :initial-notes="journalEntry?.notes"
             :initial-tags="journalEntry?.tags"
+            :initial-replay-video="journalEntry?.replayVideo"
             :saving="journalSaving"
+            :field-errors="journalFieldErrors"
             @save="handleJournalSave"
             @cancel="handleJournalCancel"
           />

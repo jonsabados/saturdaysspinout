@@ -13,6 +13,7 @@ describe('JournalEntryForm', () => {
   function mountComponent(props: {
     initialNotes?: string
     initialTags?: string[]
+    initialReplayVideo?: string
     saving?: boolean
   } = {}) {
     return mount(JournalEntryForm, {
@@ -23,11 +24,12 @@ describe('JournalEntryForm', () => {
     })
   }
 
-  it('renders form with sentiment selector and textarea', () => {
+  it('renders form with sentiment selector, textarea, and replay video input', () => {
     const wrapper = mountComponent()
 
     expect(wrapper.findComponent(SentimentSelector).exists()).toBe(true)
     expect(wrapper.find('textarea').exists()).toBe(true)
+    expect(wrapper.find('input[type="url"]').exists()).toBe(true)
     expect(wrapper.find('.btn-primary').exists()).toBe(true)
     expect(wrapper.find('.btn-secondary').exists()).toBe(true)
   })
@@ -37,6 +39,9 @@ describe('JournalEntryForm', () => {
 
     const textarea = wrapper.find('textarea')
     expect((textarea.element as HTMLTextAreaElement).value).toBe('')
+
+    const urlInput = wrapper.find('input[type="url"]')
+    expect((urlInput.element as HTMLInputElement).value).toBe('')
 
     const sentimentSelector = wrapper.findComponent(SentimentSelector)
     expect(sentimentSelector.props('modelValue')).toBeNull()
@@ -83,7 +88,7 @@ describe('JournalEntryForm', () => {
     expect(saveBtn.attributes('disabled')).toBeUndefined()
   })
 
-  it('emits save event with notes and tags when form is submitted', async () => {
+  it('emits save event with notes, tags, and replayVideo when form is submitted', async () => {
     const wrapper = mountComponent()
 
     const textarea = wrapper.find('textarea')
@@ -92,10 +97,13 @@ describe('JournalEntryForm', () => {
     const sentimentSelector = wrapper.findComponent(SentimentSelector)
     await sentimentSelector.vm.$emit('update:modelValue', 'good')
 
+    const urlInput = wrapper.find('input[type="url"]')
+    await urlInput.setValue('https://www.youtube.com/watch?v=dQw4w9WgXcQ')
+
     await wrapper.find('form').trigger('submit')
 
     expect(wrapper.emitted('save')).toEqual([
-      [{ notes: 'Great race!', tags: ['sentiment:good'] }],
+      [{ notes: 'Great race!', tags: ['sentiment:good'], replayVideo: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' }],
     ])
   })
 
@@ -112,14 +120,14 @@ describe('JournalEntryForm', () => {
 
     const emitted = wrapper.emitted('save')
     expect(emitted).toBeDefined()
-    const savedData = emitted![0][0] as { notes: string; tags: string[] }
+    const savedData = emitted![0][0] as { notes: string; tags: string[]; replayVideo: string }
     expect(savedData.tags).toContain('podium')
     expect(savedData.tags).toContain('clean-race')
     expect(savedData.tags).toContain('sentiment:good')
     expect(savedData.tags).not.toContain('sentiment:neutral')
   })
 
-  it('trims notes before emitting save', async () => {
+  it('trims notes and replayVideo before emitting save', async () => {
     const wrapper = mountComponent()
 
     const textarea = wrapper.find('textarea')
@@ -128,8 +136,42 @@ describe('JournalEntryForm', () => {
     await wrapper.find('form').trigger('submit')
 
     expect(wrapper.emitted('save')).toEqual([
-      [{ notes: 'Trimmed notes', tags: [] }],
+      [{ notes: 'Trimmed notes', tags: [], replayVideo: '' }],
     ])
+  })
+
+  it('initializes replayVideo from prop', () => {
+    const wrapper = mountComponent({ initialReplayVideo: 'https://youtu.be/abc123' })
+
+    const urlInput = wrapper.find('input[type="url"]')
+    expect((urlInput.element as HTMLInputElement).value).toBe('https://youtu.be/abc123')
+  })
+
+  it('enables save button when only replayVideo is set', async () => {
+    const wrapper = mountComponent()
+
+    const urlInput = wrapper.find('input[type="url"]')
+    await urlInput.setValue('https://youtu.be/abc123')
+
+    const saveBtn = wrapper.find('.btn-primary')
+    expect(saveBtn.attributes('disabled')).toBeUndefined()
+  })
+
+  it('displays field error for replayVideo when provided', () => {
+    const wrapper = mountComponent({ fieldErrors: { replayVideo: 'Please enter a valid URL (e.g. https://...)' } })
+
+    const errorMsg = wrapper.find('.field-error')
+    expect(errorMsg.exists()).toBe(true)
+    expect(errorMsg.text()).toBe('Please enter a valid URL (e.g. https://...)')
+
+    const urlInput = wrapper.find('input[type="url"]')
+    expect(urlInput.classes()).toContain('form-input-error')
+  })
+
+  it('does not display field error when fieldErrors is empty', () => {
+    const wrapper = mountComponent({ fieldErrors: {} })
+
+    expect(wrapper.find('.field-error').exists()).toBe(false)
   })
 
   it('emits cancel event when cancel button is clicked', async () => {

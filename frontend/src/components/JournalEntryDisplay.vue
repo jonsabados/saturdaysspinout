@@ -53,6 +53,10 @@ function handleDelete() {
 
     <p v-if="entry.notes" class="journal-notes">{{ entry.notes }}</p>
 
+    <a v-if="entry.replayVideo" :href="entry.replayVideo" target="_blank" rel="noopener noreferrer" class="replay-link">
+      {{ t('journal.replayVideo.watchReplay') }} →
+    </a>
+
     <div class="journal-actions">
       <button type="button" class="btn btn-secondary btn-sm" @click="handleEdit">
         {{ t('journal.actions.edit') }}
@@ -117,6 +121,17 @@ function handleDelete() {
   line-height: 1.6;
   color: var(--color-text-primary);
   white-space: pre-wrap;
+}
+
+.replay-link {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.replay-link:hover {
+  text-decoration: underline;
 }
 
 .journal-actions {

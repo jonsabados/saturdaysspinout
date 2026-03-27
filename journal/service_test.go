@@ -93,6 +93,35 @@ func TestValidateTags(t *testing.T) {
 	}
 }
 
+func TestValidateReplayVideo(t *testing.T) {
+	testCases := []struct {
+		name        string
+		replayVideo string
+		expectError bool
+	}{
+		{name: "empty is valid", replayVideo: "", expectError: false},
+		{name: "valid https URL", replayVideo: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", expectError: false},
+		{name: "valid http URL", replayVideo: "http://example.com/replay", expectError: false},
+		{name: "valid youtu.be shortlink", replayVideo: "https://youtu.be/dQw4w9WgXcQ", expectError: false},
+		{name: "bare string", replayVideo: "not-a-url", expectError: true},
+		{name: "ftp scheme", replayVideo: "ftp://example.com/file", expectError: true},
+		{name: "missing host", replayVideo: "https://", expectError: true},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := ValidateReplayVideo(tc.replayVideo)
+			if tc.expectError {
+				assert.NotNil(t, result)
+				assert.Equal(t, "replayVideo", result.Field)
+				assert.Equal(t, "invalid_url", result.Code)
+			} else {
+				assert.Nil(t, result)
+			}
+		})
+	}
+}
+
 func TestService_ValidateRaceExists(t *testing.T) {
 	ctx := context.Background()
 	driverID := int64(12345)
@@ -172,12 +201,13 @@ func TestService_Get(t *testing.T) {
 			setupMock: func(m *MockStore) {
 				m.EXPECT().GetJournalEntry(mock.Anything, driverID, raceID).
 					Return(&store.RaceJournalEntry{
-						DriverID:  driverID,
-						RaceID:    raceID,
-						Notes:     "Great race!",
-						Tags:      []string{"sentiment:good"},
-						CreatedAt: createdAt,
-						UpdatedAt: updatedAt,
+						DriverID:    driverID,
+						RaceID:      raceID,
+						Notes:       "Great race!",
+						Tags:        []string{"sentiment:good"},
+						ReplayVideo: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+						CreatedAt:   createdAt,
+						UpdatedAt:   updatedAt,
 					}, nil)
 				m.EXPECT().GetDriverSession(mock.Anything, driverID, startTime).
 					Return(&store.DriverSession{
@@ -187,11 +217,12 @@ func TestService_Get(t *testing.T) {
 					}, nil)
 			},
 			expected: &Entry{
-				RaceID:    raceID,
-				CreatedAt: createdAt,
-				UpdatedAt: updatedAt,
-				Notes:     "Great race!",
-				Tags:      []string{"sentiment:good"},
+				RaceID:      raceID,
+				CreatedAt:   createdAt,
+				UpdatedAt:   updatedAt,
+				Notes:       "Great race!",
+				Tags:        []string{"sentiment:good"},
+				ReplayVideo: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
 				Race: &store.DriverSession{
 					DriverID:       driverID,
 					StartTime:      startTime,
@@ -298,27 +329,30 @@ func TestService_Save(t *testing.T) {
 		{
 			name: "success",
 			input: SaveInput{
-				DriverID: driverID,
-				RaceID:   raceID,
-				Notes:    "Great race!",
-				Tags:     []string{"sentiment:good"},
+				DriverID:    driverID,
+				RaceID:      raceID,
+				Notes:       "Great race!",
+				Tags:        []string{"sentiment:good"},
+				ReplayVideo: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
 			},
 			setupMock: func(m *MockStore, me *MockMetricsEmitter) {
 				m.EXPECT().SaveJournalEntry(mock.Anything, store.RaceJournalEntry{
-					DriverID: driverID,
-					RaceID:   raceID,
-					Notes:    "Great race!",
-					Tags:     []string{"sentiment:good"},
+					DriverID:    driverID,
+					RaceID:      raceID,
+					Notes:       "Great race!",
+					Tags:        []string{"sentiment:good"},
+					ReplayVideo: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
 				}).Return(nil)
 				me.EXPECT().EmitCount(mock.Anything, metrics.JournalEntriesCreated, 1).Return(nil)
 				m.EXPECT().GetJournalEntry(mock.Anything, driverID, raceID).
 					Return(&store.RaceJournalEntry{
-						DriverID:  driverID,
-						RaceID:    raceID,
-						Notes:     "Great race!",
-						Tags:      []string{"sentiment:good"},
-						CreatedAt: createdAt,
-						UpdatedAt: updatedAt,
+						DriverID:    driverID,
+						RaceID:      raceID,
+						Notes:       "Great race!",
+						Tags:        []string{"sentiment:good"},
+						ReplayVideo: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+						CreatedAt:   createdAt,
+						UpdatedAt:   updatedAt,
 					}, nil)
 				m.EXPECT().GetDriverSession(mock.Anything, driverID, startTime).
 					Return(&store.DriverSession{
@@ -328,11 +362,12 @@ func TestService_Save(t *testing.T) {
 					}, nil)
 			},
 			expected: &Entry{
-				RaceID:    raceID,
-				CreatedAt: createdAt,
-				UpdatedAt: updatedAt,
-				Notes:     "Great race!",
-				Tags:      []string{"sentiment:good"},
+				RaceID:      raceID,
+				CreatedAt:   createdAt,
+				UpdatedAt:   updatedAt,
+				Notes:       "Great race!",
+				Tags:        []string{"sentiment:good"},
+				ReplayVideo: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
 				Race: &store.DriverSession{
 					DriverID:       driverID,
 					StartTime:      startTime,

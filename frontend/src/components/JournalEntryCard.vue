@@ -106,9 +106,14 @@ const hasNotes = computed(() => !!props.entry.notes)
     <p v-if="hasNotes" class="notes">{{ entry.notes }}</p>
 
     <footer class="card-footer">
-      <RouterLink :to="{ name: 'race-details', params: { subsessionId: entry.race.subsessionId } }" class="view-race-link">
-        {{ t('journal.page.viewRace') }} →
-      </RouterLink>
+      <div class="footer-links">
+        <RouterLink :to="{ name: 'race-details', params: { subsessionId: entry.race.subsessionId } }" class="view-race-link">
+          {{ t('journal.page.viewRace') }} →
+        </RouterLink>
+        <a v-if="entry.replayVideo" :href="entry.replayVideo" target="_blank" rel="noopener noreferrer" class="view-race-link">
+          {{ t('journal.replayVideo.watchReplay') }} →
+        </a>
+      </div>
       <span class="updated-time">{{ relativeTime }}</span>
     </footer>
   </article>
@@ -225,6 +230,12 @@ const hasNotes = computed(() => !!props.entry.notes)
   align-items: center;
   padding-top: 0.5rem;
   border-top: 1px solid var(--color-border);
+}
+
+.footer-links {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
 }
 
 .view-race-link {

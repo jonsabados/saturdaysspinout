@@ -1,0 +1,7 @@
+{
+  "errors": [],
+  "fieldErrors": [
+    {"field": "replayVideo", "code": "invalid_url"}
+  ],
+  "correlationId": "test-correlation-id"
+}
