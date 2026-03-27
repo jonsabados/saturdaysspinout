@@ -7,17 +7,20 @@ import { getSentiment, setSentiment, type Sentiment } from '@/utils/tagHelpers'
 const props = defineProps<{
   initialNotes?: string
   initialTags?: string[]
+  initialReplayVideo?: string
   saving?: boolean
+  fieldErrors?: Record<string, string>
 }>()
 
 const emit = defineEmits<{
-  save: [data: { notes: string; tags: string[] }]
+  save: [data: { notes: string; tags: string[]; replayVideo: string }]
   cancel: []
 }>()
 
 const { t } = useI18n()
 
 const notes = ref(props.initialNotes ?? '')
+const replayVideo = ref(props.initialReplayVideo ?? '')
 const sentiment = ref<Sentiment | null>(null)
 
 // Initialize sentiment from tags
@@ -30,7 +33,7 @@ watch(
 )
 
 const canSave = computed(() => {
-  return notes.value.trim().length > 0 || sentiment.value !== null
+  return notes.value.trim().length > 0 || sentiment.value !== null || replayVideo.value.trim().length > 0
 })
 
 function handleSave() {
@@ -40,6 +43,7 @@ function handleSave() {
   emit('save', {
     notes: notes.value.trim(),
     tags,
+    replayVideo: replayVideo.value.trim(),
   })
 }
 
@@ -65,6 +69,20 @@ function handleCancel() {
         :disabled="saving"
         rows="4"
       />
+    </div>
+
+    <div class="form-group">
+      <label for="journal-replay-video" class="form-label">{{ t('journal.replayVideo.label') }}</label>
+      <input
+        id="journal-replay-video"
+        v-model="replayVideo"
+        type="url"
+        class="form-input"
+        :class="{ 'form-input-error': fieldErrors?.replayVideo }"
+        :placeholder="t('journal.replayVideo.placeholder')"
+        :disabled="saving"
+      />
+      <span v-if="fieldErrors?.replayVideo" class="field-error">{{ fieldErrors.replayVideo }}</span>
     </div>
 
     <div class="form-actions">
@@ -97,7 +115,8 @@ function handleCancel() {
   color: var(--color-text-secondary);
 }
 
-.form-textarea {
+.form-textarea,
+.form-input {
   width: 100%;
   padding: 0.75rem;
   border: 1px solid var(--color-border);
@@ -107,23 +126,43 @@ function handleCancel() {
   font-family: inherit;
   font-size: 0.9375rem;
   line-height: 1.5;
+}
+
+.form-textarea {
   resize: vertical;
   min-height: 100px;
 }
 
-.form-textarea:focus {
+.form-textarea:focus,
+.form-input:focus {
   outline: none;
   border-color: var(--color-accent);
   box-shadow: 0 0 0 2px var(--color-accent-subtle);
 }
 
-.form-textarea:disabled {
+.form-textarea:disabled,
+.form-input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
 
-.form-textarea::placeholder {
+.form-textarea::placeholder,
+.form-input::placeholder {
   color: var(--color-text-muted);
+}
+
+.form-input-error {
+  border-color: #ef4444;
+}
+
+.form-input-error:focus {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+}
+
+.field-error {
+  font-size: 0.8125rem;
+  color: #ef4444;
 }
 
 .form-actions {

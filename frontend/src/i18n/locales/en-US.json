@@ -266,6 +266,14 @@
       "label": "Notes",
       "placeholder": "What happened? What did you learn?"
     },
+    "replayVideo": {
+      "label": "Replay Video",
+      "placeholder": "https://...",
+      "watchReplay": "Watch Replay"
+    },
+    "fieldErrors": {
+      "invalid_url": "Please enter a valid URL (e.g. https://...)"
+    },
     "actions": {
       "save": "Save",
       "cancel": "Cancel",

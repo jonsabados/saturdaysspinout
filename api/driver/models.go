@@ -92,27 +92,30 @@ func raceFromDriverSession(session store.DriverSession) Race {
 
 // SaveJournalEntryRequest is the request body for creating/updating a journal entry.
 type SaveJournalEntryRequest struct {
-	Notes string   `json:"notes"`
-	Tags  []string `json:"tags"`
+	Notes       string   `json:"notes"`
+	Tags        []string `json:"tags"`
+	ReplayVideo string   `json:"replayVideo"`
 }
 
 // JournalEntry is the API response model for a journal entry with joined race context.
 type JournalEntry struct {
-	RaceID    int64     `json:"raceId"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-	Notes     string    `json:"notes"`
-	Tags      []string  `json:"tags"`
-	Race      *Race     `json:"race,omitempty"`
+	RaceID      int64     `json:"raceId"`
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+	Notes       string    `json:"notes"`
+	Tags        []string  `json:"tags"`
+	ReplayVideo string    `json:"replayVideo,omitempty"`
+	Race        *Race     `json:"race,omitempty"`
 }
 
 func journalEntryFromStore(entry store.RaceJournalEntry, session *store.DriverSession) JournalEntry {
 	result := JournalEntry{
-		RaceID:    entry.RaceID,
-		CreatedAt: entry.CreatedAt.UTC(),
-		UpdatedAt: entry.UpdatedAt.UTC(),
-		Notes:     entry.Notes,
-		Tags:      entry.Tags,
+		RaceID:      entry.RaceID,
+		CreatedAt:   entry.CreatedAt.UTC(),
+		UpdatedAt:   entry.UpdatedAt.UTC(),
+		Notes:       entry.Notes,
+		Tags:        entry.Tags,
+		ReplayVideo: entry.ReplayVideo,
 	}
 	if result.Tags == nil {
 		result.Tags = []string{}
@@ -126,11 +129,12 @@ func journalEntryFromStore(entry store.RaceJournalEntry, session *store.DriverSe
 
 func journalEntryFromServiceEntry(entry journal.Entry) JournalEntry {
 	result := JournalEntry{
-		RaceID:    entry.RaceID,
-		CreatedAt: entry.CreatedAt.UTC(),
-		UpdatedAt: entry.UpdatedAt.UTC(),
-		Notes:     entry.Notes,
-		Tags:      entry.Tags,
+		RaceID:      entry.RaceID,
+		CreatedAt:   entry.CreatedAt.UTC(),
+		UpdatedAt:   entry.UpdatedAt.UTC(),
+		Notes:       entry.Notes,
+		Tags:        entry.Tags,
+		ReplayVideo: entry.ReplayVideo,
 	}
 	if result.Tags == nil {
 		result.Tags = []string{}

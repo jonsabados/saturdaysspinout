@@ -13,6 +13,7 @@ const mockEntry: JournalEntry = {
   updatedAt: '2024-01-15T15:00:00Z',
   notes: 'Great race! Managed to stay clean and work through the field.',
   tags: ['sentiment:good', 'podium'],
+  replayVideo: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
   race: {
     id: 123456789,
     subsessionId: 12345678,
@@ -186,5 +187,19 @@ describe('JournalEntryCard', () => {
     const irating = wrapper.find('.stat.irating')
     expect(irating.text()).toBe('-50 iR')
     expect(irating.classes()).toContain('negative')
+  })
+
+  it('shows Watch Replay link when replayVideo is set', () => {
+    const wrapper = mountComponent()
+    const replayLink = wrapper.find('a[href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"]')
+    expect(replayLink.exists()).toBe(true)
+    expect(replayLink.attributes('target')).toBe('_blank')
+    expect(replayLink.attributes('rel')).toBe('noopener noreferrer')
+  })
+
+  it('does not show Watch Replay link when replayVideo is not set', () => {
+    const entry = { ...mockEntry, replayVideo: undefined }
+    const wrapper = mountComponent(entry)
+    expect(wrapper.find('a[rel="noopener noreferrer"]').exists()).toBe(false)
   })
 })

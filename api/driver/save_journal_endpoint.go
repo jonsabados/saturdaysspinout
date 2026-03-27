@@ -50,6 +50,11 @@ func NewSaveJournalEndpoint(journalService JournalServiceForSave) http.Handler {
 			errs = errs.WithFieldErrorCode(v.Field, v.Code, v.Params)
 		}
 
+		// Validate replay video URL
+		if v := journal.ValidateReplayVideo(req.ReplayVideo); v != nil {
+			errs = errs.WithFieldErrorCode(v.Field, v.Code, v.Params)
+		}
+
 		// Check if the race exists (only if we have valid IDs)
 		if !errs.HasAnyError() {
 			exists, err := journalService.ValidateRaceExists(ctx, driverID, raceID)
@@ -69,10 +74,11 @@ func NewSaveJournalEndpoint(journalService JournalServiceForSave) http.Handler {
 		}
 
 		entry, err := journalService.Save(ctx, journal.SaveInput{
-			DriverID: driverID,
-			RaceID:   raceID,
-			Notes:    req.Notes,
-			Tags:     req.Tags,
+			DriverID:    driverID,
+			RaceID:      raceID,
+			Notes:       req.Notes,
+			Tags:        req.Tags,
+			ReplayVideo: req.ReplayVideo,
 		})
 		if err != nil {
 			logger.Error().Err(err).Int64("driverId", driverID).Int64("raceId", raceID).Msg("failed to save journal entry")

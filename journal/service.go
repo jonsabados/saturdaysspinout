@@ -2,6 +2,7 @@ package journal
 
 import (
 	"context"
+	"net/url"
 	"strings"
 	"time"
 
@@ -61,14 +62,29 @@ func ValidateTags(tags []string) []FieldValidation {
 	return errors
 }
 
+func ValidateReplayVideo(replayVideo string) *FieldValidation {
+	if replayVideo == "" {
+		return nil
+	}
+	u, err := url.Parse(replayVideo)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return &FieldValidation{
+			Field: "replayVideo",
+			Code:  "invalid_url",
+		}
+	}
+	return nil
+}
+
 // Entry represents a journal entry with joined race context.
 type Entry struct {
-	RaceID    int64
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	Notes     string
-	Tags      []string
-	Race      *store.DriverSession
+	RaceID      int64
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Notes       string
+	Tags        []string
+	ReplayVideo string
+	Race        *store.DriverSession
 }
 
 // Store defines the data access methods needed by the journal service.
@@ -104,10 +120,11 @@ func (s *Service) ValidateRaceExists(ctx context.Context, driverID, raceID int64
 
 // SaveInput contains the data needed to save a journal entry.
 type SaveInput struct {
-	DriverID int64
-	RaceID   int64
-	Notes    string
-	Tags     []string
+	DriverID    int64
+	RaceID      int64
+	Notes       string
+	Tags        []string
+	ReplayVideo string
 }
 
 // Save creates or updates a journal entry. Returns the saved entry with race context.
@@ -115,10 +132,11 @@ type SaveInput struct {
 func (s *Service) Save(ctx context.Context, input SaveInput) (*Entry, error) {
 	// Save the entry
 	entry := store.RaceJournalEntry{
-		DriverID: input.DriverID,
-		RaceID:   input.RaceID,
-		Notes:    input.Notes,
-		Tags:     input.Tags,
+		DriverID:    input.DriverID,
+		RaceID:      input.RaceID,
+		Notes:       input.Notes,
+		Tags:        input.Tags,
+		ReplayVideo: input.ReplayVideo,
 	}
 
 	if err := s.store.SaveJournalEntry(ctx, entry); err != nil {
@@ -152,12 +170,13 @@ func (s *Service) Get(ctx context.Context, driverID, raceID int64) (*Entry, erro
 	}
 
 	return &Entry{
-		RaceID:    entry.RaceID,
-		CreatedAt: entry.CreatedAt,
-		UpdatedAt: entry.UpdatedAt,
-		Notes:     entry.Notes,
-		Tags:      normalizeTags(entry.Tags),
-		Race:      session,
+		RaceID:      entry.RaceID,
+		CreatedAt:   entry.CreatedAt,
+		UpdatedAt:   entry.UpdatedAt,
+		Notes:       entry.Notes,
+		Tags:        normalizeTags(entry.Tags),
+		ReplayVideo: entry.ReplayVideo,
+		Race:        session,
 	}, nil
 }
 
@@ -201,12 +220,13 @@ func (s *Service) List(ctx context.Context, input ListInput) ([]Entry, error) {
 	results := make([]Entry, len(entries))
 	for i, entry := range entries {
 		results[i] = Entry{
-			RaceID:    entry.RaceID,
-			CreatedAt: entry.CreatedAt,
-			UpdatedAt: entry.UpdatedAt,
-			Notes:     entry.Notes,
-			Tags:      normalizeTags(entry.Tags),
-			Race:      sessionMap[entry.RaceID],
+			RaceID:      entry.RaceID,
+			CreatedAt:   entry.CreatedAt,
+			UpdatedAt:   entry.UpdatedAt,
+			Notes:       entry.Notes,
+			Tags:        normalizeTags(entry.Tags),
+			ReplayVideo: entry.ReplayVideo,
+			Race:        sessionMap[entry.RaceID],
 		}
 	}
 

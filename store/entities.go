@@ -54,8 +54,9 @@ type RaceJournalEntry struct {
 	UpdatedAt time.Time
 
 	// User-provided content
-	Notes string
-	Tags  []string // Unified tags: plain ("podium") or key:value ("sentiment:good")
+	Notes       string
+	Tags        []string // Unified tags: plain ("podium") or key:value ("sentiment:good")
+	ReplayVideo string   // Optional link to a replay video
 }
 
 type GlobalCounters struct {

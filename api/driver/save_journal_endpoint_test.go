@@ -21,11 +21,12 @@ import (
 
 func TestNewSaveJournalEndpoint(t *testing.T) {
 	testEntry := journal.Entry{
-		RaceID:    1700000000,
-		CreatedAt: time.Unix(1000, 0),
-		UpdatedAt: time.Unix(2000, 0),
-		Notes:     "Great race!",
-		Tags:      []string{"sentiment:good", "podium"},
+		RaceID:      1700000000,
+		CreatedAt:   time.Unix(1000, 0),
+		UpdatedAt:   time.Unix(2000, 0),
+		Notes:       "Great race!",
+		Tags:        []string{"sentiment:good", "podium"},
+		ReplayVideo: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
 		Race: &store.DriverSession{
 			DriverID:       12345,
 			SubsessionID:   100001,
@@ -68,13 +69,13 @@ func TestNewSaveJournalEndpoint(t *testing.T) {
 			name:        "success",
 			driverID:    "12345",
 			raceID:      "1700000000",
-			requestBody: `{"notes": "Great race!", "tags": ["sentiment:good", "podium"]}`,
+			requestBody: `{"notes": "Great race!", "tags": ["sentiment:good", "podium"], "replayVideo": "https://www.youtube.com/watch?v=dQw4w9WgXcQ"}`,
 			validateCalls: []validateCall{
 				{driverID: 12345, raceID: 1700000000, exists: true},
 			},
 			saveCalls: []saveCall{
 				{
-					input: journal.SaveInput{DriverID: 12345, RaceID: 1700000000, Notes: "Great race!", Tags: []string{"sentiment:good", "podium"}},
+					input: journal.SaveInput{DriverID: 12345, RaceID: 1700000000, Notes: "Great race!", Tags: []string{"sentiment:good", "podium"}, ReplayVideo: "https://www.youtube.com/watch?v=dQw4w9WgXcQ"},
 					entry: &testEntry,
 				},
 			},
@@ -120,6 +121,16 @@ func TestNewSaveJournalEndpoint(t *testing.T) {
 			saveCalls:           []saveCall{},
 			expectedStatus:      http.StatusBadRequest,
 			expectedBodyFixture: "fixtures/save_journal_invalid_tag_response.json",
+		},
+		{
+			name:                "invalid replay video URL",
+			driverID:            "12345",
+			raceID:              "1700000000",
+			requestBody:         `{"notes": "Great race!", "replayVideo": "not-a-url"}`,
+			validateCalls:       []validateCall{},
+			saveCalls:           []saveCall{},
+			expectedStatus:      http.StatusBadRequest,
+			expectedBodyFixture: "fixtures/save_journal_invalid_replay_video_response.json",
 		},
 		{
 			name:        "race not found",

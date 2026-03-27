@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { ApiClient } from './client'
+import { ApiClient, ValidationError } from './client'
 
 // Mock fetch globally
 const mockFetch = vi.fn()
@@ -101,6 +101,20 @@ describe('ApiClient', () => {
       mockFetch.mockResolvedValue(createErrorResponse(500, 'Server error'))
 
       await expect(client.fetch('/test')).rejects.toThrow('Server error (Correlation ID: test-id)')
+    })
+
+    it('throws ValidationError on 400 with fieldErrors', async () => {
+      mockFetch.mockResolvedValue(
+        createJsonResponse(
+          { errors: [], fieldErrors: [{ field: 'replayVideo', code: 'invalid_url' }], correlationId: 'test-id' },
+          400
+        )
+      )
+
+      const err = await client.fetch('/test').catch((e) => e)
+      expect(err).toBeInstanceOf(ValidationError)
+      expect((err as ValidationError).fieldErrors).toEqual([{ field: 'replayVideo', code: 'invalid_url' }])
+      expect((err as ValidationError).correlationId).toBe('test-id')
     })
 
     it('refreshes token on 401 and retries', async () => {

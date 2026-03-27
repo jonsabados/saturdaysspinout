@@ -661,14 +661,15 @@ func (s *DynamoStore) SaveJournalEntry(ctx context.Context, entry RaceJournalEnt
 			partitionKeyName: &types.AttributeValueMemberS{Value: fmt.Sprintf(driverPartitionFormat, entry.DriverID)},
 			sortKeyName:      &types.AttributeValueMemberS{Value: fmt.Sprintf(journalEntrySortKeyFormat, entry.RaceID)},
 		},
-		UpdateExpression: aws.String("SET #driver_id = :driver_id, #race_id = :race_id, #notes = :notes, #updated_at = :updated_at, #created_at = if_not_exists(#created_at, :created_at), #tags = :tags"),
+		UpdateExpression: aws.String("SET #driver_id = :driver_id, #race_id = :race_id, #notes = :notes, #updated_at = :updated_at, #created_at = if_not_exists(#created_at, :created_at), #tags = :tags, #replay_video = :replay_video"),
 		ExpressionAttributeNames: map[string]string{
-			"#driver_id":  "driver_id",
-			"#race_id":    "race_id",
-			"#notes":      "notes",
-			"#updated_at": "updated_at",
-			"#created_at": "created_at",
-			"#tags":       "tags",
+			"#driver_id":    "driver_id",
+			"#race_id":      "race_id",
+			"#notes":        "notes",
+			"#updated_at":   "updated_at",
+			"#created_at":   "created_at",
+			"#tags":         "tags",
+			"#replay_video": "replay_video",
 		},
 		ExpressionAttributeValues: s.journalEntryUpdateValues(entry, now),
 	})
@@ -678,11 +679,12 @@ func (s *DynamoStore) SaveJournalEntry(ctx context.Context, entry RaceJournalEnt
 func (s *DynamoStore) journalEntryUpdateValues(entry RaceJournalEntry, now time.Time) map[string]types.AttributeValue {
 	nowUnix := toUnixSeconds(now)
 	values := map[string]types.AttributeValue{
-		":driver_id":  &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", entry.DriverID)},
-		":race_id":    &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", entry.RaceID)},
-		":notes":      &types.AttributeValueMemberS{Value: entry.Notes},
-		":updated_at": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", nowUnix)},
-		":created_at": &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", nowUnix)},
+		":driver_id":    &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", entry.DriverID)},
+		":race_id":      &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", entry.RaceID)},
+		":notes":        &types.AttributeValueMemberS{Value: entry.Notes},
+		":updated_at":   &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", nowUnix)},
+		":created_at":   &types.AttributeValueMemberN{Value: fmt.Sprintf("%d", nowUnix)},
+		":replay_video": &types.AttributeValueMemberS{Value: entry.ReplayVideo},
 	}
 	if len(entry.Tags) > 0 {
 		tagValues := make([]types.AttributeValue, len(entry.Tags))
