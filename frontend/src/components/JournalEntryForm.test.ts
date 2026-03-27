@@ -15,6 +15,7 @@ describe('JournalEntryForm', () => {
     initialTags?: string[]
     initialReplayVideo?: string
     saving?: boolean
+    fieldErrors?: Record<string, string>
   } = {}) {
     return mount(JournalEntryForm, {
       props,
