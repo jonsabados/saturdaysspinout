@@ -104,6 +104,25 @@ deploy-website: ## Deploy static website to S3
 run-rest-api: ## Run backend API locally
 	env $$(terraform -chdir=terraform output -raw app_env_vars) LOG_LEVEL=trace go run github.com/jonsabados/saturdaysspinout/cmd/standalone-api
 
+SWAGGER_CONTAINER_NAME := saturdaysspinout-swagger
+SWAGGER_PORT := 8081
+
+.PHONY: swagger
+swagger: ## Run Swagger UI locally (serves docs/openapi.json)
+	@if docker ps -a --format '{{.Names}}' | grep -q '^$(SWAGGER_CONTAINER_NAME)$$'; then \
+		echo "Stopping existing container..."; \
+		docker rm -f $(SWAGGER_CONTAINER_NAME) > /dev/null; \
+	fi
+	docker run -d --name $(SWAGGER_CONTAINER_NAME) -p $(SWAGGER_PORT):8080 \
+		-e SWAGGER_JSON=/spec/openapi.json \
+		-v "$$(pwd)/docs:/spec" \
+		swaggerapi/swagger-ui:v5.18.2
+	@echo "Swagger UI running at http://localhost:$(SWAGGER_PORT)"
+
+.PHONY: swagger-stop
+swagger-stop: ## Stop local Swagger UI container
+	@docker rm -f $(SWAGGER_CONTAINER_NAME) 2>/dev/null || echo "Container not running"
+
 .PHONY: run-frontend
 run-frontend: ## Run frontend dev server
 	cd frontend && npm install && VITE_WS_BASE_URL=$$(terraform -chdir=../terraform output -raw ws_url) npm run dev

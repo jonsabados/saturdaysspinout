@@ -1,0 +1,1444 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Saturday's Spinout API",
+    "description": "REST API for Saturday's Spinout — an iRacing race log and analytics platform.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "GitHub",
+      "url": "https://github.com/jonsabados/saturdaysspinout"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://api.saturdaysspinout.com",
+      "description": "Production"
+    },
+    {
+      "url": "http://localhost:8080",
+      "description": "Local development"
+    }
+  ],
+  "tags": [
+    { "name": "Health", "description": "Health check endpoints" },
+    { "name": "Auth", "description": "Authentication (OAuth 2.0 with iRacing)" },
+    { "name": "Driver", "description": "Driver profile and race data" },
+    { "name": "Races", "description": "Driver race history" },
+    { "name": "Journal", "description": "Race journal entries" },
+    { "name": "Analytics", "description": "Race analytics and statistics" },
+    { "name": "Session", "description": "iRacing session results and lap data" },
+    { "name": "Cars", "description": "Car reference data" },
+    { "name": "Tracks", "description": "Track reference data" },
+    { "name": "Series", "description": "Series reference data" },
+    { "name": "Ingestion", "description": "Race data ingestion" },
+    { "name": "Developer", "description": "Developer tools (requires developer entitlement)" }
+  ],
+  "paths": {
+    "/health/ping": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Health check",
+        "operationId": "ping",
+        "responses": {
+          "200": {
+            "description": "Service is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "type": "string", "example": "Pong" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/ir/callback": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "OAuth callback",
+        "description": "Exchange an iRacing OAuth authorization code for a JWT.",
+        "operationId": "authCallback",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CallbackRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authentication successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "$ref": "#/components/schemas/AuthToken" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/auth/refresh": {
+      "post": {
+        "tags": ["Auth"],
+        "summary": "Refresh JWT",
+        "description": "Refresh the current JWT using the embedded iRacing refresh token.",
+        "operationId": "authRefresh",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Token refreshed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "$ref": "#/components/schemas/AuthToken" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/driver/{driver_id}": {
+      "get": {
+        "tags": ["Driver"],
+        "summary": "Get driver profile",
+        "operationId": "getDriver",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/DriverID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Driver info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "$ref": "#/components/schemas/DriverInfo" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/driver/{driver_id}/races": {
+      "get": {
+        "tags": ["Races"],
+        "summary": "List driver races",
+        "operationId": "getDriverRaces",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/DriverID" },
+          { "$ref": "#/components/parameters/StartTime" },
+          { "$ref": "#/components/parameters/EndTime" },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/ResultsPerPage" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of races",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Race" }
+                    },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "delete": {
+        "tags": ["Races"],
+        "summary": "Delete all driver races (developer only)",
+        "operationId": "deleteDriverRaces",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/DriverID" }
+        ],
+        "responses": {
+          "204": { "description": "Races deleted" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/driver/{driver_id}/races/{driver_race_id}": {
+      "get": {
+        "tags": ["Races"],
+        "summary": "Get a single race",
+        "operationId": "getDriverRace",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/DriverID" },
+          { "$ref": "#/components/parameters/DriverRaceID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Race details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "$ref": "#/components/schemas/Race" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/driver/{driver_id}/races/{driver_race_id}/journal": {
+      "get": {
+        "tags": ["Journal"],
+        "summary": "Get journal entry for a race",
+        "operationId": "getJournalEntry",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/DriverID" },
+          { "$ref": "#/components/parameters/DriverRaceID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Journal entry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "$ref": "#/components/schemas/JournalEntry" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "put": {
+        "tags": ["Journal"],
+        "summary": "Create or update journal entry",
+        "operationId": "saveJournalEntry",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/DriverID" },
+          { "$ref": "#/components/parameters/DriverRaceID" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/SaveJournalEntryRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved journal entry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "$ref": "#/components/schemas/JournalEntry" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      },
+      "delete": {
+        "tags": ["Journal"],
+        "summary": "Delete journal entry",
+        "operationId": "deleteJournalEntry",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/DriverID" },
+          { "$ref": "#/components/parameters/DriverRaceID" }
+        ],
+        "responses": {
+          "204": { "description": "Journal entry deleted" },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/driver/{driver_id}/journal": {
+      "get": {
+        "tags": ["Journal"],
+        "summary": "List journal entries",
+        "operationId": "listJournalEntries",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/DriverID" },
+          { "$ref": "#/components/parameters/StartTime" },
+          { "$ref": "#/components/parameters/EndTime" },
+          { "$ref": "#/components/parameters/Page" },
+          { "$ref": "#/components/parameters/ResultsPerPage" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of journal entries",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/JournalEntry" }
+                    },
+                    "pagination": { "$ref": "#/components/schemas/Pagination" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/driver/{driver_id}/analytics": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Get race analytics",
+        "description": "Aggregated race statistics with optional grouping by dimension or time granularity. `groupBy` and `granularity` are mutually exclusive.",
+        "operationId": "getAnalytics",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/DriverID" },
+          { "$ref": "#/components/parameters/StartTime" },
+          { "$ref": "#/components/parameters/EndTime" },
+          {
+            "name": "groupBy",
+            "in": "query",
+            "description": "Dimension to group by (repeatable). Mutually exclusive with granularity.",
+            "schema": { "type": "array", "items": { "type": "string", "enum": ["series", "car", "track"] } }
+          },
+          {
+            "name": "granularity",
+            "in": "query",
+            "description": "Time granularity for time-series breakdown. Mutually exclusive with groupBy.",
+            "schema": { "type": "string", "enum": ["day", "week", "month", "year"] }
+          },
+          {
+            "name": "seriesId",
+            "in": "query",
+            "description": "Filter by series ID (repeatable)",
+            "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } }
+          },
+          {
+            "name": "carId",
+            "in": "query",
+            "description": "Filter by car ID (repeatable)",
+            "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } }
+          },
+          {
+            "name": "trackId",
+            "in": "query",
+            "description": "Filter by track ID (repeatable)",
+            "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Analytics results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "$ref": "#/components/schemas/AnalyticsResponse" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/driver/{driver_id}/analytics/dimensions": {
+      "get": {
+        "tags": ["Analytics"],
+        "summary": "Get available analytics dimensions",
+        "description": "Returns the set of series, car, and track IDs the driver has raced in the given time range. Use with reference endpoints for display names.",
+        "operationId": "getAnalyticsDimensions",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/DriverID" },
+          { "$ref": "#/components/parameters/StartTime" },
+          { "$ref": "#/components/parameters/EndTime" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Available dimensions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "$ref": "#/components/schemas/DimensionsResponse" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/session/{subsession_id}": {
+      "get": {
+        "tags": ["Session"],
+        "summary": "Get session results",
+        "description": "Full iRacing session results including all sim-session results, driver results, weather, and track state.",
+        "operationId": "getSession",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/SubsessionID" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "$ref": "#/components/schemas/SessionResponse" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/session/{subsession_id}/simsession/{simsession}/driver/{driver_id}/laps": {
+      "get": {
+        "tags": ["Session"],
+        "summary": "Get lap data",
+        "description": "Individual lap timing and event data for a driver in a specific sim-session.",
+        "operationId": "getLaps",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "$ref": "#/components/parameters/SubsessionID" },
+          {
+            "name": "simsession",
+            "in": "path",
+            "required": true,
+            "description": "Sim-session number (e.g. 0 for qualifying, 1 for race)",
+            "schema": { "type": "integer" }
+          },
+          {
+            "name": "driver_id",
+            "in": "path",
+            "required": true,
+            "description": "iRacing customer ID",
+            "schema": { "type": "integer", "format": "int64" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lap data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "$ref": "#/components/schemas/LapDataResponse" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/cars": {
+      "get": {
+        "tags": ["Cars"],
+        "summary": "List all cars",
+        "operationId": "getCars",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of cars",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Car" }
+                    },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/tracks": {
+      "get": {
+        "tags": ["Tracks"],
+        "summary": "List all tracks",
+        "operationId": "getTracks",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of tracks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Track" }
+                    },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/series": {
+      "get": {
+        "tags": ["Series"],
+        "summary": "List all series",
+        "operationId": "getSeries",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "List of series",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Series" }
+                    },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/ingestion/race": {
+      "post": {
+        "tags": ["Ingestion"],
+        "summary": "Trigger race ingestion",
+        "description": "Enqueues a race data ingestion job. The server queries iRacing for recent race results and stores them. Progress is reported via WebSocket.",
+        "operationId": "triggerRaceIngestion",
+        "security": [{ "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RaceIngestionRequest" }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Ingestion queued",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": {
+                      "type": "object",
+                      "properties": {
+                        "status": { "type": "string", "example": "queued" }
+                      }
+                    },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "429": { "$ref": "#/components/responses/TooManyRequests" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/developer/iracing-token": {
+      "get": {
+        "tags": ["Developer"],
+        "summary": "Get iRacing access token",
+        "description": "Returns the raw iRacing access token from the current session. Requires developer entitlement.",
+        "operationId": "getIRacingToken",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "response": { "$ref": "#/components/schemas/TokenResponse" },
+                    "correlationId": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    },
+    "/developer/iracing-api/{proxy+}": {
+      "get": {
+        "tags": ["Developer"],
+        "summary": "Proxy iRacing Data API",
+        "description": "Proxies requests to the iRacing Data API using the current session's access token. Requires developer entitlement. The response body and content type are passed through from iRacing. The path parameter captures the full remaining path (e.g. `data/results/search_series`).",
+        "operationId": "proxyIRacingAPI",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "proxy+",
+            "in": "path",
+            "required": true,
+            "description": "iRacing API path including nested segments (e.g. data/results/search_series)",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Proxied response from iRacing Data API (content type passed through from upstream)",
+            "content": {
+              "*/*": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "500": { "$ref": "#/components/responses/InternalError" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "JWT obtained from the /auth/ir/callback endpoint. Contains encrypted iRacing tokens and user claims."
+      }
+    },
+    "parameters": {
+      "DriverID": {
+        "name": "driver_id",
+        "in": "path",
+        "required": true,
+        "description": "iRacing customer ID. Must match the authenticated user.",
+        "schema": { "type": "integer", "format": "int64" }
+      },
+      "DriverRaceID": {
+        "name": "driver_race_id",
+        "in": "path",
+        "required": true,
+        "description": "Race ID (Unix timestamp of the race start time)",
+        "schema": { "type": "integer", "format": "int64" }
+      },
+      "SubsessionID": {
+        "name": "subsession_id",
+        "in": "path",
+        "required": true,
+        "description": "iRacing subsession ID",
+        "schema": { "type": "integer", "format": "int64" }
+      },
+      "StartTime": {
+        "name": "startTime",
+        "in": "query",
+        "required": true,
+        "description": "Start of time range (ISO-8601)",
+        "schema": { "type": "string", "format": "date-time" }
+      },
+      "EndTime": {
+        "name": "endTime",
+        "in": "query",
+        "required": true,
+        "description": "End of time range (ISO-8601)",
+        "schema": { "type": "string", "format": "date-time" }
+      },
+      "Page": {
+        "name": "page",
+        "in": "query",
+        "description": "Page number (default: 1)",
+        "schema": { "type": "integer", "default": 1 }
+      },
+      "ResultsPerPage": {
+        "name": "resultsPerPage",
+        "in": "query",
+        "description": "Results per page (default: 10)",
+        "schema": { "type": "integer", "default": 10 }
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/RequestErrors" }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing or invalid authentication",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorMessage" }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Insufficient permissions",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorMessage" }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorMessage" }
+          }
+        }
+      },
+      "TooManyRequests": {
+        "description": "Rate limited",
+        "headers": {
+          "Retry-After": {
+            "description": "Seconds until the request can be retried",
+            "schema": { "type": "integer" }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/TooManyRequestsResponse" }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/ErrorMessage" }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ErrorMessage": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "correlationId": { "type": "string" }
+        }
+      },
+      "RequestErrors": {
+        "type": "object",
+        "properties": {
+          "errors": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "fieldErrors": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/FieldError" }
+          },
+          "correlationId": { "type": "string" }
+        }
+      },
+      "FieldError": {
+        "type": "object",
+        "properties": {
+          "field": { "type": "string" },
+          "error": { "type": "string" },
+          "code": { "type": "string" },
+          "params": {
+            "type": "object",
+            "additionalProperties": { "type": "string" }
+          }
+        }
+      },
+      "TooManyRequestsResponse": {
+        "type": "object",
+        "properties": {
+          "message": { "type": "string" },
+          "retryAfter": { "type": "integer", "description": "Seconds until retry is allowed" },
+          "correlationId": { "type": "string" }
+        }
+      },
+      "Pagination": {
+        "type": "object",
+        "properties": {
+          "page": { "type": "integer" },
+          "resultsPerPage": { "type": "integer" },
+          "totalResults": { "type": "integer" },
+          "totalPages": { "type": "integer" }
+        }
+      },
+      "CallbackRequest": {
+        "type": "object",
+        "required": ["code", "code_verifier", "redirect_uri"],
+        "properties": {
+          "code": { "type": "string", "description": "OAuth authorization code from iRacing" },
+          "code_verifier": { "type": "string", "description": "PKCE code verifier" },
+          "redirect_uri": { "type": "string", "description": "Redirect URI used in the authorization request" }
+        }
+      },
+      "AuthToken": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string", "description": "JWT token" },
+          "expires_at": { "type": "integer", "format": "int64", "description": "Token expiry as Unix timestamp" },
+          "user_id": { "type": "integer", "format": "int64", "description": "iRacing customer ID" },
+          "user_name": { "type": "string", "description": "iRacing display name" }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "properties": {
+          "access_token": { "type": "string", "description": "Raw iRacing access token" }
+        }
+      },
+      "RaceIngestionRequest": {
+        "type": "object",
+        "required": ["notifyConnectionId"],
+        "properties": {
+          "notifyConnectionId": { "type": "string", "description": "WebSocket connection ID to receive progress updates" }
+        }
+      },
+      "DriverInfo": {
+        "type": "object",
+        "properties": {
+          "driverId": { "type": "integer", "format": "int64" },
+          "driverName": { "type": "string" },
+          "memberSince": { "type": "string", "format": "date-time" },
+          "racesIngestedTo": { "type": "string", "format": "date-time", "nullable": true },
+          "ingestionBlockedUntil": { "type": "string", "format": "date-time", "nullable": true },
+          "firstLogin": { "type": "string", "format": "date-time" },
+          "lastLogin": { "type": "string", "format": "date-time" },
+          "loginCount": { "type": "integer", "format": "int64" },
+          "sessionCount": { "type": "integer", "format": "int64" }
+        }
+      },
+      "Race": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64", "description": "Race ID (Unix timestamp of start time)" },
+          "subsessionId": { "type": "integer", "format": "int64" },
+          "trackId": { "type": "integer", "format": "int64" },
+          "seriesId": { "type": "integer", "format": "int64" },
+          "seriesName": { "type": "string" },
+          "carId": { "type": "integer", "format": "int64" },
+          "startTime": { "type": "string", "format": "date-time" },
+          "startPosition": { "type": "integer" },
+          "startPositionInClass": { "type": "integer" },
+          "finishPosition": { "type": "integer" },
+          "finishPositionInClass": { "type": "integer" },
+          "incidents": { "type": "integer" },
+          "oldCpi": { "type": "number", "format": "double" },
+          "newCpi": { "type": "number", "format": "double" },
+          "oldIrating": { "type": "integer" },
+          "newIrating": { "type": "integer" },
+          "oldLicenseLevel": { "type": "integer" },
+          "newLicenseLevel": { "type": "integer" },
+          "oldSubLevel": { "type": "integer" },
+          "newSubLevel": { "type": "integer" },
+          "reasonOut": { "type": "string" }
+        }
+      },
+      "JournalEntry": {
+        "type": "object",
+        "properties": {
+          "raceId": { "type": "integer", "format": "int64" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "notes": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "replayVideo": { "type": "string" },
+          "race": { "$ref": "#/components/schemas/Race" }
+        }
+      },
+      "SaveJournalEntryRequest": {
+        "type": "object",
+        "properties": {
+          "notes": { "type": "string" },
+          "tags": { "type": "array", "items": { "type": "string" } },
+          "replayVideo": { "type": "string" }
+        }
+      },
+      "AnalyticsResponse": {
+        "type": "object",
+        "properties": {
+          "summary": { "$ref": "#/components/schemas/AnalyticsSummary" },
+          "groupedBy": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AnalyticsGroup" }
+          },
+          "timeSeries": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/AnalyticsPeriod" }
+          }
+        }
+      },
+      "AnalyticsSummary": {
+        "type": "object",
+        "properties": {
+          "raceCount": { "type": "integer" },
+          "iRatingStart": { "type": "integer" },
+          "iRatingEnd": { "type": "integer" },
+          "iRatingDelta": { "type": "integer" },
+          "iRatingGain": { "type": "integer" },
+          "iRatingLoss": { "type": "integer" },
+          "cpiStart": { "type": "number", "format": "double" },
+          "cpiEnd": { "type": "number", "format": "double" },
+          "cpiDelta": { "type": "number", "format": "double" },
+          "cpiGain": { "type": "number", "format": "double" },
+          "cpiLoss": { "type": "number", "format": "double" },
+          "podiums": { "type": "integer" },
+          "top5Finishes": { "type": "integer" },
+          "wins": { "type": "integer" },
+          "avgFinishPosition": { "type": "number", "format": "double" },
+          "avgStartPosition": { "type": "number", "format": "double" },
+          "positionsGained": { "type": "number", "format": "double" },
+          "totalIncidents": { "type": "integer" },
+          "avgIncidents": { "type": "number", "format": "double" }
+        }
+      },
+      "AnalyticsGroup": {
+        "type": "object",
+        "properties": {
+          "seriesId": { "type": "integer", "format": "int64" },
+          "carId": { "type": "integer", "format": "int64" },
+          "trackId": { "type": "integer", "format": "int64" },
+          "summary": { "$ref": "#/components/schemas/AnalyticsSummary" }
+        }
+      },
+      "AnalyticsPeriod": {
+        "type": "object",
+        "properties": {
+          "period": { "type": "string", "description": "Time period label. Format depends on granularity: 2024-01-15 (day), 2024-W03 (week), 2024-01 (month), 2024 (year)." },
+          "summary": { "$ref": "#/components/schemas/AnalyticsSummary" }
+        }
+      },
+      "DimensionsResponse": {
+        "type": "object",
+        "properties": {
+          "series": { "type": "array", "items": { "type": "integer", "format": "int64" } },
+          "cars": { "type": "array", "items": { "type": "integer", "format": "int64" } },
+          "tracks": { "type": "array", "items": { "type": "integer", "format": "int64" } }
+        }
+      },
+      "Car": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "name": { "type": "string" },
+          "nameAbbreviated": { "type": "string" },
+          "make": { "type": "string" },
+          "model": { "type": "string" },
+          "description": { "type": "string" },
+          "weight": { "type": "integer" },
+          "hpUnderHood": { "type": "integer" },
+          "hpActual": { "type": "integer" },
+          "categories": { "type": "array", "items": { "type": "string" } },
+          "logoUrl": { "type": "string" },
+          "smallImageUrl": { "type": "string" },
+          "largeImageUrl": { "type": "string" },
+          "hasHeadlights": { "type": "boolean" },
+          "hasMultipleDryTires": { "type": "boolean" },
+          "rainEnabled": { "type": "boolean" },
+          "freeWithSubscription": { "type": "boolean" },
+          "retired": { "type": "boolean" }
+        }
+      },
+      "Track": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "name": { "type": "string" },
+          "configName": { "type": "string" },
+          "category": { "type": "string" },
+          "location": { "type": "string" },
+          "cornersPerLap": { "type": "integer" },
+          "lengthMiles": { "type": "number", "format": "double" },
+          "description": { "type": "string" },
+          "logoUrl": { "type": "string" },
+          "smallImageUrl": { "type": "string" },
+          "largeImageUrl": { "type": "string" },
+          "trackMapUrl": { "type": "string" },
+          "trackMapLayers": { "$ref": "#/components/schemas/TrackMapLayers" },
+          "isDirt": { "type": "boolean" },
+          "isOval": { "type": "boolean" },
+          "hasNightLighting": { "type": "boolean" },
+          "rainEnabled": { "type": "boolean" },
+          "freeWithSubscription": { "type": "boolean" },
+          "retired": { "type": "boolean" },
+          "pitRoadSpeedLimit": { "type": "integer" }
+        }
+      },
+      "TrackMapLayers": {
+        "type": "object",
+        "properties": {
+          "background": { "type": "string" },
+          "inactive": { "type": "string" },
+          "active": { "type": "string" },
+          "pitroad": { "type": "string" },
+          "startFinish": { "type": "string" },
+          "turns": { "type": "string" }
+        }
+      },
+      "Series": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "shortName": { "type": "string" },
+          "category": { "type": "string" },
+          "logoUrl": { "type": "string" },
+          "active": { "type": "boolean" },
+          "official": { "type": "boolean" }
+        }
+      },
+      "SessionResponse": {
+        "type": "object",
+        "properties": {
+          "subsessionId": { "type": "integer", "format": "int64" },
+          "driverRaceId": { "type": "integer", "format": "int64", "nullable": true, "description": "Present when the authenticated driver participated in this session" },
+          "sessionId": { "type": "integer", "format": "int64" },
+          "allowedLicenses": { "type": "array", "items": { "$ref": "#/components/schemas/AllowedLicense" } },
+          "associatedSubsessionIds": { "type": "array", "items": { "type": "integer", "format": "int64" } },
+          "canProtest": { "type": "boolean" },
+          "carClasses": { "type": "array", "items": { "$ref": "#/components/schemas/CarClass" } },
+          "cautionType": { "type": "integer" },
+          "cooldownMinutes": { "type": "integer" },
+          "cornersPerLap": { "type": "integer" },
+          "damageModel": { "type": "integer" },
+          "driverChangeParam1": { "type": "integer" },
+          "driverChangeParam2": { "type": "integer" },
+          "driverChangeRule": { "type": "integer" },
+          "driverChanges": { "type": "boolean" },
+          "endTime": { "type": "string", "format": "date-time" },
+          "eventAverageLap": { "type": "integer", "description": "Lap time in 1/100ths of a second" },
+          "eventBestLapTime": { "type": "integer", "description": "Lap time in 1/100ths of a second" },
+          "eventLapsComplete": { "type": "integer" },
+          "eventStrengthOfField": { "type": "integer" },
+          "eventType": { "type": "integer" },
+          "eventTypeName": { "type": "string" },
+          "heatInfoId": { "type": "integer" },
+          "licenseCategory": { "type": "string" },
+          "licenseCategoryId": { "type": "integer" },
+          "limitMinutes": { "type": "integer" },
+          "maxTeamDrivers": { "type": "integer" },
+          "maxWeeks": { "type": "integer" },
+          "minTeamDrivers": { "type": "integer" },
+          "numCautionLaps": { "type": "integer" },
+          "numCautions": { "type": "integer" },
+          "numDrivers": { "type": "integer" },
+          "numLapsForQualAverage": { "type": "integer" },
+          "numLapsForSoloAverage": { "type": "integer" },
+          "numLeadChanges": { "type": "integer" },
+          "officialSession": { "type": "boolean" },
+          "pointsType": { "type": "string" },
+          "privateSessionId": { "type": "integer" },
+          "raceSummary": { "$ref": "#/components/schemas/RaceSummary" },
+          "raceWeekNum": { "type": "integer" },
+          "resultsRestricted": { "type": "boolean" },
+          "seasonId": { "type": "integer" },
+          "seasonName": { "type": "string" },
+          "seasonQuarter": { "type": "integer" },
+          "seasonShortName": { "type": "string" },
+          "seasonYear": { "type": "integer" },
+          "seriesId": { "type": "integer" },
+          "seriesLogo": { "type": "string" },
+          "seriesName": { "type": "string" },
+          "seriesShortName": { "type": "string" },
+          "sessionResults": { "type": "array", "items": { "$ref": "#/components/schemas/SimSessionResult" } },
+          "sessionSplits": { "type": "array", "items": { "$ref": "#/components/schemas/SessionSplit" } },
+          "specialEventType": { "type": "integer" },
+          "startTime": { "type": "string", "format": "date-time" },
+          "track": { "$ref": "#/components/schemas/SessionTrack" },
+          "trackState": { "$ref": "#/components/schemas/TrackState" },
+          "weather": { "$ref": "#/components/schemas/Weather" }
+        }
+      },
+      "AllowedLicense": {
+        "type": "object",
+        "properties": {
+          "groupName": { "type": "string" },
+          "licenseGroup": { "type": "integer" },
+          "maxLicenseLevel": { "type": "integer" },
+          "minLicenseLevel": { "type": "integer" },
+          "parentId": { "type": "integer" }
+        }
+      },
+      "CarClass": {
+        "type": "object",
+        "properties": {
+          "carClassId": { "type": "integer" },
+          "shortName": { "type": "string" },
+          "name": { "type": "string" },
+          "strengthOfField": { "type": "integer" },
+          "numEntries": { "type": "integer" },
+          "carsInClass": { "type": "array", "items": { "$ref": "#/components/schemas/CarInClass" } }
+        }
+      },
+      "CarInClass": {
+        "type": "object",
+        "properties": {
+          "carId": { "type": "integer" }
+        }
+      },
+      "RaceSummary": {
+        "type": "object",
+        "properties": {
+          "subsessionId": { "type": "integer", "format": "int64" },
+          "averageLap": { "type": "integer" },
+          "lapsComplete": { "type": "integer" },
+          "numCautions": { "type": "integer" },
+          "numCautionLaps": { "type": "integer" },
+          "numLeadChanges": { "type": "integer" },
+          "fieldStrength": { "type": "integer" },
+          "numOptLaps": { "type": "integer" },
+          "hasOptPath": { "type": "boolean" },
+          "specialEventType": { "type": "integer" },
+          "specialEventTypeText": { "type": "string" }
+        }
+      },
+      "SimSessionResult": {
+        "type": "object",
+        "properties": {
+          "simsessionNumber": { "type": "integer" },
+          "simsessionName": { "type": "string" },
+          "simsessionType": { "type": "integer" },
+          "simsessionTypeName": { "type": "string" },
+          "simsessionSubtype": { "type": "integer" },
+          "weatherResult": { "$ref": "#/components/schemas/WeatherResult" },
+          "results": { "type": "array", "items": { "$ref": "#/components/schemas/DriverResult" } }
+        }
+      },
+      "WeatherResult": {
+        "type": "object",
+        "properties": {
+          "avgSkies": { "type": "integer" },
+          "avgCloudCoverPct": { "type": "number", "format": "double" },
+          "minCloudCoverPct": { "type": "number", "format": "double" },
+          "maxCloudCoverPct": { "type": "number", "format": "double" },
+          "tempUnits": { "type": "integer" },
+          "avgTemp": { "type": "number", "format": "double" },
+          "minTemp": { "type": "number", "format": "double" },
+          "maxTemp": { "type": "number", "format": "double" },
+          "avgRelHumidity": { "type": "number", "format": "double" },
+          "windUnits": { "type": "integer" },
+          "avgWindSpeed": { "type": "number", "format": "double" },
+          "minWindSpeed": { "type": "number", "format": "double" },
+          "maxWindSpeed": { "type": "number", "format": "double" },
+          "avgWindDir": { "type": "integer" },
+          "maxFog": { "type": "number", "format": "double" },
+          "fogTimePct": { "type": "number", "format": "double" },
+          "precipTimePct": { "type": "number", "format": "double" },
+          "precipMm": { "type": "number", "format": "double" },
+          "precipMm2hrBeforeSession": { "type": "number", "format": "double" },
+          "simulatedStartTime": { "type": "string" }
+        }
+      },
+      "DriverResult": {
+        "type": "object",
+        "properties": {
+          "custId": { "type": "integer", "format": "int64" },
+          "displayName": { "type": "string" },
+          "aggregateChampPoints": { "type": "integer" },
+          "ai": { "type": "boolean" },
+          "averageLap": { "type": "integer" },
+          "bestLapNum": { "type": "integer" },
+          "bestLapTime": { "type": "integer" },
+          "bestNlapsNum": { "type": "integer" },
+          "bestNlapsTime": { "type": "integer" },
+          "bestQualLapAt": { "type": "string", "format": "date-time" },
+          "bestQualLapNum": { "type": "integer" },
+          "bestQualLapTime": { "type": "integer" },
+          "carClassId": { "type": "integer" },
+          "carClassName": { "type": "string" },
+          "carClassShortName": { "type": "string" },
+          "carId": { "type": "integer", "format": "int64" },
+          "carName": { "type": "string" },
+          "carCfg": { "type": "integer" },
+          "champPoints": { "type": "integer" },
+          "classInterval": { "type": "integer" },
+          "countryCode": { "type": "string" },
+          "division": { "type": "integer" },
+          "divisionName": { "type": "string" },
+          "dropRace": { "type": "boolean" },
+          "finishPosition": { "type": "integer" },
+          "finishPositionInClass": { "type": "integer" },
+          "flairId": { "type": "integer" },
+          "flairName": { "type": "string" },
+          "flairShortname": { "type": "string" },
+          "friend": { "type": "boolean" },
+          "helmet": { "$ref": "#/components/schemas/Helmet" },
+          "incidents": { "type": "integer" },
+          "interval": { "type": "integer" },
+          "lapsComplete": { "type": "integer" },
+          "lapsLead": { "type": "integer" },
+          "leagueAggPoints": { "type": "integer" },
+          "leaguePoints": { "type": "integer" },
+          "licenseChangeOval": { "type": "integer" },
+          "licenseChangeRoad": { "type": "integer" },
+          "livery": { "$ref": "#/components/schemas/Livery" },
+          "maxPctFuelFill": { "type": "integer" },
+          "newCpi": { "type": "number", "format": "double" },
+          "newLicenseLevel": { "type": "integer" },
+          "newSubLevel": { "type": "integer" },
+          "newTtrating": { "type": "integer" },
+          "newIrating": { "type": "integer" },
+          "oldCpi": { "type": "number", "format": "double" },
+          "oldLicenseLevel": { "type": "integer" },
+          "oldSubLevel": { "type": "integer" },
+          "oldTtrating": { "type": "integer" },
+          "oldIrating": { "type": "integer" },
+          "optLapsComplete": { "type": "integer" },
+          "position": { "type": "integer" },
+          "qualLapTime": { "type": "integer" },
+          "reasonOut": { "type": "string" },
+          "reasonOutId": { "type": "integer" },
+          "startingPosition": { "type": "integer" },
+          "startingPositionInClass": { "type": "integer" },
+          "suit": { "$ref": "#/components/schemas/Suit" },
+          "watched": { "type": "boolean" },
+          "weightPenaltyKg": { "type": "integer" }
+        }
+      },
+      "Helmet": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "integer" },
+          "color1": { "type": "string" },
+          "color2": { "type": "string" },
+          "color3": { "type": "string" },
+          "faceType": { "type": "integer" },
+          "helmetType": { "type": "integer" }
+        }
+      },
+      "Livery": {
+        "type": "object",
+        "properties": {
+          "carId": { "type": "integer" },
+          "pattern": { "type": "integer" },
+          "color1": { "type": "string" },
+          "color2": { "type": "string" },
+          "color3": { "type": "string" },
+          "numberFont": { "type": "integer" },
+          "numberColor1": { "type": "string" },
+          "numberColor2": { "type": "string" },
+          "numberColor3": { "type": "string" },
+          "numberSlant": { "type": "integer" },
+          "sponsor1": { "type": "integer" },
+          "sponsor2": { "type": "integer" },
+          "carNumber": { "type": "string" },
+          "wheelColor": { "type": "string", "nullable": true },
+          "rimType": { "type": "integer" }
+        }
+      },
+      "Suit": {
+        "type": "object",
+        "properties": {
+          "pattern": { "type": "integer" },
+          "color1": { "type": "string" },
+          "color2": { "type": "string" },
+          "color3": { "type": "string" }
+        }
+      },
+      "SessionSplit": {
+        "type": "object",
+        "properties": {
+          "subsessionId": { "type": "integer", "format": "int64" },
+          "eventStrengthOfField": { "type": "integer" }
+        }
+      },
+      "SessionTrack": {
+        "type": "object",
+        "description": "Track info as returned within a session result (subset of full Track reference data)",
+        "properties": {
+          "trackId": { "type": "integer", "format": "int64" },
+          "trackName": { "type": "string" },
+          "configName": { "type": "string" },
+          "category": { "type": "string" },
+          "categoryId": { "type": "integer" }
+        }
+      },
+      "TrackState": {
+        "type": "object",
+        "properties": {
+          "leaveMarbles": { "type": "boolean" },
+          "practiceRubber": { "type": "integer" },
+          "qualifyRubber": { "type": "integer" },
+          "raceRubber": { "type": "integer" },
+          "warmupRubber": { "type": "integer" }
+        }
+      },
+      "Weather": {
+        "type": "object",
+        "properties": {
+          "allowFog": { "type": "boolean" },
+          "fog": { "type": "integer" },
+          "precipMm2hrBeforeFinalSession": { "type": "number", "format": "double" },
+          "precipMmFinalSession": { "type": "number", "format": "double" },
+          "precipOption": { "type": "integer" },
+          "precipTimePct": { "type": "number", "format": "double" },
+          "relHumidity": { "type": "integer" },
+          "simulatedStartTime": { "type": "string" },
+          "skies": { "type": "integer" },
+          "tempUnits": { "type": "integer" },
+          "tempValue": { "type": "integer" },
+          "timeOfDay": { "type": "integer" },
+          "trackWater": { "type": "integer" },
+          "type": { "type": "integer" },
+          "version": { "type": "integer" },
+          "weatherVarInitial": { "type": "integer" },
+          "weatherVarOngoing": { "type": "integer" },
+          "windDir": { "type": "integer" },
+          "windUnits": { "type": "integer" },
+          "windValue": { "type": "integer" }
+        }
+      },
+      "LapDataResponse": {
+        "type": "object",
+        "properties": {
+          "bestLapNum": { "type": "integer" },
+          "bestLapTime": { "type": "integer" },
+          "bestNlapsNum": { "type": "integer" },
+          "bestNlapsTime": { "type": "integer" },
+          "bestQualLapNum": { "type": "integer" },
+          "bestQualLapTime": { "type": "integer" },
+          "bestQualLapAt": { "type": "string", "format": "date-time" },
+          "custId": { "type": "integer", "format": "int64" },
+          "name": { "type": "string" },
+          "carId": { "type": "integer" },
+          "licenseLevel": { "type": "integer" },
+          "laps": { "type": "array", "items": { "$ref": "#/components/schemas/Lap" } }
+        }
+      },
+      "Lap": {
+        "type": "object",
+        "properties": {
+          "lapNumber": { "type": "integer" },
+          "flags": { "type": "integer" },
+          "incident": { "type": "boolean" },
+          "sessionTime": { "type": "integer" },
+          "lapTime": { "type": "integer" },
+          "personalBestLap": { "type": "boolean" },
+          "lapEvents": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}
