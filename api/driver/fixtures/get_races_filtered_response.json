@@ -1,0 +1,34 @@
+{
+  "items": [
+    {
+      "id": 1700000000,
+      "subsessionId": 100001,
+      "trackId": 1,
+      "seriesId": 42,
+      "seriesName": "Advanced Mazda MX-5 Cup Series",
+      "carId": 10,
+      "startTime": "2023-11-14T22:13:20Z",
+      "startPosition": 5,
+      "startPositionInClass": 3,
+      "finishPosition": 2,
+      "finishPositionInClass": 1,
+      "incidents": 4,
+      "oldCpi": 1.5,
+      "newCpi": 1.4,
+      "oldIrating": 1500,
+      "newIrating": 1550,
+      "oldLicenseLevel": 17,
+      "newLicenseLevel": 18,
+      "oldSubLevel": 381,
+      "newSubLevel": 399,
+      "reasonOut": "Running"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "resultsPerPage": 10,
+    "totalResults": 1,
+    "totalPages": 1
+  },
+  "correlationId": "test-correlation-id"
+}

@@ -40,8 +40,14 @@ func (_m *MockStore) EXPECT() *MockStore_Expecter {
 }
 
 // GetDriverSessionsByTimeRange provides a mock function for the type MockStore
-func (_mock *MockStore) GetDriverSessionsByTimeRange(ctx context.Context, driverID int64, from time.Time, to time.Time) ([]store.DriverSession, error) {
-	ret := _mock.Called(ctx, driverID, from, to)
+func (_mock *MockStore) GetDriverSessionsByTimeRange(ctx context.Context, driverID int64, from time.Time, to time.Time, filters ...store.SessionFilter) ([]store.DriverSession, error) {
+	var tmpRet mock.Arguments
+	if len(filters) > 0 {
+		tmpRet = _mock.Called(ctx, driverID, from, to, filters)
+	} else {
+		tmpRet = _mock.Called(ctx, driverID, from, to)
+	}
+	ret := tmpRet
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetDriverSessionsByTimeRange")
@@ -49,18 +55,18 @@ func (_mock *MockStore) GetDriverSessionsByTimeRange(ctx context.Context, driver
 
 	var r0 []store.DriverSession
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, time.Time, time.Time) ([]store.DriverSession, error)); ok {
-		return returnFunc(ctx, driverID, from, to)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, time.Time, time.Time, ...store.SessionFilter) ([]store.DriverSession, error)); ok {
+		return returnFunc(ctx, driverID, from, to, filters...)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, time.Time, time.Time) []store.DriverSession); ok {
-		r0 = returnFunc(ctx, driverID, from, to)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int64, time.Time, time.Time, ...store.SessionFilter) []store.DriverSession); ok {
+		r0 = returnFunc(ctx, driverID, from, to, filters...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]store.DriverSession)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, time.Time, time.Time) error); ok {
-		r1 = returnFunc(ctx, driverID, from, to)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int64, time.Time, time.Time, ...store.SessionFilter) error); ok {
+		r1 = returnFunc(ctx, driverID, from, to, filters...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -77,11 +83,13 @@ type MockStore_GetDriverSessionsByTimeRange_Call struct {
 //   - driverID int64
 //   - from time.Time
 //   - to time.Time
-func (_e *MockStore_Expecter) GetDriverSessionsByTimeRange(ctx interface{}, driverID interface{}, from interface{}, to interface{}) *MockStore_GetDriverSessionsByTimeRange_Call {
-	return &MockStore_GetDriverSessionsByTimeRange_Call{Call: _e.mock.On("GetDriverSessionsByTimeRange", ctx, driverID, from, to)}
+//   - filters ...store.SessionFilter
+func (_e *MockStore_Expecter) GetDriverSessionsByTimeRange(ctx interface{}, driverID interface{}, from interface{}, to interface{}, filters ...interface{}) *MockStore_GetDriverSessionsByTimeRange_Call {
+	return &MockStore_GetDriverSessionsByTimeRange_Call{Call: _e.mock.On("GetDriverSessionsByTimeRange",
+		append([]interface{}{ctx, driverID, from, to}, filters...)...)}
 }
 
-func (_c *MockStore_GetDriverSessionsByTimeRange_Call) Run(run func(ctx context.Context, driverID int64, from time.Time, to time.Time)) *MockStore_GetDriverSessionsByTimeRange_Call {
+func (_c *MockStore_GetDriverSessionsByTimeRange_Call) Run(run func(ctx context.Context, driverID int64, from time.Time, to time.Time, filters ...store.SessionFilter)) *MockStore_GetDriverSessionsByTimeRange_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -99,11 +107,18 @@ func (_c *MockStore_GetDriverSessionsByTimeRange_Call) Run(run func(ctx context.
 		if args[3] != nil {
 			arg3 = args[3].(time.Time)
 		}
+		var arg4 []store.SessionFilter
+		var variadicArgs []store.SessionFilter
+		if len(args) > 4 {
+			variadicArgs = args[4].([]store.SessionFilter)
+		}
+		arg4 = variadicArgs
 		run(
 			arg0,
 			arg1,
 			arg2,
 			arg3,
+			arg4...,
 		)
 	})
 	return _c
@@ -114,7 +129,7 @@ func (_c *MockStore_GetDriverSessionsByTimeRange_Call) Return(driverSessions []s
 	return _c
 }
 
-func (_c *MockStore_GetDriverSessionsByTimeRange_Call) RunAndReturn(run func(ctx context.Context, driverID int64, from time.Time, to time.Time) ([]store.DriverSession, error)) *MockStore_GetDriverSessionsByTimeRange_Call {
+func (_c *MockStore_GetDriverSessionsByTimeRange_Call) RunAndReturn(run func(ctx context.Context, driverID int64, from time.Time, to time.Time, filters ...store.SessionFilter) ([]store.DriverSession, error)) *MockStore_GetDriverSessionsByTimeRange_Call {
 	_c.Call.Return(run)
 	return _c
 }

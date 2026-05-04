@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net/http"
@@ -85,6 +86,9 @@ func TestNewGetRacesEndpoint(t *testing.T) {
 		endTime        string
 		page           string
 		resultsPerPage string
+		seriesIDs      []string
+		carIDs         []string
+		trackIDs       []string
 
 		storeCalls []storeCall
 
@@ -176,14 +180,61 @@ func TestNewGetRacesEndpoint(t *testing.T) {
 			expectedStatus:      http.StatusInternalServerError,
 			expectedBodyFixture: "fixtures/get_races_store_error_response.json",
 		},
+		{
+			name:      "success with seriesId filter",
+			driverID:  "12345",
+			startTime: "2023-11-01T00:00:00Z",
+			endTime:   "2023-11-30T00:00:00Z",
+			seriesIDs: []string{"42"},
+			storeCalls: []storeCall{
+				{
+					driverID: 12345,
+					from:     time.Date(2023, 11, 1, 0, 0, 0, 0, time.UTC),
+					to:       time.Date(2023, 11, 30, 0, 0, 0, 0, time.UTC),
+					sessions: testSessions,
+				},
+			},
+			expectedStatus:      http.StatusOK,
+			expectedBodyFixture: "fixtures/get_races_filtered_response.json",
+		},
+		{
+			name:                "invalid filter values",
+			driverID:            "12345",
+			startTime:           "2023-11-01T00:00:00Z",
+			endTime:             "2023-11-30T00:00:00Z",
+			seriesIDs:           []string{"abc"},
+			carIDs:              []string{"xyz"},
+			storeCalls:          []storeCall{},
+			expectedStatus:      http.StatusBadRequest,
+			expectedBodyFixture: "fixtures/get_races_invalid_filter_response.json",
+		},
+		{
+			name:                "endTime before startTime",
+			driverID:            "12345",
+			startTime:           "2023-11-30T00:00:00Z",
+			endTime:             "2023-11-01T00:00:00Z",
+			storeCalls:          []storeCall{},
+			expectedStatus:      http.StatusBadRequest,
+			expectedBodyFixture: "fixtures/get_races_end_before_start_response.json",
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			mockStore := NewMockGetRacesStore(t)
 			for _, call := range tc.storeCalls {
-				mockStore.EXPECT().GetDriverSessionsByTimeRange(mock.Anything, call.driverID, call.from, call.to).
-					Return(call.sessions, call.err)
+				call := call
+				mockStore.EXPECT().GetDriverSessionsByTimeRange(mock.Anything, call.driverID, call.from, call.to, mock.Anything).
+					RunAndReturn(func(_ context.Context, _ int64, _, _ time.Time, filters ...store.SessionFilter) ([]store.DriverSession, error) {
+						if call.err != nil {
+							return nil, call.err
+						}
+						sessions := call.sessions
+						for _, f := range filters {
+							sessions = f(sessions)
+						}
+						return sessions, nil
+					})
 			}
 
 			r := chi.NewRouter()
@@ -205,6 +256,15 @@ func TestNewGetRacesEndpoint(t *testing.T) {
 			}
 			if tc.resultsPerPage != "" {
 				url += "resultsPerPage=" + tc.resultsPerPage + "&"
+			}
+			for _, id := range tc.seriesIDs {
+				url += "seriesId=" + id + "&"
+			}
+			for _, id := range tc.carIDs {
+				url += "carId=" + id + "&"
+			}
+			for _, id := range tc.trackIDs {
+				url += "trackId=" + id + "&"
 			}
 
 			req, err := http.NewRequest(http.MethodGet, url, nil)

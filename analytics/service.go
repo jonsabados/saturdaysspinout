@@ -11,7 +11,7 @@ import (
 
 // Store defines the data access interface needed by the analytics service.
 type Store interface {
-	GetDriverSessionsByTimeRange(ctx context.Context, driverID int64, from, to time.Time) ([]store.DriverSession, error)
+	GetDriverSessionsByTimeRange(ctx context.Context, driverID int64, from, to time.Time, filters ...store.SessionFilter) ([]store.DriverSession, error)
 }
 
 // Dimensions contains the unique series, cars, and tracks a driver has raced.
@@ -176,13 +176,21 @@ type AnalyticsResult struct {
 
 // GetAnalytics computes analytics for the given request.
 func (s *Service) GetAnalytics(ctx context.Context, req AnalyticsRequest) (*AnalyticsResult, error) {
-	sessions, err := s.store.GetDriverSessionsByTimeRange(ctx, req.DriverID, req.From, req.To)
+	var filters []store.SessionFilter
+	if len(req.SeriesIDs) > 0 {
+		filters = append(filters, store.FilterBySeriesIDs(req.SeriesIDs))
+	}
+	if len(req.CarIDs) > 0 {
+		filters = append(filters, store.FilterByCarIDs(req.CarIDs))
+	}
+	if len(req.TrackIDs) > 0 {
+		filters = append(filters, store.FilterByTrackIDs(req.TrackIDs))
+	}
+
+	filtered, err := s.store.GetDriverSessionsByTimeRange(ctx, req.DriverID, req.From, req.To, filters...)
 	if err != nil {
 		return nil, err
 	}
-
-	// Apply filters
-	filtered := filterSessions(sessions, req.SeriesIDs, req.CarIDs, req.TrackIDs)
 
 	// Sort by start time for chronological processing
 	sort.Slice(filtered, func(i, j int) bool {
@@ -204,46 +212,6 @@ func (s *Service) GetAnalytics(ctx context.Context, req AnalyticsRequest) (*Anal
 	}
 
 	return result, nil
-}
-
-func filterSessions(sessions []store.DriverSession, seriesIDs, carIDs, trackIDs []int64) []store.DriverSession {
-	if len(seriesIDs) == 0 && len(carIDs) == 0 && len(trackIDs) == 0 {
-		return sessions
-	}
-
-	seriesSet := int64SetFromSlice(seriesIDs)
-	carSet := int64SetFromSlice(carIDs)
-	trackSet := int64SetFromSlice(trackIDs)
-
-	var filtered []store.DriverSession
-	for _, session := range sessions {
-		// AND across dimensions, OR within dimension
-		if len(seriesSet) > 0 {
-			if _, ok := seriesSet[session.SeriesID]; !ok {
-				continue
-			}
-		}
-		if len(carSet) > 0 {
-			if _, ok := carSet[session.CarID]; !ok {
-				continue
-			}
-		}
-		if len(trackSet) > 0 {
-			if _, ok := trackSet[session.TrackID]; !ok {
-				continue
-			}
-		}
-		filtered = append(filtered, session)
-	}
-	return filtered
-}
-
-func int64SetFromSlice(ids []int64) map[int64]struct{} {
-	set := make(map[int64]struct{}, len(ids))
-	for _, id := range ids {
-		set[id] = struct{}{}
-	}
-	return set
 }
 
 func computeSummary(sessions []store.DriverSession) Summary {

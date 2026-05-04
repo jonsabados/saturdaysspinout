@@ -13,7 +13,7 @@ import (
 )
 
 type GetRacesStore interface {
-	GetDriverSessionsByTimeRange(ctx context.Context, driverID int64, from, to time.Time) ([]store.DriverSession, error)
+	GetDriverSessionsByTimeRange(ctx context.Context, driverID int64, from, to time.Time, filters ...store.SessionFilter) ([]store.DriverSession, error)
 }
 
 func NewGetRacesEndpoint(raceStore GetRacesStore) http.Handler {
@@ -25,36 +25,40 @@ func NewGetRacesEndpoint(raceStore GetRacesStore) http.Handler {
 
 		driverID, err := strconv.ParseInt(chi.URLParam(r, api.DriverIDPathParam), 10, 64)
 		if err != nil {
-			errs = errs.WithFieldError(api.DriverIDPathParam, "must be a valid integer")
+			errs = errs.WithFieldErrorCode(api.DriverIDPathParam, ErrCodeInvalidInteger, nil)
 		}
 
 		var startTime, endTime time.Time
 
 		startTimeStr := r.URL.Query().Get(api.StartTimeQueryParam)
 		if startTimeStr == "" {
-			errs = errs.WithFieldError(api.StartTimeQueryParam, "required")
+			errs = errs.WithFieldErrorCode(api.StartTimeQueryParam, ErrCodeRequired, nil)
 		} else {
 			startTime, err = time.Parse(time.RFC3339, startTimeStr)
 			if err != nil {
-				errs = errs.WithFieldError(api.StartTimeQueryParam, "must be a valid ISO-8601 timestamp")
+				errs = errs.WithFieldErrorCode(api.StartTimeQueryParam, ErrCodeInvalidISO8601, nil)
 			}
 		}
 
 		endTimeStr := r.URL.Query().Get(api.EndTimeQueryParam)
 		if endTimeStr == "" {
-			errs = errs.WithFieldError(api.EndTimeQueryParam, "required")
+			errs = errs.WithFieldErrorCode(api.EndTimeQueryParam, ErrCodeRequired, nil)
 		} else {
 			endTime, err = time.Parse(time.RFC3339, endTimeStr)
 			if err != nil {
-				errs = errs.WithFieldError(api.EndTimeQueryParam, "must be a valid ISO-8601 timestamp")
+				errs = errs.WithFieldErrorCode(api.EndTimeQueryParam, ErrCodeInvalidISO8601, nil)
 			}
+		}
+
+		if !startTime.IsZero() && !endTime.IsZero() && endTime.Before(startTime) {
+			errs = errs.WithFieldErrorCode(api.EndTimeQueryParam, ErrCodeEndBeforeStart, nil)
 		}
 
 		page := 1
 		if pageStr := r.URL.Query().Get(api.PageQueryParam); pageStr != "" {
 			page, err = strconv.Atoi(pageStr)
 			if err != nil || page < 1 {
-				errs = errs.WithFieldError(api.PageQueryParam, "must be a positive integer")
+				errs = errs.WithFieldErrorCode(api.PageQueryParam, ErrCodePositiveInteger, nil)
 			}
 		}
 
@@ -62,8 +66,23 @@ func NewGetRacesEndpoint(raceStore GetRacesStore) http.Handler {
 		if rppStr := r.URL.Query().Get(api.ResultsPerPageParam); rppStr != "" {
 			resultsPerPage, err = strconv.Atoi(rppStr)
 			if err != nil || resultsPerPage < 1 {
-				errs = errs.WithFieldError(api.ResultsPerPageParam, "must be a positive integer")
+				errs = errs.WithFieldErrorCode(api.ResultsPerPageParam, ErrCodePositiveInteger, nil)
 			}
+		}
+
+		seriesIDs, seriesErrs := parseInt64Slice(r.URL.Query()[api.SeriesIDQueryParam])
+		for _, e := range seriesErrs {
+			errs = errs.WithFieldErrorCode(api.SeriesIDQueryParam, ErrCodeInvalidInteger, map[string]string{"value": e})
+		}
+
+		carIDs, carErrs := parseInt64Slice(r.URL.Query()[api.CarIDQueryParam])
+		for _, e := range carErrs {
+			errs = errs.WithFieldErrorCode(api.CarIDQueryParam, ErrCodeInvalidInteger, map[string]string{"value": e})
+		}
+
+		trackIDs, trackErrs := parseInt64Slice(r.URL.Query()[api.TrackIDQueryParam])
+		for _, e := range trackErrs {
+			errs = errs.WithFieldErrorCode(api.TrackIDQueryParam, ErrCodeInvalidInteger, map[string]string{"value": e})
 		}
 
 		if errs.HasAnyError() {
@@ -71,7 +90,18 @@ func NewGetRacesEndpoint(raceStore GetRacesStore) http.Handler {
 			return
 		}
 
-		sessions, err := raceStore.GetDriverSessionsByTimeRange(ctx, driverID, startTime, endTime)
+		var filters []store.SessionFilter
+		if len(seriesIDs) > 0 {
+			filters = append(filters, store.FilterBySeriesIDs(seriesIDs))
+		}
+		if len(carIDs) > 0 {
+			filters = append(filters, store.FilterByCarIDs(carIDs))
+		}
+		if len(trackIDs) > 0 {
+			filters = append(filters, store.FilterByTrackIDs(trackIDs))
+		}
+
+		sessions, err := raceStore.GetDriverSessionsByTimeRange(ctx, driverID, startTime, endTime, filters...)
 		if err != nil {
 			logger.Error().Err(err).Int64("driverId", driverID).Msg("failed to fetch driver sessions")
 			api.DoErrorResponse(ctx, w)

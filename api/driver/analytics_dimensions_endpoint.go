@@ -20,12 +20,13 @@ type AnalyticsService interface {
 
 // Error codes for i18n support
 const (
-	ErrCodeRequired        = "required"
-	ErrCodeInvalidInteger  = "invalid_integer"
-	ErrCodeInvalidISO8601  = "invalid_iso8601"
-	ErrCodeEndBeforeStart  = "end_before_start"
-	ErrCodeInvalidValue    = "invalid_value"
-	ErrCodeMutualExclusive = "mutual_exclusive"
+	ErrCodeRequired         = "required"
+	ErrCodeInvalidInteger   = "invalid_integer"
+	ErrCodePositiveInteger  = "positive_integer"
+	ErrCodeInvalidISO8601   = "invalid_iso8601"
+	ErrCodeEndBeforeStart   = "end_before_start"
+	ErrCodeInvalidValue     = "invalid_value"
+	ErrCodeMutualExclusive  = "mutual_exclusive"
 )
 
 // NewAnalyticsDimensionsEndpoint creates the handler for GET /driver/{driver_id}/analytics/dimensions

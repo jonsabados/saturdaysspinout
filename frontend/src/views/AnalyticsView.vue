@@ -2,111 +2,175 @@
 defineOptions({ name: 'AnalyticsView' })
 
 import { ref, computed, watch } from 'vue'
+import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAnalyticsStore, type DateRange } from '@/stores/analytics'
+import { useAnalyticsStore } from '@/stores/analytics'
 import { useDriverStore } from '@/stores/driver'
 import { useCarsStore } from '@/stores/cars'
 import { useTracksStore } from '@/stores/tracks'
 import { useSeriesStore } from '@/stores/series'
 import type { AnalyticsGroupBy } from '@/api/client'
 import AnalyticsChart from '@/components/AnalyticsChart.vue'
+import RaceFilters, {
+  type RaceFiltersState,
+  type RaceFiltersDimensions,
+} from '@/components/RaceFilters.vue'
 import { toDisplayPosition } from '@/utils/raceFormatters'
 import '@/assets/page-layout.css'
 
 const { t } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const analyticsStore = useAnalyticsStore()
 const driverStore = useDriverStore()
 const carsStore = useCarsStore()
 const tracksStore = useTracksStore()
 const seriesStore = useSeriesStore()
 
-// Local date state for inputs
-const fromDate = ref<Date | null>(null)
-const toDate = ref<Date | null>(null)
-const initialized = ref(false)
+const VALID_GROUP_BY: AnalyticsGroupBy[] = ['series', 'car', 'track']
 
-// Discipline filter (acts as a meta-filter that pre-selects cars and series)
-const selectedDiscipline = ref<string | null>(null)
-
-// Compute available disciplines from car categories in dimensions
-const availableDisciplines = computed(() => {
-  const carIds = analyticsStore.dimensions?.cars ?? []
-  const disciplines = new Set<string>()
-  for (const id of carIds) {
-    const car = carsStore.getCar(id)
-    if (car?.categories) {
-      for (const category of car.categories) {
-        disciplines.add(category)
-      }
-    }
-  }
-  return Array.from(disciplines).sort()
-})
-
-// When discipline changes, auto-filter by cars and series of that discipline
-function onDisciplineChange(discipline: string | null) {
-  selectedDiscipline.value = discipline
-
-  if (!discipline) {
-    // Clear filters when "All" is selected
-    analyticsStore.setCarFilter([])
-    analyticsStore.setSeriesFilter([])
-  } else {
-    // Filter to only cars that have this category
-    const carIds = analyticsStore.dimensions?.cars ?? []
-    const filteredCarIds = carIds.filter((id) => {
-      const car = carsStore.getCar(id)
-      return car?.categories?.includes(discipline)
-    })
-    analyticsStore.setCarFilter(filteredCarIds)
-
-    // Filter to only series from this discipline
-    const seriesIds = analyticsStore.dimensions?.series ?? []
-    const filteredSeriesIds = seriesIds.filter((id) => {
-      const series = seriesStore.getSeries(id)
-      return series?.category === discipline
-    })
-    analyticsStore.setSeriesFilter(filteredSeriesIds)
-  }
-
-  // Clear track filter since it may not apply to the new discipline
-  analyticsStore.setTrackFilter([])
-
-  if (analyticsStore.dateRange) {
-    analyticsStore.fetchAnalytics()
-    analyticsStore.fetchTimeSeries()
-  }
-}
-
-// Format date for input[type="date"]
-function formatDateForInput(date: Date | null): string {
-  if (!date) return ''
+function formatDateForInput(date: Date): string {
   return date.toISOString().split('T')[0]
 }
 
-// Parse date from input[type="date"]
 function parseDateFromInput(value: string): Date {
   return new Date(value + 'T00:00:00')
 }
 
-// Computed properties for native date input binding
-const fromDateStr = computed({
-  get: () => formatDateForInput(fromDate.value),
-  set: (value: string) => {
-    if (value) {
-      fromDate.value = parseDateFromInput(value)
-    }
-  },
-})
+function parseIdParam(v: LocationQuery[string]): number[] {
+  const arr = Array.isArray(v) ? v : v != null ? [v] : []
+  return arr
+    .map((s) => parseInt(String(s), 10))
+    .filter((n) => !isNaN(n))
+}
 
-const toDateStr = computed({
-  get: () => formatDateForInput(toDate.value),
-  set: (value: string) => {
-    if (value) {
-      toDate.value = parseDateFromInput(value)
+function parseGroupByParam(v: LocationQuery[string]): AnalyticsGroupBy[] {
+  const arr = Array.isArray(v) ? v : v != null ? [v] : []
+  return arr
+    .map((s) => String(s))
+    .filter((s): s is AnalyticsGroupBy => VALID_GROUP_BY.includes(s as AnalyticsGroupBy))
+}
+
+function initFiltersFromUrl(): RaceFiltersState | null {
+  const q = route.query
+  const fromStr = typeof q.from === 'string' ? q.from : null
+  const toStr = typeof q.to === 'string' ? q.to : null
+  if (!fromStr || !toStr) return null
+  return {
+    from: parseDateFromInput(fromStr),
+    to: parseDateFromInput(toStr),
+    discipline: typeof q.discipline === 'string' ? q.discipline : null,
+    seriesIds: parseIdParam(q.seriesId),
+    carIds: parseIdParam(q.carId),
+    trackIds: parseIdParam(q.trackId),
+  }
+}
+
+// Seed groupBy from URL into store (before any fetches fire)
+const initialGroupBy = parseGroupByParam(route.query.groupBy)
+if (initialGroupBy.length > 0) {
+  analyticsStore.setGroupBy(initialGroupBy)
+}
+
+// Filters are local source of truth; null until initialized from URL or driver
+const filters = ref<RaceFiltersState | null>(initFiltersFromUrl())
+
+// Default from driver memberSince once it loads (only if URL didn't seed filters)
+watch(
+  () => driverStore.driver,
+  (driver) => {
+    if (!filters.value && driver?.memberSince) {
+      filters.value = {
+        from: new Date(driver.memberSince),
+        to: new Date(),
+        discipline: null,
+        seriesIds: [],
+        carIds: [],
+        trackIds: [],
+      }
     }
   },
-})
+  { immediate: true }
+)
+
+const dimensions = computed<RaceFiltersDimensions | null>(() => analyticsStore.dimensions)
+
+function syncUrl() {
+  if (!filters.value) return
+  const f = filters.value
+  const query: Record<string, string | string[]> = {
+    from: formatDateForInput(f.from),
+    to: formatDateForInput(f.to),
+  }
+  if (f.discipline) query.discipline = f.discipline
+  if (f.seriesIds.length) query.seriesId = f.seriesIds.map(String)
+  if (f.carIds.length) query.carId = f.carIds.map(String)
+  if (f.trackIds.length) query.trackId = f.trackIds.map(String)
+  if (analyticsStore.groupBy.length) query.groupBy = analyticsStore.groupBy
+  router.replace({ query })
+}
+
+// Push filter changes to store, fetch, and update URL
+watch(
+  filters,
+  (next, prev) => {
+    if (!next) return
+    const dateChanged =
+      !prev ||
+      prev.from.getTime() !== next.from.getTime() ||
+      prev.to.getTime() !== next.to.getTime()
+
+    analyticsStore.setSeriesFilter(next.seriesIds)
+    analyticsStore.setCarFilter(next.carIds)
+    analyticsStore.setTrackFilter(next.trackIds)
+
+    if (dateChanged) {
+      analyticsStore.setDateRange({ startTime: next.from, endTime: next.to })
+      analyticsStore.refresh()
+    } else {
+      analyticsStore.fetchAnalytics()
+      analyticsStore.fetchTimeSeries()
+    }
+
+    syncUrl()
+  },
+  { immediate: true }
+)
+
+// Prune filter IDs that aren't in the latest dimensions (auto-cleanup after date change)
+watch(
+  () => analyticsStore.dimensions,
+  (dims) => {
+    if (!dims || !filters.value) return
+    const seriesSet = new Set(dims.series)
+    const carsSet = new Set(dims.cars)
+    const tracksSet = new Set(dims.tracks)
+
+    const prunedSeries = filters.value.seriesIds.filter((id) => seriesSet.has(id))
+    const prunedCars = filters.value.carIds.filter((id) => carsSet.has(id))
+    const prunedTracks = filters.value.trackIds.filter((id) => tracksSet.has(id))
+
+    const changed =
+      prunedSeries.length !== filters.value.seriesIds.length ||
+      prunedCars.length !== filters.value.carIds.length ||
+      prunedTracks.length !== filters.value.trackIds.length
+
+    if (changed) {
+      filters.value = {
+        ...filters.value,
+        seriesIds: prunedSeries,
+        carIds: prunedCars,
+        trackIds: prunedTracks,
+      }
+    }
+  }
+)
+
+// Sync URL whenever groupBy changes
+watch(
+  () => [...analyticsStore.groupBy],
+  () => syncUrl()
+)
 
 // Group by options (available dimensions to add)
 const groupByDimensions: { value: AnalyticsGroupBy; labelKey: string }[] = [
@@ -115,10 +179,8 @@ const groupByDimensions: { value: AnalyticsGroupBy; labelKey: string }[] = [
   { value: 'track', labelKey: 'analytics.groupByTrack' },
 ]
 
-// Currently selected groupBy dimensions (ordered)
 const selectedGroupBy = computed(() => analyticsStore.groupBy)
 
-// Dimensions not yet selected
 const availableGroupBy = computed(() =>
   groupByDimensions.filter((d) => !selectedGroupBy.value.includes(d.value))
 )
@@ -186,99 +248,6 @@ function onDragEnd() {
   draggedIndex.value = null
   dragOverIndex.value = null
 }
-
-// Filter options from dimensions (sorted alphabetically by name)
-const filterSeriesOptions = computed(() => {
-  const ids = analyticsStore.dimensions?.series ?? []
-  return [...ids].sort((a, b) => getSeriesName(a).localeCompare(getSeriesName(b)))
-})
-const filterCarOptions = computed(() => {
-  const ids = analyticsStore.dimensions?.cars ?? []
-  return [...ids].sort((a, b) => getCarName(a).localeCompare(getCarName(b)))
-})
-const filterTrackOptions = computed(() => {
-  const ids = analyticsStore.dimensions?.tracks ?? []
-  return [...ids].sort((a, b) => getTrackName(a).localeCompare(getTrackName(b)))
-})
-
-// Filter selections
-const selectedSeriesFilter = computed({
-  get: () => analyticsStore.selectedSeriesIds,
-  set: (ids: number[]) => {
-    analyticsStore.setSeriesFilter(ids)
-    if (analyticsStore.dateRange) {
-      analyticsStore.fetchAnalytics()
-      analyticsStore.fetchTimeSeries()
-    }
-  },
-})
-
-const selectedCarFilter = computed({
-  get: () => analyticsStore.selectedCarIds,
-  set: (ids: number[]) => {
-    analyticsStore.setCarFilter(ids)
-    if (analyticsStore.dateRange) {
-      analyticsStore.fetchAnalytics()
-      analyticsStore.fetchTimeSeries()
-    }
-  },
-})
-
-const selectedTrackFilter = computed({
-  get: () => analyticsStore.selectedTrackIds,
-  set: (ids: number[]) => {
-    analyticsStore.setTrackFilter(ids)
-    if (analyticsStore.dateRange) {
-      analyticsStore.fetchAnalytics()
-      analyticsStore.fetchTimeSeries()
-    }
-  },
-})
-
-// Helper to toggle a filter value in an array
-function toggleFilter(
-  current: number[],
-  id: number,
-  setter: (ids: number[]) => void
-) {
-  if (current.includes(id)) {
-    setter(current.filter((v) => v !== id))
-  } else {
-    setter([...current, id])
-  }
-}
-
-// Initialize date filters when driver loads
-watch(
-  () => driverStore.driver,
-  (driver) => {
-    if (driver?.memberSince && !initialized.value) {
-      fromDate.value = new Date(driver.memberSince)
-      toDate.value = new Date()
-      initialized.value = true
-      applyDateRange()
-    }
-  },
-  { immediate: true }
-)
-
-function applyDateRange() {
-  if (fromDate.value && toDate.value) {
-    const range: DateRange = {
-      startTime: fromDate.value,
-      endTime: toDate.value,
-    }
-    analyticsStore.setDateRange(range)
-    analyticsStore.refresh()
-  }
-}
-
-// Refetch when date filters change (user interaction only)
-watch([fromDate, toDate], ([newFrom, newTo], [oldFrom, oldTo]) => {
-  if (initialized.value && newFrom && newTo && (oldFrom !== newFrom || oldTo !== newTo)) {
-    applyDateRange()
-  }
-})
 
 // Computed for summary display
 const summary = computed(() => analyticsStore.analytics?.summary)
@@ -356,7 +325,6 @@ function getTrackName(id: number): string {
   return track?.name ?? `Track ${id}`
 }
 
-// Build group label from group keys
 function getGroupLabel(group: { seriesId?: number; carId?: number; trackId?: number }): string {
   const parts: string[] = []
   if (group.seriesId) parts.push(getSeriesName(group.seriesId))
@@ -392,155 +360,13 @@ function getGroupByLabel(dimension: AnalyticsGroupBy): string {
       <h1>{{ t('analytics.title') }}</h1>
     </div>
 
-    <div class="filter-bar">
-      <!-- Discipline Filter -->
-      <div v-if="availableDisciplines.length > 1" class="filter-group">
-        <label class="filter-label">
-          <span class="label-text">{{ t('analytics.discipline') }}</span>
-          <select
-            class="select-input discipline-select"
-            :value="selectedDiscipline ?? ''"
-            :disabled="analyticsStore.loading"
-            @change="(e) => onDisciplineChange((e.target as HTMLSelectElement).value || null)"
-          >
-            <option value="">{{ t('analytics.allDisciplines') }}</option>
-            <option v-for="disc in availableDisciplines" :key="disc" :value="disc">
-              {{ t(`analytics.disciplines.${disc}`) }}
-            </option>
-          </select>
-        </label>
-      </div>
-
-      <!-- Date Range -->
-      <div class="filter-group date-filters">
-        <label class="filter-label">
-          <span class="label-text">{{ t('analytics.from') }}</span>
-          <input
-            type="date"
-            v-model="fromDateStr"
-            :disabled="analyticsStore.loading"
-            class="date-input"
-          />
-        </label>
-        <label class="filter-label">
-          <span class="label-text">{{ t('analytics.to') }}</span>
-          <input
-            type="date"
-            v-model="toDateStr"
-            :disabled="analyticsStore.loading"
-            class="date-input"
-          />
-        </label>
-      </div>
-
-      <!-- Dimension Filters -->
-      <div v-if="filterSeriesOptions.length > 0" class="filter-group">
-        <label class="filter-label">
-          <span class="label-text">{{ t('analytics.groupBySeries') }}</span>
-          <select
-            class="select-input"
-            :disabled="analyticsStore.loading"
-            @change="(e) => {
-              const val = parseInt((e.target as HTMLSelectElement).value)
-              if (!isNaN(val)) toggleFilter(selectedSeriesFilter, val, (ids) => selectedSeriesFilter = ids)
-              ;(e.target as HTMLSelectElement).value = ''
-            }"
-          >
-            <option value="">{{ t('analytics.filterAll') }}</option>
-            <option
-              v-for="id in filterSeriesOptions"
-              :key="id"
-              :value="id"
-              :class="{ 'option-selected': selectedSeriesFilter.includes(id) }"
-            >
-              {{ selectedSeriesFilter.includes(id) ? '✓ ' : '' }}{{ getSeriesName(id) }}
-            </option>
-          </select>
-        </label>
-        <div v-if="selectedSeriesFilter.length > 0" class="active-filters">
-          <span
-            v-for="id in selectedSeriesFilter"
-            :key="id"
-            class="filter-chip"
-            @click="toggleFilter(selectedSeriesFilter, id, (ids) => selectedSeriesFilter = ids)"
-          >
-            {{ getSeriesName(id) }}
-            <span class="chip-remove">×</span>
-          </span>
-        </div>
-      </div>
-
-      <div v-if="filterCarOptions.length > 0" class="filter-group">
-        <label class="filter-label">
-          <span class="label-text">{{ t('analytics.groupByCar') }}</span>
-          <select
-            class="select-input"
-            :disabled="analyticsStore.loading"
-            @change="(e) => {
-              const val = parseInt((e.target as HTMLSelectElement).value)
-              if (!isNaN(val)) toggleFilter(selectedCarFilter, val, (ids) => selectedCarFilter = ids)
-              ;(e.target as HTMLSelectElement).value = ''
-            }"
-          >
-            <option value="">{{ t('analytics.filterAll') }}</option>
-            <option
-              v-for="id in filterCarOptions"
-              :key="id"
-              :value="id"
-            >
-              {{ selectedCarFilter.includes(id) ? '✓ ' : '' }}{{ getCarName(id) }}
-            </option>
-          </select>
-        </label>
-        <div v-if="selectedCarFilter.length > 0" class="active-filters">
-          <span
-            v-for="id in selectedCarFilter"
-            :key="id"
-            class="filter-chip"
-            @click="toggleFilter(selectedCarFilter, id, (ids) => selectedCarFilter = ids)"
-          >
-            {{ getCarName(id) }}
-            <span class="chip-remove">×</span>
-          </span>
-        </div>
-      </div>
-
-      <div v-if="filterTrackOptions.length > 0" class="filter-group">
-        <label class="filter-label">
-          <span class="label-text">{{ t('analytics.groupByTrack') }}</span>
-          <select
-            class="select-input"
-            :disabled="analyticsStore.loading"
-            @change="(e) => {
-              const val = parseInt((e.target as HTMLSelectElement).value)
-              if (!isNaN(val)) toggleFilter(selectedTrackFilter, val, (ids) => selectedTrackFilter = ids)
-              ;(e.target as HTMLSelectElement).value = ''
-            }"
-          >
-            <option value="">{{ t('analytics.filterAll') }}</option>
-            <option
-              v-for="id in filterTrackOptions"
-              :key="id"
-              :value="id"
-            >
-              {{ selectedTrackFilter.includes(id) ? '✓ ' : '' }}{{ getTrackName(id) }}
-            </option>
-          </select>
-        </label>
-        <div v-if="selectedTrackFilter.length > 0" class="active-filters">
-          <span
-            v-for="id in selectedTrackFilter"
-            :key="id"
-            class="filter-chip"
-            @click="toggleFilter(selectedTrackFilter, id, (ids) => selectedTrackFilter = ids)"
-          >
-            {{ getTrackName(id) }}
-            <span class="chip-remove">×</span>
-          </span>
-        </div>
-      </div>
-
-    </div>
+    <RaceFilters
+      v-if="filters"
+      :model-value="filters"
+      :dimensions="dimensions"
+      :disabled="analyticsStore.loading"
+      @update:model-value="(v: RaceFiltersState) => (filters = v)"
+    />
 
     <!-- Group By Section -->
     <div class="groupby-row">
@@ -862,44 +688,6 @@ function getGroupByLabel(dimension: AnalyticsGroupBy): string {
   font-style: italic;
 }
 
-/* Filter chips for active filters */
-.active-filters {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  margin-top: 0.375rem;
-  max-height: 150px;
-  overflow-y: auto;
-  padding-right: 0.25rem;
-}
-
-.filter-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  background: var(--color-accent-subtle);
-  color: var(--color-accent);
-  border-radius: 12px;
-  font-size: 0.75rem;
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.filter-chip:hover {
-  background: var(--color-accent);
-  color: var(--color-accent-text);
-}
-
-.chip-remove {
-  font-weight: 600;
-  opacity: 0.7;
-}
-
-.filter-chip:hover .chip-remove {
-  opacity: 1;
-}
-
 /* Summary Grid */
 .summary-grid {
   display: grid;
@@ -1013,28 +801,6 @@ function getGroupByLabel(dimension: AnalyticsGroupBy): string {
   white-space: nowrap;
 }
 
-/* Filter bar additions */
-.filter-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.select-input {
-  padding: 0.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 4px;
-  background: var(--color-bg-surface);
-  color: var(--color-text-primary);
-  font-size: 0.875rem;
-  min-width: 150px;
-}
-
-.select-input:focus {
-  outline: none;
-  border-color: var(--color-accent);
-}
-
 /* Mobile styles */
 @media (max-width: 768px) {
   .analytics-view {
@@ -1058,28 +824,6 @@ function getGroupByLabel(dimension: AnalyticsGroupBy): string {
   .groupby-row {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .filter-group {
-    width: 100%;
-    max-width: 100%;
-  }
-
-  .select-input {
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-  }
-
-  .active-filters {
-    max-width: 100%;
-  }
-
-  .filter-chip {
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 }
 

@@ -247,8 +247,18 @@ func TestService_GetAnalytics(t *testing.T) {
 			mockStore := NewMockStore(t)
 
 			if tc.storeCall != nil {
-				mockStore.EXPECT().GetDriverSessionsByTimeRange(mock.Anything, tc.request.DriverID, tc.request.From, tc.request.To).
-					Return(tc.storeCall.sessions, tc.storeCall.err)
+				storeCall := tc.storeCall
+				mockStore.EXPECT().GetDriverSessionsByTimeRange(mock.Anything, tc.request.DriverID, tc.request.From, tc.request.To, mock.Anything).
+					RunAndReturn(func(_ context.Context, _ int64, _, _ time.Time, filters ...store.SessionFilter) ([]store.DriverSession, error) {
+						if storeCall.err != nil {
+							return nil, storeCall.err
+						}
+						sessions := storeCall.sessions
+						for _, f := range filters {
+							sessions = f(sessions)
+						}
+						return sessions, nil
+					})
 			}
 
 			svc := NewService(mockStore)
@@ -411,66 +421,6 @@ func TestComputeSummary(t *testing.T) {
 			assert.InDelta(t, tc.expected.PositionsGained, result.PositionsGained, 0.001)
 			assert.InDelta(t, tc.expected.TotalIncidents, result.TotalIncidents, 0)
 			assert.InDelta(t, tc.expected.AvgIncidents, result.AvgIncidents, 0.001)
-		})
-	}
-}
-
-func TestFilterSessions(t *testing.T) {
-	sessions := []store.DriverSession{
-		{SeriesID: 42, CarID: 10, TrackID: 100},
-		{SeriesID: 42, CarID: 11, TrackID: 101},
-		{SeriesID: 43, CarID: 10, TrackID: 100},
-		{SeriesID: 44, CarID: 12, TrackID: 102},
-	}
-
-	testCases := []struct {
-		name      string
-		seriesIDs []int64
-		carIDs    []int64
-		trackIDs  []int64
-		expected  int
-	}{
-		{
-			name:     "no filters",
-			expected: 4,
-		},
-		{
-			name:      "filter by single series",
-			seriesIDs: []int64{42},
-			expected:  2,
-		},
-		{
-			name:      "filter by multiple series (OR)",
-			seriesIDs: []int64{42, 43},
-			expected:  3,
-		},
-		{
-			name:     "filter by car",
-			carIDs:   []int64{10},
-			expected: 2,
-		},
-		{
-			name:     "filter by track",
-			trackIDs: []int64{100},
-			expected: 2,
-		},
-		{
-			name:      "filter by series AND car (cross-dimension)",
-			seriesIDs: []int64{42},
-			carIDs:    []int64{10},
-			expected:  1,
-		},
-		{
-			name:      "filter with no matches",
-			seriesIDs: []int64{999},
-			expected:  0,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := filterSessions(sessions, tc.seriesIDs, tc.carIDs, tc.trackIDs)
-			assert.Len(t, result, tc.expected)
 		})
 	}
 }

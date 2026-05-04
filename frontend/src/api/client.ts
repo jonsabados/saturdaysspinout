@@ -707,7 +707,12 @@ export class ApiClient {
     startTime: Date,
     endTime: Date,
     page = 1,
-    resultsPerPage = 10
+    resultsPerPage = 10,
+    options?: {
+      seriesIds?: number[]
+      carIds?: number[]
+      trackIds?: number[]
+    }
   ): Promise<RacesResponse> {
     const params = new URLSearchParams({
       startTime: startTime.toISOString(),
@@ -715,6 +720,15 @@ export class ApiClient {
       page: page.toString(),
       resultsPerPage: resultsPerPage.toString(),
     })
+    if (options?.seriesIds?.length) {
+      options.seriesIds.forEach((id) => params.append('seriesId', id.toString()))
+    }
+    if (options?.carIds?.length) {
+      options.carIds.forEach((id) => params.append('carId', id.toString()))
+    }
+    if (options?.trackIds?.length) {
+      options.trackIds.forEach((id) => params.append('trackId', id.toString()))
+    }
     return this.fetch<RacesResponse>(`/driver/${driverId}/races?${params}`)
   }
 

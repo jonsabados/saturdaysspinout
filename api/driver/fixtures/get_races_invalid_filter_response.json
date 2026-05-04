@@ -1,0 +1,8 @@
+{
+  "errors": [],
+  "fieldErrors": [
+    {"field": "seriesId", "code": "invalid_integer", "params": {"value": "abc"}},
+    {"field": "carId", "code": "invalid_integer", "params": {"value": "xyz"}}
+  ],
+  "correlationId": "test-correlation-id"
+}

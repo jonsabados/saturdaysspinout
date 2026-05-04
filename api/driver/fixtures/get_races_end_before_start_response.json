@@ -1,7 +1,7 @@
 {
   "errors": [],
   "fieldErrors": [
-    {"field": "startTime", "code": "invalid_iso8601"}
+    {"field": "endTime", "code": "end_before_start"}
   ],
   "correlationId": "test-correlation-id"
 }

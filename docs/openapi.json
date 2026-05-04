@@ -160,7 +160,10 @@
           { "$ref": "#/components/parameters/StartTime" },
           { "$ref": "#/components/parameters/EndTime" },
           { "$ref": "#/components/parameters/Page" },
-          { "$ref": "#/components/parameters/ResultsPerPage" }
+          { "$ref": "#/components/parameters/ResultsPerPage" },
+          { "$ref": "#/components/parameters/SeriesIDFilter" },
+          { "$ref": "#/components/parameters/CarIDFilter" },
+          { "$ref": "#/components/parameters/TrackIDFilter" }
         ],
         "responses": {
           "200": {
@@ -381,24 +384,9 @@
             "description": "Time granularity for time-series breakdown. Mutually exclusive with groupBy.",
             "schema": { "type": "string", "enum": ["day", "week", "month", "year"] }
           },
-          {
-            "name": "seriesId",
-            "in": "query",
-            "description": "Filter by series ID (repeatable)",
-            "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } }
-          },
-          {
-            "name": "carId",
-            "in": "query",
-            "description": "Filter by car ID (repeatable)",
-            "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } }
-          },
-          {
-            "name": "trackId",
-            "in": "query",
-            "description": "Filter by track ID (repeatable)",
-            "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } }
-          }
+          { "$ref": "#/components/parameters/SeriesIDFilter" },
+          { "$ref": "#/components/parameters/CarIDFilter" },
+          { "$ref": "#/components/parameters/TrackIDFilter" }
         ],
         "responses": {
           "200": {
@@ -776,6 +764,24 @@
         "in": "query",
         "description": "Results per page (default: 10)",
         "schema": { "type": "integer", "default": 10 }
+      },
+      "SeriesIDFilter": {
+        "name": "seriesId",
+        "in": "query",
+        "description": "Filter by series ID (repeatable; OR within, AND across dimensions)",
+        "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } }
+      },
+      "CarIDFilter": {
+        "name": "carId",
+        "in": "query",
+        "description": "Filter by car ID (repeatable; OR within, AND across dimensions)",
+        "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } }
+      },
+      "TrackIDFilter": {
+        "name": "trackId",
+        "in": "query",
+        "description": "Filter by track ID (repeatable; OR within, AND across dimensions)",
+        "schema": { "type": "array", "items": { "type": "integer", "format": "int64" } }
       }
     },
     "responses": {
