@@ -64,8 +64,6 @@
   "raceHistory": {
     "title": "Historial de carreras",
     "racesOnFile": "{count} carrera registrada | {count} carreras registradas",
-    "from": "Desde",
-    "to": "Hasta",
     "loadingRaces": "Cargando carreras...",
     "noRaces": "Aún no hay carreras. Las carreras aparecerán aquí a medida que se sincronicen.",
     "showingRaces": "Mostrando {shown} de {total} carreras",
@@ -188,18 +186,12 @@
       "events": "Eventos"
     }
   },
-  "analytics": {
-    "title": "Estadísticas",
-    "loading": "Cargando estadísticas...",
-    "noData": "No hay datos de carreras para el rango de fechas seleccionado.",
-    "selectDateRange": "Selecciona un rango de fechas para ver estadísticas.",
+  "raceFilters": {
     "from": "Desde",
     "to": "Hasta",
-    "groupBy": "Agrupar por",
-    "groupByNone": "Ninguno",
-    "groupBySeries": "Serie",
-    "groupByCar": "Auto",
-    "groupByTrack": "Circuito",
+    "series": "Serie",
+    "car": "Auto",
+    "track": "Circuito",
     "filterAll": "Seleccionar para filtrar...",
     "discipline": "Disciplina",
     "allDisciplines": "Todas las disciplinas",
@@ -209,7 +201,18 @@
       "sports_car": "Autos Deportivos",
       "dirt_oval": "Óvalo de Tierra",
       "dirt_road": "Rally"
-    },
+    }
+  },
+  "analytics": {
+    "title": "Estadísticas",
+    "loading": "Cargando estadísticas...",
+    "noData": "No hay datos de carreras para el rango de fechas seleccionado.",
+    "selectDateRange": "Selecciona un rango de fechas para ver estadísticas.",
+    "groupBy": "Agrupar por",
+    "groupByNone": "Ninguno",
+    "groupBySeries": "Serie",
+    "groupByCar": "Auto",
+    "groupByTrack": "Circuito",
     "summary": {
       "races": "Carreras",
       "wins": "Victorias",

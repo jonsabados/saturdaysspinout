@@ -64,8 +64,6 @@
   "raceHistory": {
     "title": "Race History",
     "racesOnFile": "{count} race on file | {count} races on file",
-    "from": "From",
-    "to": "To",
     "loadingRaces": "Loading races...",
     "noRaces": "No races yet. Recent races will appear here during sync.",
     "showingRaces": "Showing {shown} of {total} matching races",
@@ -188,18 +186,12 @@
     "retired": "Retired",
     "lbs": "{weight} lbs"
   },
-  "analytics": {
-    "title": "Analytics",
-    "loading": "Loading analytics...",
-    "noData": "No race data available for the selected date range.",
-    "selectDateRange": "Select a date range to view analytics.",
+  "raceFilters": {
     "from": "From",
     "to": "To",
-    "groupBy": "Group by",
-    "groupByNone": "None",
-    "groupBySeries": "Series",
-    "groupByCar": "Car",
-    "groupByTrack": "Track",
+    "series": "Series",
+    "car": "Car",
+    "track": "Track",
     "filterAll": "Select to filter...",
     "discipline": "Discipline",
     "allDisciplines": "All Disciplines",
@@ -209,7 +201,18 @@
       "sports_car": "Sports Car",
       "dirt_oval": "Dirt Oval",
       "dirt_road": "Dirt Road"
-    },
+    }
+  },
+  "analytics": {
+    "title": "Analytics",
+    "loading": "Loading analytics...",
+    "noData": "No race data available for the selected date range.",
+    "selectDateRange": "Select a date range to view analytics.",
+    "groupBy": "Group by",
+    "groupByNone": "None",
+    "groupBySeries": "Series",
+    "groupByCar": "Car",
+    "groupByTrack": "Track",
     "summary": {
       "races": "Races",
       "wins": "Wins",

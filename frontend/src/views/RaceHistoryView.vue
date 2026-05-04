@@ -2,7 +2,7 @@
 defineOptions({ name: 'RaceHistoryView' })
 
 import { ref, computed, watch, onMounted, onUnmounted, onActivated } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useApiClient, type Race } from '@/api/client'
 import { useAuthStore } from '@/stores/auth'
@@ -13,9 +13,14 @@ import TrackCell from '@/components/TrackCell.vue'
 import SessionCell from '@/components/SessionCell.vue'
 import LicenseCell from '@/components/LicenseCell.vue'
 import RowActionButton from '@/components/RowActionButton.vue'
+import RaceFilters, {
+  type RaceFiltersState,
+  type RaceFiltersDimensions,
+} from '@/components/RaceFilters.vue'
 import '@/assets/page-layout.css'
 
 const { t } = useI18n()
+const route = useRoute()
 const router = useRouter()
 const apiClient = useApiClient()
 const auth = useAuthStore()
@@ -36,54 +41,109 @@ const userHasScrolled = ref(false)
 const savedScrollTop = ref(0)
 const lastScrollSave = ref(0)
 
-// Date filters
-const fromDate = ref<Date | null>(null)
-const toDate = ref<Date | null>(null)
-const initialized = ref(false)
+const dimensions = ref<RaceFiltersDimensions | null>(null)
 
-// Format date for input[type="date"]
-function formatDateForInput(date: Date | null): string {
-  if (!date) return ''
+function formatDateForInput(date: Date): string {
   return date.toISOString().split('T')[0]
 }
 
-// Parse date from input[type="date"]
 function parseDateFromInput(value: string): Date {
   return new Date(value + 'T00:00:00')
 }
 
-// Computed properties for native date input binding
-const fromDateStr = computed({
-  get: () => formatDateForInput(fromDate.value),
-  set: (value: string) => {
-    if (value) {
-      fromDate.value = parseDateFromInput(value)
+function parseIdParam(v: LocationQuery[string]): number[] {
+  const arr = Array.isArray(v) ? v : v != null ? [v] : []
+  return arr
+    .map((s) => parseInt(String(s), 10))
+    .filter((n) => !isNaN(n))
+}
+
+function initFiltersFromUrl(): RaceFiltersState | null {
+  const q = route.query
+  const fromStr = typeof q.from === 'string' ? q.from : null
+  const toStr = typeof q.to === 'string' ? q.to : null
+  if (!fromStr || !toStr) return null
+  return {
+    from: parseDateFromInput(fromStr),
+    to: parseDateFromInput(toStr),
+    discipline: typeof q.discipline === 'string' ? q.discipline : null,
+    seriesIds: parseIdParam(q.seriesId),
+    carIds: parseIdParam(q.carId),
+    trackIds: parseIdParam(q.trackId),
+  }
+}
+
+const filters = ref<RaceFiltersState | null>(initFiltersFromUrl())
+
+// Default from driver memberSince once it loads (only if URL didn't seed filters)
+watch(
+  () => driverStore.driver,
+  (driver) => {
+    if (!filters.value && driver?.memberSince) {
+      filters.value = {
+        from: new Date(driver.memberSince),
+        to: new Date(),
+        discipline: null,
+        seriesIds: [],
+        carIds: [],
+        trackIds: [],
+      }
     }
   },
-})
+  { immediate: true }
+)
 
-const toDateStr = computed({
-  get: () => formatDateForInput(toDate.value),
-  set: (value: string) => {
-    if (value) {
-      toDate.value = parseDateFromInput(value)
-    }
-  },
-})
+function syncUrl() {
+  if (!filters.value) return
+  const f = filters.value
+  const query: Record<string, string | string[]> = {
+    from: formatDateForInput(f.from),
+    to: formatDateForInput(f.to),
+  }
+  if (f.discipline) query.discipline = f.discipline
+  if (f.seriesIds.length) query.seriesId = f.seriesIds.map(String)
+  if (f.carIds.length) query.carId = f.carIds.map(String)
+  if (f.trackIds.length) query.trackId = f.trackIds.map(String)
+  router.replace({ query })
+}
 
-function isRaceInDateRange(raceStartTime: string): boolean {
-  if (!fromDate.value || !toDate.value) return false
-  const raceDate = new Date(raceStartTime)
-  return raceDate >= fromDate.value && raceDate <= toDate.value
+function currentFilterOptions() {
+  if (!filters.value) return undefined
+  const f = filters.value
+  return {
+    seriesIds: f.seriesIds.length > 0 ? f.seriesIds : undefined,
+    carIds: f.carIds.length > 0 ? f.carIds : undefined,
+    trackIds: f.trackIds.length > 0 ? f.trackIds : undefined,
+  }
+}
+
+async function fetchDimensions() {
+  if (!auth.userId || !filters.value) return
+  try {
+    dimensions.value = await apiClient.getAnalyticsDimensions(
+      auth.userId,
+      filters.value.from,
+      filters.value.to
+    )
+  } catch (err) {
+    console.error('[RaceHistory] Failed to fetch dimensions:', err)
+  }
 }
 
 async function fetchRaces() {
-  if (!auth.userId || !fromDate.value || !toDate.value) return
+  if (!auth.userId || !filters.value) return
 
   loading.value = true
   currentPage.value = 1
   try {
-    const response = await apiClient.getRaces(auth.userId, fromDate.value, toDate.value, 1, pageSize)
+    const response = await apiClient.getRaces(
+      auth.userId,
+      filters.value.from,
+      filters.value.to,
+      1,
+      pageSize,
+      currentFilterOptions()
+    )
     races.value = response.items
     totalMatching.value = response.pagination.totalResults
     hasMorePages.value = response.pagination.page < response.pagination.totalPages
@@ -95,12 +155,19 @@ async function fetchRaces() {
 }
 
 async function fetchMoreRaces() {
-  if (!auth.userId || !fromDate.value || !toDate.value || loadingMore.value || !hasMorePages.value) return
+  if (!auth.userId || !filters.value || loadingMore.value || !hasMorePages.value) return
 
   loadingMore.value = true
   const nextPage = currentPage.value + 1
   try {
-    const response = await apiClient.getRaces(auth.userId, fromDate.value, toDate.value, nextPage, pageSize)
+    const response = await apiClient.getRaces(
+      auth.userId,
+      filters.value.from,
+      filters.value.to,
+      nextPage,
+      pageSize,
+      currentFilterOptions()
+    )
     races.value = [...races.value, ...response.items]
     currentPage.value = nextPage
     hasMorePages.value = response.pagination.page < response.pagination.totalPages
@@ -111,24 +178,48 @@ async function fetchMoreRaces() {
   }
 }
 
-// Initialize date filters when driver loads (once only)
+// Refetch on any filter change; refetch dimensions on date change
 watch(
-  () => driverStore.driver,
-  (driver) => {
-    if (driver?.memberSince && !initialized.value) {
-      fromDate.value = new Date(driver.memberSince)
-      toDate.value = new Date()
-      initialized.value = true
-      fetchRaces()
+  filters,
+  (next, prev) => {
+    if (!next) return
+    const dateChanged =
+      !prev ||
+      prev.from.getTime() !== next.from.getTime() ||
+      prev.to.getTime() !== next.to.getTime()
+
+    if (dateChanged) {
+      fetchDimensions()
     }
+    fetchRaces()
+    syncUrl()
   },
   { immediate: true }
 )
 
-// Refetch when date filters change (user interaction only, not initialization)
-watch([fromDate, toDate], ([newFrom, newTo], [oldFrom, oldTo]) => {
-  if (initialized.value && newFrom && newTo && (oldFrom !== newFrom || oldTo !== newTo)) {
-    fetchRaces()
+// Prune filter IDs that aren't in the latest dimensions
+watch(dimensions, (dims) => {
+  if (!dims || !filters.value) return
+  const seriesSet = new Set(dims.series)
+  const carsSet = new Set(dims.cars)
+  const tracksSet = new Set(dims.tracks)
+
+  const prunedSeries = filters.value.seriesIds.filter((id) => seriesSet.has(id))
+  const prunedCars = filters.value.carIds.filter((id) => carsSet.has(id))
+  const prunedTracks = filters.value.trackIds.filter((id) => tracksSet.has(id))
+
+  const changed =
+    prunedSeries.length !== filters.value.seriesIds.length ||
+    prunedCars.length !== filters.value.carIds.length ||
+    prunedTracks.length !== filters.value.trackIds.length
+
+  if (changed) {
+    filters.value = {
+      ...filters.value,
+      seriesIds: prunedSeries,
+      carIds: prunedCars,
+      trackIds: prunedTracks,
+    }
   }
 })
 
@@ -138,6 +229,17 @@ const sortedRaces = computed(() =>
 
 interface RaceIngestedPayload {
   raceId: number
+}
+
+function raceMatchesActiveFilters(race: Race): boolean {
+  if (!filters.value) return false
+  const f = filters.value
+  const raceTime = new Date(race.startTime)
+  if (raceTime < f.from || raceTime > f.to) return false
+  if (f.seriesIds.length > 0 && !f.seriesIds.includes(race.seriesId)) return false
+  if (f.carIds.length > 0 && !f.carIds.includes(race.carId)) return false
+  if (f.trackIds.length > 0 && !f.trackIds.includes(race.trackId)) return false
+  return true
 }
 
 async function handleRaceIngested(payload: unknown) {
@@ -151,16 +253,12 @@ async function handleRaceIngested(payload: unknown) {
     const response = await apiClient.getRace(auth.userId, raceId)
     const race = response.response
 
-    // Always increment total count
     driverStore.incrementSessionCount()
 
-    // Only add to table if within current filter range and not already present
-    if (isRaceInDateRange(race.startTime) && !races.value.some((r) => r.id === race.id)) {
+    if (raceMatchesActiveFilters(race) && !races.value.some((r) => r.id === race.id)) {
       races.value.push(race)
       totalMatching.value++
-      // Enable infinite scroll so table auto-fills during ingestion
       userHasScrolled.value = true
-      // Refresh from API to get accurate pagination (other races may have been ingested)
       if (races.value.length < pageSize && !loading.value) {
         fetchRaces()
       }
@@ -268,28 +366,13 @@ onActivated(() => {
       </span>
     </div>
 
-    <div class="filter-bar">
-      <div class="filter-group date-filters">
-        <label class="filter-label">
-          <span class="label-text">{{ t('raceHistory.from') }}</span>
-          <input
-            type="date"
-            v-model="fromDateStr"
-            :disabled="loading"
-            class="date-input"
-          />
-        </label>
-        <label class="filter-label">
-          <span class="label-text">{{ t('raceHistory.to') }}</span>
-          <input
-            type="date"
-            v-model="toDateStr"
-            :disabled="loading"
-            class="date-input"
-          />
-        </label>
-      </div>
-    </div>
+    <RaceFilters
+      v-if="filters"
+      :model-value="filters"
+      :dimensions="dimensions"
+      :disabled="loading"
+      @update:model-value="(v: RaceFiltersState) => (filters = v)"
+    />
 
     <div v-if="loading" class="loading-state">
       {{ t('raceHistory.loadingRaces') }}

@@ -130,8 +130,6 @@ export const useAnalyticsStore = defineStore('analytics', () => {
 
   function setDateRange(range: DateRange) {
     dateRange.value = range
-    // Clear filters when date range changes since dimensions may be different
-    clearFilters()
   }
 
   function setGroupBy(value: AnalyticsGroupBy[]) {

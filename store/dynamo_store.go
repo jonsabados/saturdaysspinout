@@ -429,7 +429,7 @@ func (s *DynamoStore) GetDriverSessions(ctx context.Context, driverID int64, sta
 	return sessions, nil
 }
 
-func (s *DynamoStore) GetDriverSessionsByTimeRange(ctx context.Context, driverID int64, from, to time.Time) ([]DriverSession, error) {
+func (s *DynamoStore) GetDriverSessionsByTimeRange(ctx context.Context, driverID int64, from, to time.Time, filters ...SessionFilter) ([]DriverSession, error) {
 	result, err := s.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(s.table),
 		KeyConditionExpression: aws.String("#pk = :pk AND #sk BETWEEN :from AND :to"),
@@ -457,6 +457,9 @@ func (s *DynamoStore) GetDriverSessionsByTimeRange(ctx context.Context, driverID
 		sessions = append(sessions, *session)
 	}
 
+	for _, filter := range filters {
+		sessions = filter(sessions)
+	}
 	return sessions, nil
 }
 
