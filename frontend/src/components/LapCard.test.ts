@@ -354,6 +354,80 @@ describe('LapCard', () => {
     expect(wrapper.find('.lap-card').classes()).not.toContain('drag-over')
   })
 
+  describe('lap pace coloring', () => {
+    it('does not color the first valid lap (no baseline)', () => {
+      const wrapper = mount(LapCard, {
+        props: {
+          driverName: 'Test Driver',
+          finishPosition: 0,
+          lapData: createLapData({ laps: [createLap({ lapNumber: 1, lapTime: 90000 })] }),
+        },
+      })
+
+      const cell = wrapper.find('td.col-lap-time')
+      expect(cell.classes()).not.toContain('pace-faster')
+      expect(cell.classes()).not.toContain('pace-slower')
+      expect(cell.classes()).not.toContain('pace-even')
+    })
+
+    it('colors a lap green when a tenth or more faster than the previous lap', () => {
+      const laps = [
+        createLap({ lapNumber: 1, lapTime: 90000 }),
+        createLap({ lapNumber: 2, lapTime: 89000 }), // 0.1s faster
+      ]
+      const wrapper = mount(LapCard, {
+        props: { driverName: 'Test Driver', finishPosition: 0, lapData: createLapData({ laps }) },
+      })
+
+      const cells = wrapper.findAll('td.col-lap-time')
+      expect(cells[1].classes()).toContain('pace-faster')
+    })
+
+    it('colors a lap red when a tenth or more slower than the previous lap', () => {
+      const laps = [
+        createLap({ lapNumber: 1, lapTime: 90000 }),
+        createLap({ lapNumber: 2, lapTime: 91000 }), // 0.1s slower
+      ]
+      const wrapper = mount(LapCard, {
+        props: { driverName: 'Test Driver', finishPosition: 0, lapData: createLapData({ laps }) },
+      })
+
+      const cells = wrapper.findAll('td.col-lap-time')
+      expect(cells[1].classes()).toContain('pace-slower')
+    })
+
+    it('colors a lap neutral when within a tenth of the previous lap', () => {
+      const laps = [
+        createLap({ lapNumber: 1, lapTime: 90000 }),
+        createLap({ lapNumber: 2, lapTime: 90500 }), // 0.05s slower, within a tenth
+      ]
+      const wrapper = mount(LapCard, {
+        props: { driverName: 'Test Driver', finishPosition: 0, lapData: createLapData({ laps }) },
+      })
+
+      const cells = wrapper.findAll('td.col-lap-time')
+      expect(cells[1].classes()).toContain('pace-even')
+    })
+
+    it('skips invalid laps as a baseline instead of resetting it', () => {
+      const laps = [
+        createLap({ lapNumber: 1, lapTime: 90000 }),
+        createLap({ lapNumber: 2, lapTime: -1 }),    // out-lap / invalid: no color, not a baseline
+        createLap({ lapNumber: 3, lapTime: 89000 }), // compared against lap 1, not lap 2
+      ]
+      const wrapper = mount(LapCard, {
+        props: { driverName: 'Test Driver', finishPosition: 0, lapData: createLapData({ laps }) },
+      })
+
+      const cells = wrapper.findAll('td.col-lap-time')
+      expect(cells[1].classes()).not.toContain('pace-faster')
+      expect(cells[1].classes()).not.toContain('pace-slower')
+      expect(cells[1].classes()).not.toContain('pace-even')
+      // lap 3 is 0.1s faster than lap 1 (the last valid lap) → green
+      expect(cells[2].classes()).toContain('pace-faster')
+    })
+  })
+
   function createComparison(driverId: number, driverName: string, laps: Lap[]): {
     driverId: number
     driverName: string
