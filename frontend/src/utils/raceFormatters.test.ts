@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toDisplayPosition, formatLapTime, formatInterval } from './raceFormatters'
+import { toDisplayPosition, formatLapTime, formatLapDelta, formatInterval } from './raceFormatters'
 
 describe('toDisplayPosition', () => {
   it('converts 0-indexed position to 1-indexed', () => {
@@ -52,6 +52,34 @@ describe('formatLapTime', () => {
   it('handles very small positive values', () => {
     // 0.001 seconds = 10
     expect(formatLapTime(10)).toBe('0.001')
+  })
+})
+
+describe('formatLapDelta', () => {
+  it('formats a faster (negative) delta with a minus sign', () => {
+    // -0.234 seconds = -2340
+    expect(formatLapDelta(-2340)).toBe('-0.234')
+  })
+
+  it('formats a slower (positive) delta with a plus sign', () => {
+    // +0.150 seconds = 1500
+    expect(formatLapDelta(1500)).toBe('+0.150')
+  })
+
+  it('formats a zero delta with no sign', () => {
+    expect(formatLapDelta(0)).toBe('0.000')
+  })
+
+  it('does not emit a signed zero for sub-millisecond deltas', () => {
+    // -0.0003s rounds to 0.000 and must not render as "-0.000"
+    expect(formatLapDelta(-3)).toBe('0.000')
+    expect(formatLapDelta(3)).toBe('0.000')
+  })
+
+  it('formats deltas larger than a second', () => {
+    // 2.5 seconds = 25000
+    expect(formatLapDelta(25000)).toBe('+2.500')
+    expect(formatLapDelta(-25000)).toBe('-2.500')
   })
 })
 

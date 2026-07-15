@@ -65,6 +65,17 @@ const driverLaps = computed(() => {
   return sessionLapsCache.value.get(selectedSession.value.simsessionNumber) || []
 })
 
+// Per-driver list of the *other* loaded drivers, memoized so each LapCard gets a
+// stable comparisonDrivers reference until the set of loaded laps actually changes.
+const comparisonDriversById = computed(() => {
+  const entries = driverLaps.value
+  const byDriverId = new Map<number, DriverLapEntry[]>()
+  for (const entry of entries) {
+    byDriverId.set(entry.driverId, entries.filter(other => other.driverId !== entry.driverId))
+  }
+  return byDriverId
+})
+
 const track = computed(() => {
   if (!session.value) return undefined
   return tracksStore.getTrack(session.value.track.trackId)
@@ -578,6 +589,7 @@ onMounted(async () => {
             :driver-name="entry.driverName"
             :finish-position="entry.finishPosition"
             :lap-data="entry.lapData"
+            :comparison-drivers="comparisonDriversById.get(entry.driverId)"
             :is-drag-over="dragOverIndex === index"
             @remove="removeLaps(entry.driverId)"
             @dragstart="onDragStart($event, index)"

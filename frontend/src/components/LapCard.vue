@@ -1,22 +1,70 @@
 <script setup lang="ts">
 defineOptions({ name: 'LapCard' })
 
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { LapData, Lap } from '@/api/client'
-import { formatLapTime, toDisplayPosition } from '@/utils/raceFormatters'
+import { formatLapTime, formatLapDelta, toDisplayPosition } from '@/utils/raceFormatters'
 
 const { t } = useI18n()
+
+export interface ComparisonDriver {
+  driverId: number
+  driverName: string
+  lapData: LapData
+}
 
 const props = defineProps<{
   driverName: string
   finishPosition: number
   lapData: LapData
+  comparisonDrivers?: ComparisonDriver[]
   isDragOver?: boolean
 }>()
 
 const emit = defineEmits<{
   remove: []
 }>()
+
+const showDeltas = ref(false)
+
+const comparisons = computed(() => props.comparisonDrivers ?? [])
+const canShowDeltas = computed(() => comparisons.value.length > 0)
+
+// Per-comparison-driver lookup of lapNumber -> lapTime for O(1) delta cells.
+const comparisonLapTimes = computed(() =>
+  comparisons.value.map(driver => {
+    const byLapNumber = new Map<number, number>()
+    for (const lap of driver.lapData.laps) {
+      byLapNumber.set(lap.lapNumber, lap.lapTime)
+    }
+    return { driverId: driver.driverId, driverName: driver.driverName, byLapNumber }
+  })
+)
+
+// Threshold for coloring a delta: 0.1s in iRacing's 1/10000ths units.
+const DELTA_TENTH = 1000
+
+interface DeltaCell {
+  driverId: number
+  text: string
+  colorClass: string
+}
+
+function deltaCells(lap: Lap): DeltaCell[] {
+  return comparisonLapTimes.value.map(({ driverId, byLapNumber }) => {
+    const otherTime = byLapNumber.get(lap.lapNumber)
+    // No comparable lap, or either lap is an out-lap / invalid (non-positive).
+    if (otherTime === undefined || otherTime <= 0 || lap.lapTime <= 0) {
+      return { driverId, text: '-', colorClass: '' }
+    }
+    const delta = lap.lapTime - otherTime
+    let colorClass = 'delta-even'
+    if (delta <= -DELTA_TENTH) colorClass = 'delta-faster'
+    else if (delta >= DELTA_TENTH) colorClass = 'delta-slower'
+    return { driverId, text: formatLapDelta(delta), colorClass }
+  })
+}
 
 // Event categorization for styling
 const offTrackEvents = ['off track']
@@ -66,6 +114,18 @@ function getDisplayEvents(lap: Lap): string[] {
         P{{ toDisplayPosition(finishPosition) }} - {{ driverName }}
       </span>
       <button
+        v-if="canShowDeltas"
+        type="button"
+        class="lap-card-deltas-toggle"
+        :class="{ active: showDeltas }"
+        :aria-label="showDeltas ? t('raceDetails.hideDeltas') : t('raceDetails.showDeltas')"
+        :aria-pressed="showDeltas"
+        :title="showDeltas ? t('raceDetails.hideDeltas') : t('raceDetails.showDeltas')"
+        @click="showDeltas = !showDeltas"
+      >
+        Δ
+      </button>
+      <button
         class="lap-card-close"
         :title="t('common.dismiss')"
         @click="emit('remove')"
@@ -83,6 +143,13 @@ function getDisplayEvents(lap: Lap): string[] {
           <tr>
             <th class="col-lap-num">#</th>
             <th class="col-lap-time">{{ t('raceDetails.lapColumns.time') }}</th>
+            <th
+              v-for="driver in comparisonLapTimes"
+              v-show="showDeltas"
+              :key="driver.driverId"
+              class="col-lap-delta"
+              :title="driver.driverName"
+            >Δ {{ driver.driverName }}</th>
           </tr>
         </thead>
         <tbody>
@@ -102,6 +169,13 @@ function getDisplayEvents(lap: Lap): string[] {
                 :class="`event-${getEventType(event)}`"
               >{{ event }}</span>
             </td>
+            <td
+              v-for="cell in deltaCells(lap)"
+              v-show="showDeltas"
+              :key="cell.driverId"
+              class="col-lap-delta"
+              :class="cell.colorClass"
+            >{{ cell.text }}</td>
           </tr>
         </tbody>
       </table>
@@ -181,6 +255,35 @@ function getDisplayEvents(lap: Lap): string[] {
   color: #ef4444;
 }
 
+.lap-card-deltas-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background: transparent;
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  flex-shrink: 0;
+}
+
+.lap-card-deltas-toggle:hover {
+  color: var(--color-text-primary);
+  border-color: var(--color-border-light);
+}
+
+.lap-card-deltas-toggle.active {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
 .lap-card-summary {
   padding: 0.375rem 0.75rem;
   font-size: 0.6875rem;
@@ -243,6 +346,31 @@ function getDisplayEvents(lap: Lap): string[] {
 
 .col-lap-time {
   font-variant-numeric: tabular-nums;
+}
+
+.col-lap-delta {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+th.col-lap-delta {
+  color: var(--color-text-muted);
+}
+
+.col-lap-delta.delta-faster {
+  color: #22c55e;
+}
+
+.col-lap-delta.delta-slower {
+  color: #ef4444;
+}
+
+.col-lap-delta.delta-even {
+  color: var(--color-text-muted);
 }
 
 .best-lap-badge,
