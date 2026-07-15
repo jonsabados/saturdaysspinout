@@ -2,8 +2,9 @@ import { createI18n } from 'vue-i18n'
 import enUS from './locales/en-US.json'
 import enGB from './locales/en-GB.json'
 import esCO from './locales/es-CO.json'
+import deDE from './locales/de-DE.json'
 
-export type SupportedLocale = 'en-US' | 'en-GB' | 'es-CO'
+export type SupportedLocale = 'en-US' | 'en-GB' | 'es-CO' | 'de-DE'
 
 const STORAGE_KEY = 'user-locale'
 
@@ -11,7 +12,7 @@ function getInitialLocale(): SupportedLocale {
   // Check localStorage first (with guard for test environments)
   if (typeof localStorage !== 'undefined' && localStorage.getItem) {
     const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored === 'en-US' || stored === 'en-GB' || stored === 'es-CO') {
+    if (stored === 'en-US' || stored === 'en-GB' || stored === 'es-CO' || stored === 'de-DE') {
       return stored
     }
   }
@@ -23,6 +24,9 @@ function getInitialLocale(): SupportedLocale {
   }
   if (browserLang.startsWith('es')) {
     return 'es-CO'
+  }
+  if (browserLang.startsWith('de')) {
+    return 'de-DE'
   }
 
   return 'en-US'
@@ -36,6 +40,7 @@ export const i18n = createI18n({
     'en-US': enUS,
     'en-GB': enGB,
     'es-CO': esCO,
+    'de-DE': deDE,
   },
   datetimeFormats: {
     'en-US': {
@@ -74,6 +79,18 @@ export const i18n = createI18n({
         day: 'numeric',
       },
     },
+    'de-DE': {
+      short: {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      },
+      long: {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      },
+    },
   },
   numberFormats: {
     'en-US': {
@@ -91,6 +108,13 @@ export const i18n = createI18n({
       },
     },
     'es-CO': {
+      decimal: {
+        style: 'decimal',
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
+      },
+    },
+    'de-DE': {
       decimal: {
         style: 'decimal',
         minimumFractionDigits: 0,
