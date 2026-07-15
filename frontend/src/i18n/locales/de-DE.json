@@ -1,0 +1,322 @@
+{
+  "common": {
+    "appName": "Saturday's Spinout",
+    "loading": "Wird geladen...",
+    "retry": "Erneut versuchen",
+    "dismiss": "Schließen",
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "back": "Zurück",
+    "backToHome": "Zurück zur Startseite"
+  },
+  "columns": {
+    "start": "Start",
+    "license": "Lizenz",
+    "irating": "iRating"
+  },
+  "nav": {
+    "raceHistory": "Rennverlauf",
+    "analytics": "Analysen",
+    "journal": "Journal",
+    "tools": "Tools",
+    "apiExplorer": "iRacing API-Explorer",
+    "copyBearerToken": "Bearer-Token kopieren",
+    "copyIracingToken": "iRacing-Token kopieren",
+    "purgeRaceHistory": "Rennverlauf löschen",
+    "loginWithIracing": "Mit iRacing anmelden",
+    "toggleMenu": "Menü umschalten"
+  },
+  "toast": {
+    "bearerTokenCopied": "Bearer-Token kopiert!",
+    "iracingTokenCopied": "iRacing-Token kopiert!",
+    "failedToCopy": "Kopieren fehlgeschlagen",
+    "raceHistoryPurged": "Rennverlauf gelöscht!",
+    "failedToPurge": "Löschen fehlgeschlagen"
+  },
+  "confirm": {
+    "purgeRaceHistory": "Dadurch wird dein gesamter Rennverlauf gelöscht und dein Synchronisierungsstand zurückgesetzt. Du musst erneut synchronisieren, um deine Rennen wieder zu sehen.\n\nMöchtest du wirklich fortfahren?"
+  },
+  "sessionExpired": {
+    "title": "Sitzung abgelaufen",
+    "message": "Du wurdest abgemeldet. Deine Sitzung ist abgelaufen und konnte nicht erneuert werden."
+  },
+  "loading": {
+    "title": "Alles wird vorbereitet...",
+    "loadingTracks": "Strecken werden geladen",
+    "loadingCars": "Fahrzeuge werden geladen",
+    "loadingSeries": "Serien werden geladen"
+  },
+  "home": {
+    "tagline": "Rennprotokollierung und -analyse für iRacing",
+    "welcomeBack": "Willkommen zurück, {name}!",
+    "viewRaceHistory": "Rennverlauf ansehen",
+    "exploreApi": "iRacing API erkunden",
+    "signInPrompt": "Melde dich mit deinem iRacing-Konto an, um loszulegen"
+  },
+  "sync": {
+    "syncedTo": "Synchronisiert bis {date}",
+    "notSynced": "Nicht synchronisiert",
+    "cooldownMessage": "Synchronisierung pausiert – verfügbar in ~{minutes} Minute | Synchronisierung pausiert – verfügbar in ~{minutes} Minuten",
+    "syncRaceHistory": "Rennverlauf synchronisieren",
+    "sync": "Synchronisieren",
+    "getStarted": "Synchronisiere deinen Rennverlauf, um loszulegen"
+  },
+  "raceHistory": {
+    "title": "Rennverlauf",
+    "racesOnFile": "{count} Rennen im Verlauf | {count} Rennen im Verlauf",
+    "loadingRaces": "Rennen werden geladen...",
+    "noRaces": "Noch keine Rennen. Aktuelle Rennen erscheinen hier während der Synchronisierung.",
+    "showingRaces": "{shown} von {total} passenden Rennen werden angezeigt",
+    "loadingMore": "Mehr wird geladen...",
+    "viewDetails": "Renndetails ansehen",
+    "actions": {
+      "view": "Ansehen"
+    },
+    "columns": {
+      "date": "Datum",
+      "session": "Session",
+      "track": "Strecke",
+      "finish": "Platz",
+      "incidents": "Inc"
+    }
+  },
+  "raceDetails": {
+    "invalidSubsessionId": "Ungültige Session-ID",
+    "fetchError": "Renndetails konnten nicht geladen werden",
+    "sof": "SOF",
+    "drivers": "Fahrer",
+    "laps": "Runden",
+    "lapsAbbr": "Rdn.",
+    "leadChanges": "Führungswechsel",
+    "cautions": "Gelbphasen",
+    "weather": "Wetterbedingungen",
+    "skiesLabel": "Himmel",
+    "skies": {
+      "clear": "Klar",
+      "partlyCloudy": "Teilweise bewölkt",
+      "mostlyCloudy": "Überwiegend bewölkt",
+      "overcast": "Bedeckt"
+    },
+    "temperature": "Temperatur",
+    "humidity": "Luftfeuchtigkeit",
+    "wind": "Wind",
+    "precipitation": "Niederschlag",
+    "loadLaps": "Rundenzeiten laden",
+    "dragToReorder": "Zum Umsortieren ziehen",
+    "showDeltas": "Rundendeltas zu anderen geladenen Fahrern anzeigen",
+    "hideDeltas": "Rundendeltas ausblenden",
+    "actions": {
+      "laps": "Runden"
+    },
+    "columns": {
+      "pos": "Pos",
+      "driver": "Fahrer",
+      "car": "Fahrzeug",
+      "interval": "Abstand",
+      "laps": "Runden",
+      "led": "Führung",
+      "bestLap": "Beste Runde",
+      "avgLap": "Ø Runde",
+      "incidents": "Inc"
+    },
+    "lapColumns": {
+      "time": "Zeit",
+      "events": "Ereignisse"
+    }
+  },
+  "auth": {
+    "loggingIn": "Anmeldung läuft...",
+    "pleaseWait": "Bitte warte, während wir deine Anmeldung abschließen.",
+    "loginFailed": "Anmeldung fehlgeschlagen",
+    "noAuthCode": "Kein Autorisierungscode erhalten",
+    "noCodeVerifier": "Kein Code-Verifier gefunden – bitte versuche die Anmeldung erneut"
+  },
+  "apiExplorer": {
+    "title": "iRacing API-Explorer",
+    "subtitle": "Durchsuche die Endpunkte der iRacing Data API",
+    "loadingDocs": "API-Dokumentation wird geladen...",
+    "searchPlaceholder": "Endpunkte durchsuchen...",
+    "selectEndpoint": "Wähle einen Endpunkt in der Seitenleiste, um Details anzuzeigen",
+    "loadingDetails": "Detaillierte Dokumentation wird geladen...",
+    "showingBasicDocs": "Grundlegende Dokumentation wird angezeigt:",
+    "endpoint": "Endpunkt",
+    "notes": "Hinweise",
+    "parameters": "Parameter",
+    "required": "erforderlich",
+    "cache": "Cache",
+    "cacheInfo": "Ergebnisse werden {seconds} Sekunden lang zwischengespeichert",
+    "rawResponse": "Rohantwort"
+  },
+  "trackDetails": {
+    "title": "Streckendetails",
+    "trackNotFound": "Strecke nicht gefunden",
+    "location": "Standort",
+    "type": "Typ",
+    "category": "Kategorie",
+    "length": "Länge",
+    "corners": "Kurven",
+    "pitSpeed": "Boxengassen-Tempolimit",
+    "features": "Merkmale",
+    "description": "Beschreibung",
+    "oval": "Oval",
+    "roadCourse": "Rundkurs",
+    "dirt": "Dirt",
+    "paved": "Asphaltiert",
+    "nightLighting": "Nachtbeleuchtung",
+    "rainEnabled": "Regen möglich",
+    "freeWithSub": "Kostenlos mit Abo",
+    "paidContent": "Kostenpflichtiger Inhalt",
+    "retired": "Stillgelegt",
+    "miles": "{length} mi",
+    "mph": "{speed} mph",
+    "showBackground": "Hintergrund anzeigen"
+  },
+  "carDetails": {
+    "title": "Fahrzeugdetails",
+    "carNotFound": "Fahrzeug nicht gefunden",
+    "horsepowerUnderHood": "Leistung (angegeben)",
+    "horsepowerActual": "Leistung (tatsächlich)",
+    "weight": "Gewicht",
+    "categories": "Kategorien",
+    "features": "Merkmale",
+    "description": "Beschreibung",
+    "hasHeadlights": "Scheinwerfer",
+    "multipleDryTires": "Mehrere Trockenreifentypen",
+    "rainEnabled": "Regen möglich",
+    "freeWithSub": "Kostenlos mit Abo",
+    "paidContent": "Kostenpflichtiger Inhalt",
+    "retired": "Stillgelegt",
+    "lbs": "{weight} lbs"
+  },
+  "raceFilters": {
+    "from": "Von",
+    "to": "Bis",
+    "series": "Serie",
+    "car": "Fahrzeug",
+    "track": "Strecke",
+    "filterAll": "Zum Filtern auswählen...",
+    "discipline": "Disziplin",
+    "allDisciplines": "Alle Disziplinen",
+    "disciplines": {
+      "formula_car": "Formelwagen",
+      "oval": "Oval",
+      "sports_car": "Sportwagen",
+      "dirt_oval": "Dirt-Oval",
+      "dirt_road": "Dirt-Straße"
+    }
+  },
+  "analytics": {
+    "title": "Analysen",
+    "loading": "Analysen werden geladen...",
+    "noData": "Keine Renndaten für den ausgewählten Zeitraum verfügbar.",
+    "selectDateRange": "Wähle einen Zeitraum, um Analysen anzuzeigen.",
+    "groupBy": "Gruppieren nach",
+    "groupByNone": "Keine",
+    "groupBySeries": "Serie",
+    "groupByCar": "Fahrzeug",
+    "groupByTrack": "Strecke",
+    "summary": {
+      "races": "Rennen",
+      "wins": "Siege",
+      "podiums": "Podestplätze",
+      "top5": "Top 5",
+      "avgFinish": "Ø Platz",
+      "avgStart": "Ø Start",
+      "positionsGained": "Gewonnene Plätze",
+      "incidents": "Zwischenfälle",
+      "avgIncidents": "Ø Inc",
+      "iRating": "iRating",
+      "iRatingDelta": "iRating-Änderung",
+      "safetyRating": "Safety Rating",
+      "srDelta": "SR-Änderung"
+    },
+    "columns": {
+      "group": "Gruppe",
+      "races": "Rennen",
+      "wins": "Siege",
+      "podiums": "Podeste",
+      "avgFinish": "Ø Platz",
+      "iRatingDelta": "iR +/-",
+      "srDelta": "CPI +/-",
+      "incidents": "Inc"
+    },
+    "chart": {
+      "title": "Trends über die Zeit",
+      "iRating": "iRating",
+      "cpi": "CPI",
+      "incidents": "Zwischenfälle",
+      "positions": "Positionen",
+      "iRatingAxis": "iRating-Änderung",
+      "cpiAxis": "CPI-Änderung",
+      "incidentsAxis": "Ø Zwischenfälle",
+      "day": "Tag",
+      "week": "Woche",
+      "month": "Monat",
+      "year": "Jahr",
+      "loading": "Diagrammdaten werden geladen...",
+      "noData": "Keine Zeitreihendaten verfügbar",
+      "disclaimer": "iRating und CPI werden pro Disziplin separat erfasst. Trends können irreführend sein, wenn Rennen aus mehreren Disziplinen zusammen betrachtet werden."
+    }
+  },
+  "journal": {
+    "title": "Journal",
+    "howDidItGo": "Wie lief dieses Rennen?",
+    "sentiment": {
+      "good": "Gut",
+      "neutral": "Okay",
+      "bad": "Zäh",
+      "aria": "Wie hat sich dieses Rennen angefühlt?"
+    },
+    "notes": {
+      "label": "Notizen",
+      "placeholder": "Was ist passiert? Was hast du gelernt?"
+    },
+    "replayVideo": {
+      "label": "Replay-Video",
+      "placeholder": "https://...",
+      "watchReplay": "Replay ansehen"
+    },
+    "fieldErrors": {
+      "invalid_url": "Bitte gib eine gültige URL ein (z. B. https://...)"
+    },
+    "actions": {
+      "save": "Speichern",
+      "cancel": "Abbrechen",
+      "edit": "Bearbeiten",
+      "delete": "Löschen"
+    },
+    "empty": {
+      "title": "Noch kein Journaleintrag",
+      "prompt": "Halte deine Gedanken zu diesem Rennen fest"
+    },
+    "updated": "Aktualisiert {date}",
+    "saving": "Wird gespeichert...",
+    "confirmDelete": "Möchtest du diesen Journaleintrag wirklich löschen?",
+    "page": {
+      "title": "Renntagebuch",
+      "loading": "Einträge werden geladen...",
+      "loadingMore": "Mehr wird geladen...",
+      "noEntries": "Noch keine Journaleinträge",
+      "noEntriesPrompt": "Füge deinen Rennen auf der Seite „Rennverlauf“ Notizen hinzu, um sie hier zu sehen.",
+      "noMatchingEntries": "Keine Einträge entsprechen deinen Filtern",
+      "noMatchingPrompt": "Passe den Zeitraum an oder setze die Filter zurück.",
+      "viewRace": "Rennen ansehen",
+      "dnf": "DNF",
+      "promoted": "Aufgestiegen",
+      "demoted": "Abgestiegen"
+    },
+    "filters": {
+      "from": "Von",
+      "to": "Bis",
+      "sentiment": "Stimmung",
+      "all": "Alle",
+      "dnfOnly": "Nur DNF"
+    },
+    "card": {
+      "position": "P{start} → P{finish}",
+      "incidents": "{count}x",
+      "irating": "{change} iR",
+      "sr": "{change} SR"
+    }
+  }
+}
