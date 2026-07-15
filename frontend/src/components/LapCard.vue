@@ -66,6 +66,30 @@ function deltaCells(lap: Lap): DeltaCell[] {
   })
 }
 
+// Pace coloring: compare each lap's time to the previous *valid* lap (green ≥0.1s
+// faster, grey within a tenth, red ≥0.1s slower). Out-laps / invalid laps (non-positive)
+// are skipped as a baseline so a pit lap doesn't create a bogus swing.
+const lapPaceByNumber = computed(() => {
+  const result = new Map<number, string>()
+  let prevValidTime: number | null = null
+  for (const lap of props.lapData.laps) {
+    if (lap.lapTime <= 0) {
+      result.set(lap.lapNumber, '')
+      continue
+    }
+    if (prevValidTime !== null) {
+      const delta = lap.lapTime - prevValidTime
+      if (delta <= -DELTA_TENTH) result.set(lap.lapNumber, 'pace-faster')
+      else if (delta >= DELTA_TENTH) result.set(lap.lapNumber, 'pace-slower')
+      else result.set(lap.lapNumber, 'pace-even')
+    } else {
+      result.set(lap.lapNumber, '') // first valid lap: no baseline
+    }
+    prevValidTime = lap.lapTime
+  }
+  return result
+})
+
 // Event categorization for styling
 const offTrackEvents = ['off track']
 const contactEvents = ['contact', 'car contact', 'lost control']
@@ -159,7 +183,7 @@ function getDisplayEvents(lap: Lap): string[] {
             :class="getRowClass(lap)"
           >
             <td class="col-lap-num">{{ lap.lapNumber }}</td>
-            <td class="col-lap-time">
+            <td class="col-lap-time" :class="lapPaceByNumber.get(lap.lapNumber)">
               {{ formatLapTime(lap.lapTime) }}
               <span v-if="lap.personalBestLap" class="best-lap-badge">PB</span>
               <span
@@ -346,6 +370,19 @@ function getDisplayEvents(lap: Lap): string[] {
 
 .col-lap-time {
   font-variant-numeric: tabular-nums;
+}
+
+/* Pace vs. previous valid lap (colors the time text only; badges keep their own colors) */
+.col-lap-time.pace-faster {
+  color: #22c55e;
+}
+
+.col-lap-time.pace-slower {
+  color: #ef4444;
+}
+
+.col-lap-time.pace-even {
+  color: var(--color-text-muted);
 }
 
 .col-lap-delta {
