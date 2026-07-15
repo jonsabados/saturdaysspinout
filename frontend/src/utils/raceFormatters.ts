@@ -20,6 +20,18 @@ export function formatLapTime(timeInCentiseconds: number): string {
 }
 
 /**
+ * Format a lap-time delta (in iRacing's 1/10000ths of a second) as a signed
+ * seconds value, e.g. -0.234 (faster) or +0.150 (slower).
+ */
+export function formatLapDelta(delta: number): string {
+  // Round to display precision first so tiny sub-millisecond deltas don't
+  // produce a signed zero like "-0.000".
+  const seconds = Number((delta / 10000).toFixed(3))
+  const sign = seconds > 0 ? '+' : seconds < 0 ? '-' : ''
+  return `${sign}${Math.abs(seconds).toFixed(3)}`
+}
+
+/**
  * Format an interval to the leader
  */
 export function formatInterval(

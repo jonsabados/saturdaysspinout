@@ -354,6 +354,168 @@ describe('LapCard', () => {
     expect(wrapper.find('.lap-card').classes()).not.toContain('drag-over')
   })
 
+  function createComparison(driverId: number, driverName: string, laps: Lap[]): {
+    driverId: number
+    driverName: string
+    lapData: LapData
+  } {
+    return {
+      driverId,
+      driverName,
+      lapData: createLapData({ custId: driverId, name: driverName, laps }),
+    }
+  }
+
+  describe('lap deltas', () => {
+    it('does not render the deltas toggle when there are no comparison drivers', () => {
+      const wrapper = mount(LapCard, {
+        props: {
+          driverName: 'Test Driver',
+          finishPosition: 0,
+          lapData: createLapData(),
+        },
+      })
+
+      expect(wrapper.find('.lap-card-deltas-toggle').exists()).toBe(false)
+    })
+
+    it('renders the deltas toggle when comparison drivers are present', () => {
+      const wrapper = mount(LapCard, {
+        props: {
+          driverName: 'Test Driver',
+          finishPosition: 0,
+          lapData: createLapData(),
+          comparisonDrivers: [createComparison(999, 'Rival', [createLap()])],
+        },
+      })
+
+      expect(wrapper.find('.lap-card-deltas-toggle').exists()).toBe(true)
+    })
+
+    it('hides delta columns until toggled on', async () => {
+      const wrapper = mount(LapCard, {
+        props: {
+          driverName: 'Test Driver',
+          finishPosition: 0,
+          lapData: createLapData(),
+          comparisonDrivers: [createComparison(999, 'Rival', [createLap()])],
+        },
+      })
+
+      // v-show keeps the cells in the DOM but hides them via inline display:none until toggled
+      expect(wrapper.find('td.col-lap-delta').attributes('style')).toContain('display: none')
+
+      await wrapper.find('.lap-card-deltas-toggle').trigger('click')
+      expect(wrapper.find('td.col-lap-delta').attributes('style') ?? '').not.toContain('display: none')
+
+      await wrapper.find('.lap-card-deltas-toggle').trigger('click')
+      expect(wrapper.find('td.col-lap-delta').attributes('style')).toContain('display: none')
+    })
+
+    it('renders a delta column header per comparison driver', () => {
+      const wrapper = mount(LapCard, {
+        props: {
+          driverName: 'Test Driver',
+          finishPosition: 0,
+          lapData: createLapData(),
+          comparisonDrivers: [
+            createComparison(998, 'Sally', [createLap()]),
+            createComparison(999, 'Alice', [createLap()]),
+          ],
+        },
+      })
+
+      const headers = wrapper.findAll('th.col-lap-delta')
+      expect(headers).toHaveLength(2)
+      expect(headers[0].text()).toContain('Sally')
+      expect(headers[1].text()).toContain('Alice')
+    })
+
+    it('colors a delta green when this driver is a tenth or more faster', () => {
+      const wrapper = mount(LapCard, {
+        props: {
+          driverName: 'Test Driver',
+          finishPosition: 0,
+          lapData: createLapData({ laps: [createLap({ lapNumber: 1, lapTime: 89000 })] }),
+          comparisonDrivers: [
+            createComparison(999, 'Rival', [createLap({ lapNumber: 1, lapTime: 90000 })]),
+          ],
+        },
+      })
+
+      const cell = wrapper.find('td.col-lap-delta')
+      expect(cell.classes()).toContain('delta-faster')
+      expect(cell.text()).toBe('-0.100')
+    })
+
+    it('colors a delta red when this driver is a tenth or more slower', () => {
+      const wrapper = mount(LapCard, {
+        props: {
+          driverName: 'Test Driver',
+          finishPosition: 0,
+          lapData: createLapData({ laps: [createLap({ lapNumber: 1, lapTime: 91000 })] }),
+          comparisonDrivers: [
+            createComparison(999, 'Rival', [createLap({ lapNumber: 1, lapTime: 90000 })]),
+          ],
+        },
+      })
+
+      const cell = wrapper.find('td.col-lap-delta')
+      expect(cell.classes()).toContain('delta-slower')
+      expect(cell.text()).toBe('+0.100')
+    })
+
+    it('colors a delta neutral when within the same tenth', () => {
+      const wrapper = mount(LapCard, {
+        props: {
+          driverName: 'Test Driver',
+          finishPosition: 0,
+          lapData: createLapData({ laps: [createLap({ lapNumber: 1, lapTime: 90500 })] }),
+          comparisonDrivers: [
+            createComparison(999, 'Rival', [createLap({ lapNumber: 1, lapTime: 90000 })]),
+          ],
+        },
+      })
+
+      const cell = wrapper.find('td.col-lap-delta')
+      expect(cell.classes()).toContain('delta-even')
+      expect(cell.text()).toBe('+0.050')
+    })
+
+    it('shows a dash when the comparison driver has no matching lap', () => {
+      const wrapper = mount(LapCard, {
+        props: {
+          driverName: 'Test Driver',
+          finishPosition: 0,
+          lapData: createLapData({ laps: [createLap({ lapNumber: 5, lapTime: 90000 })] }),
+          comparisonDrivers: [
+            createComparison(999, 'Rival', [createLap({ lapNumber: 1, lapTime: 90000 })]),
+          ],
+        },
+      })
+
+      const cell = wrapper.find('td.col-lap-delta')
+      expect(cell.text()).toBe('-')
+      expect(cell.classes()).not.toContain('delta-faster')
+      expect(cell.classes()).not.toContain('delta-slower')
+    })
+
+    it('shows a dash when either lap time is non-positive (out-lap / invalid)', () => {
+      const wrapper = mount(LapCard, {
+        props: {
+          driverName: 'Test Driver',
+          finishPosition: 0,
+          lapData: createLapData({ laps: [createLap({ lapNumber: 1, lapTime: -1 })] }),
+          comparisonDrivers: [
+            createComparison(999, 'Rival', [createLap({ lapNumber: 1, lapTime: 90000 })]),
+          ],
+        },
+      })
+
+      expect(wrapper.find('td.col-lap-delta').text()).toBe('-')
+    })
+  })
+
   it('handles case-insensitive event matching', () => {
     const laps = [createLap({ lapNumber: 1, lapEvents: ['OFF TRACK', 'CONTACT'] })]
     const wrapper = mount(LapCard, {

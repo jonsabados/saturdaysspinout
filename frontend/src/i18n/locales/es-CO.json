@@ -167,6 +167,8 @@
     "precipitation": "Precipitación",
     "loadLaps": "Cargar tiempos de vuelta",
     "dragToReorder": "Arrastrar para reordenar",
+    "showDeltas": "Mostrar diferencias de vuelta con otros pilotos cargados",
+    "hideDeltas": "Ocultar diferencias de vuelta",
     "actions": {
       "laps": "Vueltas"
     },

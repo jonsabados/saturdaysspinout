@@ -103,6 +103,8 @@
     "precipitation": "Precipitation",
     "loadLaps": "Load lap times",
     "dragToReorder": "Drag to reorder",
+    "showDeltas": "Show lap deltas vs other loaded drivers",
+    "hideDeltas": "Hide lap deltas",
     "actions": {
       "laps": "Laps"
     },
